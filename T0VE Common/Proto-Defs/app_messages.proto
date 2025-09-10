@@ -1,0 +1,7 @@
+syntax = "proto2";
+package App_Messages;
+
+message Command {
+  optional uint32 command_id = 1;
+  optional string command_data = 2;
+}
