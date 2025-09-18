@@ -33,7 +33,6 @@
 //========= UTILITY INCLUDES =========
 #include "app_scheduler.hpp"
 
-
 //============= INSTANTIATION OF HARDWARE ============
 Aux_I2C i2c_bus(Aux_I2C::AUX_I2C_HARDWARE);
 Hispeed_Subsystem::Hispeed_Channel_Hardware_t CHANNEL_0_HW = {
@@ -114,6 +113,9 @@ State_Supervisor state_supervisor;
 //TESTING: TODO, remove
 #include "app_state_variable.hpp"
 State_Variable<bool> dummy_pgood;
+
+#include "app_usb_if.hpp"
+USB_Interface usb;
 
 
 void LINK_SYSTEM_STATE_VARIABLES() {
@@ -207,6 +209,9 @@ void app_init() {
 	INIT_SUBSYSTEMS();
 
 	VCP_Debug::print("SUBSYSTEMS INITIALIZED!\r\n");
+
+	//TESTING, TODO: REMOVE
+	usb.init();
 }
 
 void app_loop() {

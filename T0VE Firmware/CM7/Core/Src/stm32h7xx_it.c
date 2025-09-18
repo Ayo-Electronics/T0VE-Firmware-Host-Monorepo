@@ -22,6 +22,10 @@
 #include "stm32h7xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+
+//IG: adding tinyusb
+#include "tusb.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -55,10 +59,10 @@
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-extern PCD_HandleTypeDef hpcd_USB_OTG_FS;
 extern DMA_HandleTypeDef hdma_i2c4_tx;
 extern DMA_HandleTypeDef hdma_i2c4_rx;
 extern I2C_HandleTypeDef hi2c4;
+extern PCD_HandleTypeDef hpcd_USB_OTG_FS;
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -87,6 +91,16 @@ void NMI_Handler(void)
 void HardFault_Handler(void)
 {
   /* USER CODE BEGIN HardFault_IRQn 0 */
+	volatile uint32_t hfsr = SCB->HFSR;
+	volatile uint32_t cfsr = SCB->CFSR;
+	volatile uint32_t mmfar = SCB->MMFAR;
+	volatile uint32_t bfar = SCB->BFAR;
+
+	// Place a breakpoint here or send to UART
+	(void)hfsr;
+	(void)cfsr;
+	(void)mmfar;
+	(void)bfar;
 
   /* USER CODE END HardFault_IRQn 0 */
   while (1)
@@ -235,6 +249,10 @@ void I2C4_ER_IRQHandler(void)
 void OTG_FS_IRQHandler(void)
 {
   /* USER CODE BEGIN OTG_FS_IRQn 0 */
+	//ISHAAN:
+	//call the TINYUSB USB IRQ handler
+	tusb_int_handler(0, true);
+	return; //return now to skip HAL bloat
 
   /* USER CODE END OTG_FS_IRQn 0 */
   HAL_PCD_IRQHandler(&hpcd_USB_OTG_FS);

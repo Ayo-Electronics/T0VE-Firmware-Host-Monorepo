@@ -17,7 +17,7 @@ std::array<uint8_t, APP_TX_DATA_SIZE> VCP_Debug::txbuf; //place for UART to put 
 
 //just call the HAL initialization function here
 void VCP_Debug::init() {
-	MX_USB_DEVICE_Init();
+	//MX_USB_DEVICE_Init();
 }
 
 //USB printing function
@@ -29,8 +29,8 @@ void VCP_Debug::print(std::string text) {
 	std::copy(text.begin(), text.end(), txbuf.begin());
 
 	//keep trying to transmit the result
-	uint8_t result;
-	do {
-		result = CDC_Transmit_FS(txbuf.begin(), text.size());
-	} while(result == USBD_BUSY);
+//	uint8_t result;
+//	do {
+//		result = CDC_Transmit_FS(txbuf.begin(), text.size());
+//	} while(result == USBD_BUSY);
 }

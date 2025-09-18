@@ -4,6 +4,7 @@
 #include <array>
 #include <string>
 #include <cmath>
+#include <cstring> //for memcpy
 #include <algorithm> //for std::transform
 #include <type_traits> //for callback function macros
 
