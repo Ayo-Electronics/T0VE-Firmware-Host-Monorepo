@@ -30,7 +30,14 @@ public:
 	//for now, just init
 	void init();
 
+	//lets downstream interfaces request a soft-disconnect of the USB device
+	//useful (in our case) to disconnect USB when we're running the high-speed computation
+	//and reconnecting the interface afterward
+	void connect_request();
+	void disconnect_request();
 
 private:
 	Scheduler tud_task_scheduler;
 };
+
+
