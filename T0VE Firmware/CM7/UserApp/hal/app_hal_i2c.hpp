@@ -7,9 +7,9 @@
 
 #pragma once
 
+#include <app_proctypes.hpp>
 #include <array> //for array, span
 
-#include "app_types.hpp"
 #include "app_utils.hpp" //for callback function
 #include "app_dma_mem_pool.hpp" //to put transmit and receive buffers into DMA memory regions
 #include "app_threading.hpp" //for basic mutexing system

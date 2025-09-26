@@ -70,7 +70,10 @@
 #define CFG_TUD_CDC_EP_BUFSIZE   (TUD_OPT_HIGH_SPEED ? 512 : 64)
 
 // MSC Buffer size of Device Mass storage
-#define CFG_TUD_MSC_EP_BUFSIZE   1024
+//IG: ALWAYS SET THIS TO TO A MULTIPLE OF THE SECTOR SIZE
+//		\--> avoids unaligned accesses to file system sectors
+//		\--> shouldn't have to deal with offsets when writing files
+#define CFG_TUD_MSC_EP_BUFSIZE	 512
 
 #ifdef __cplusplus
  }

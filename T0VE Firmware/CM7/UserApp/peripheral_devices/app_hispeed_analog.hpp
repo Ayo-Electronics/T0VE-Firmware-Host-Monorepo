@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "app_types.hpp"
+#include <app_proctypes.hpp>
 #include "app_hal_gpio.hpp"
 #include "app_hal_spi.hpp"
 #include "app_hal_pin_mapping.hpp"

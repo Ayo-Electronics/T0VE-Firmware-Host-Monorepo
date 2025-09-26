@@ -9,11 +9,11 @@
  * By Ishaan Gov
  */
 
+#include <app_proctypes.hpp> //types of everything
 #include "app_hal_tick.hpp" //for millis/systick
 #include <array> //container for a bunch of schedulers
 
 #include "app_utils.hpp" //callback function
-#include "app_types.hpp" //types of everything
 
 class Scheduler {
 public:

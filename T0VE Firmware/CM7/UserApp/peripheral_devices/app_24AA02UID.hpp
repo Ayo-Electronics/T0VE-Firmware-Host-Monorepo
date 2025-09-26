@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "app_types.hpp"
+#include <app_proctypes.hpp>
 #include "app_hal_i2c.hpp"
 
 class EEPROM_24AA02UID {

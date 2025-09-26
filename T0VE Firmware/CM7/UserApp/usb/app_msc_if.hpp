@@ -12,37 +12,35 @@
 
 #pragma once
 
+#include <app_msc_constants.hpp>
+#include "tusb.h"
 #include "app_usb_if.hpp"
-
-//forward declaring MSC_File class for MSC_Interface
-class MSC_File;
+#include "app_msc_file.hpp"
+#include "app_msc_boot_sector.hpp"
+#include "app_msc_root_sector.hpp"
+#include "app_msc_fat_table.hpp"
+#include "app_msc_data_sector.hpp"
 
 class MSC_Interface {
 public:
 
 	//================= TYPEDEFS + CONSTANTS ===================
-	//want static allocation, so determine once how many files we want to support
-	static const size_t MAX_NUM_FILES = 8;
 
 	//way to describe a particular MSC interface
 	struct MSC_Interface_Channel_t {
-		USB_Interface& usb;		//We have instantiated a particular USB class
-		const size_t usb_if_no;
-		const size_t msc_if_no;
+		const size_t lun_no;	//Logical unit no. if we have more than 1 MSC class
 		MSC_Interface* msc_if;	//MSC_Interface class with file information we'd like to present
 	};
 
-	static const MSC_Interface_Channel_t MSC_CHANNEL;
+	static MSC_Interface_Channel_t MSC_CHANNEL;
 
 	//================== CONSTRUCTOR =================
-	MSC_Interface(MSC_Interface_Channel_t& channel);
+	MSC_Interface(USB_Interface& _usb_if, MSC_Interface_Channel_t& channel);
 
 	//delete copy constructor and assignment operator
 	MSC_Interface(const MSC_Interface& other) = delete;
 	void operator=(const MSC_Interface& other) = delete;
 
-	//specialized destructor that detaches all the files
-	~MSC_Interface();
 	//================= PUBLIC FUNCTIONS =============
 
 	//`init`s the upstream hardware if required
@@ -50,12 +48,21 @@ public:
 
 	//request/allow the upstream USB peripheral to connect
 	//useful if we need to suspend the USB port for some reason
+	//TODO: add some SCSI logic in here to allow connections
 	void connect_request();
 
 	//request the upstream USB peripheral to disconnect
 	//NOTE: if any other USB classes need USB, the interface will not disconnect!
 	//it will only disconnect if ALL downstream interfaces request the USB peripheral to disconnect
+	//TODO: add some SCSI logic in here to disallow connections
 	void disconnect_request();
+
+	//volume name; scsi vid, pid, rev
+	//no need to tweak USB interface string descriptor - already a ton of descriptors to expose
+	void set_string_fields(	const std::span<char, std::dynamic_extent>	_vol_name,
+							const std::span<char, std::dynamic_extent>  _scsi_vid,
+							const std::span<char, std::dynamic_extent>  _scsi_pid,
+							const std::span<char, std::dynamic_extent>  _scsi_rev	);
 
 	//make this particular file show up in the MSC interface
 	//MSC will take care of building the FAT table and coordinating file reads/writes
@@ -64,75 +71,64 @@ public:
 	//and have an interface that removes a file from the MSC interface
 	void detach_file(MSC_File& _file);
 
+
+	//###### TINYUSB FORWARDED FUNCTIONS ######
+	//annoyingly have to expose these publicly, since TinyUSB has fixed callbacks
+	//VID, PID, REV
+	uint32_t handle_msc_inquiry(scsi_inquiry_resp_t *inquiry_resp, uint32_t bufsize);
+
+	//return true if host can read/write to the device; return false if ejected
+	bool handle_msc_ready();
+
+	//use constants --> block size = sector size; block count = total #sectors
+	void handle_msc_capacity(uint32_t* block_count, uint16_t* block_size);
+
+	//always return true
+	//if load_eject = true, if(start) load(), else eject();
+	bool handle_msc_start_stop(uint8_t power_condition, bool start, bool load_eject);
+
+	//for custom SCSI commands that aren't the standard ones
+	//return -1 if it was an illegal request and can't be handled
+	int32_t handle_msc_scsi_custom(uint8_t const scsi_cmd[16], void *buffer, uint16_t bufsize);
+
+	//return true if the file system is writable, else false
+	bool handle_msc_is_writable();
+
+	//handle writing to blocks
+	//return number of written bytes or -1 if error
+	int32_t handle_msc_write10(uint32_t lba, uint32_t offset, uint8_t *buffer, uint32_t bufsize);
+
+	//and finally, handle reading from blocks
+	//return number of bytes copied or -1 if error
+	int32_t handle_msc_read10(uint32_t lba, uint32_t offset, void *buffer, uint32_t bufsize);
+
+	//#########################################
 private:
-	//TODO: lot of private functions that are forwarded from TinyUSB
-	//these will handle construction of our FAT table and size/descriptor requests
+	//call this to regenerate our emulated FAT sectors
+	void regenerate();
 
 	//reference to our hardwawre/tinyUSB instance
+	USB_Interface& usb_if;
 	MSC_Interface_Channel_t& msc_channel;
 
-	//A list of pointers to "files" that we'd like to represent
-	std::array<MSC_File*, MAX_NUM_FILES> msc_files = {nullptr};
+	//A list of "files" that we'd like to represent
+	//start off by initializing to zero
+	std::array<MSC_File, FS_Constants::MAX_NUM_FILES> msc_files = {};
+
+	//Have some special classes that manage the creation/handling of special sector requests
+	Boot_Sector boot_sector;
+	Root_Sector root_sector;
+	FAT16_Table fat_table;
+	Data_Sector data_sector;
+
+	//a little bool flag to hold if we'd like to expose we're accessible
+	bool accessible = false;
+
+	//some strings useful for the SCSI interface + FATFS emulator
+	std::array<uint8_t, 8> scsi_vid = s2a("Ayo Elec");
+	std::array<uint8_t, 16> scsi_pid = s2a("Processor Card  ");
+	std::array<uint8_t, 4> scsi_rev = s2a("A.15");
+	std::array<uint8_t, 11> vol_name = s2a("T0VE DRAM  ");
 };
 
 
-/*
- * MSC_File
- *
- * In the context of embedded, if I wanna expose a mass storage interface,
- * I typically wanna expose a chunk of memory as a file that the computer can read
- * However, I can't directly dump the file contents onto USB--there typically is a file system that lives on top of it
- * As such, the idea is that the `MSC_Interface` handles the actual file system, presenting all of our chunks of memory as readable files
- * but the actual memory is wrapped in these little `MSC_File` classes
- */
-
-class MSC_File {
-public:
-
-	//give the MSC interface special privileges in invoking callbacks
-	//and also ability to associate itself with with the particular file
-	friend class MSC_Interface;
-
-	//fixed size containers for filename
-	//makes static allocation easier
-	static const size_t FILENAME_MAX_LENGTH = 32;
-
-	//================= CONSTRUCTOR ================
-	MSC_File(	std::span<uint8_t, std::dynamic_extent> _file_contents,
-				std::array<char, FILENAME_MAX_LENGTH> _file_name,
-				bool _readonly = false):
-		file_contents(_file_contents), file_name(_file_name), readonly(_readonly)
-	{}
-
-	//delete copy constructor and assignment operator
-	MSC_File(const MSC_File& other) = delete;
-	void operator=(const MSC_File& other) = delete;
-
-	//and have a specialized destructor that removes the file from the MSC interface
-	//in case we had attached this file to an MSC interface
-	~MSC_File() {	if(msc_if) msc_if->detach_file(*this);	}
-
-	//and registering some callback functions for when we write to/read from files
-	//called before, after files are read, written respectively
-	//useful for attaching mutexes or preparing data
-	void file_read_start_cb(Callback_Function<> cb) 	{ 	read_start = cb; 	}
-	void file_read_finish_cb(Callback_Function<> cb) 	{ 	read_finish = cb; 	}
-	void file_write_start_cb(Callback_Function<> cb) 	{ 	write_start = cb;	}
-	void file_write_finish_cb(Callback_Function<> cb)	{ 	write_finish = cb;	}
-
-private:
-	//file details
-	const std::span<uint8_t, std::dynamic_extent> file_contents;
-	const std::array<char, FILENAME_MAX_LENGTH> file_name;
-	const bool readonly;
-
-	//MSC interface --> creating a bidirectional link in case we destroy the instance
-	//allows the instance to detach itself from the MSC interface
-	MSC_Interface* msc_if = nullptr;
-
-	//callback functions for file reading/writing
-	Callback_Function<> read_start;
-	Callback_Function<> read_finish;
-	Callback_Function<> write_start;
-	Callback_Function<> write_finish;
-};

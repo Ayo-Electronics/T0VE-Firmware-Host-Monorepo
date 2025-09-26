@@ -1,7 +1,7 @@
 #pragma once
 
+#include <app_proctypes.hpp> //for types
 #include "app_utils.hpp" //for callback function
-#include "app_types.hpp" //for types
 #include "app_threading.hpp" //for atomic variables
 
 /*

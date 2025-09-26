@@ -10,11 +10,11 @@
 
 #pragma once
 
+#include <app_proctypes.hpp>
 #include "app_hal_gpio.hpp"
 
 #include "app_scheduler.hpp" //for a bit of break-before-make for photodiode changeover
 #include "app_state_variable.hpp"
-#include "app_types.hpp"
 #include "app_hal_pwm.hpp"
 
 

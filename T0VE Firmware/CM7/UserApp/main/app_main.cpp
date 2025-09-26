@@ -115,7 +115,16 @@ State_Supervisor state_supervisor;
 State_Variable<bool> dummy_pgood;
 
 #include "app_usb_if.hpp"
+#include "app_msc_file.hpp"
+#include "app_msc_if.hpp"
 USB_Interface usb;
+MSC_Interface msc(usb, MSC_Interface::MSC_CHANNEL);
+
+auto test_file_text = s2a("Hi! I'm testing to see if my MSC class is exposing my custom files correctly. This is a test file!");
+auto test_2_text = s2a("Does this second text file work?");
+MSC_File test_file(test_file_text, "test_file.txt", false);
+MSC_File test2_file(test_2_text, "second_test_file.txt", false);
+
 
 
 void LINK_SYSTEM_STATE_VARIABLES() {
@@ -211,7 +220,10 @@ void app_init() {
 	VCP_Debug::print("SUBSYSTEMS INITIALIZED!\r\n");
 
 	//TESTING, TODO: REMOVE
-	usb.init();
+	msc.attach_file(test_file);
+	msc.attach_file(test2_file);
+	msc.init();
+	msc.connect_request();
 }
 
 void app_loop() {

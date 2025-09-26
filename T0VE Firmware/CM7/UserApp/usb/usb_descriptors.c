@@ -234,17 +234,13 @@ enum {
 // array of pointer to string descriptors
 char const *string_desc_arr[] = {
     (const char[]) { 0x09, 0x04 }, // 0: is supported language is English (0x0409)
-    "TinyUSB",                     // 1: Manufacturer
-    "TinyUSB Device",              // 2: Product
+    "Ayo Electronics",         	   // 1: Manufacturer
+    "USB Device",              	   // 2: Product
     NULL,                          // 3: Serials will use unique ID if possible
-    "TinyUSB CDC",                 // 4: CDC Interface
-    "TinyUSB MSC",                 // 5: MSC Interface
+    "USB Serial 1",                // 4: CDC Interface
+    "USB MSC 1",                   // 5: MSC Interface
 };
 
-//IG: decorating with some memory locations
-//supposedly, USB hardware is pointed at this string and it needs to be placed carefully
-//adding the "CFG_TUSB_MEM_SECTION CFG_TUSB_MEM_ALIGN"
-//CFG_TUSB_MEM_SECTION CFG_TUSB_MEM_ALIGN
 static uint16_t _desc_str[32 + 1];
 
 // Invoked when received GET STRING DESCRIPTOR request

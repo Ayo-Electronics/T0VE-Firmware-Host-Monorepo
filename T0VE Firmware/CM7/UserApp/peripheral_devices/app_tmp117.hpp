@@ -5,8 +5,8 @@
 
 #pragma once
 
+#include <app_proctypes.hpp>
 #include "app_utils.hpp" //for callback function
-#include "app_types.hpp"
 #include "app_regmap_helpers.hpp"
 #include "app_hal_i2c.hpp"
 
@@ -151,25 +151,25 @@ private:
 
 	//write to the configuration register
 	static const size_t CONFIG_REG_ADDRESS = 0x01;
-	Regmap_Field_8B high_alert = {1, 7, 1, tx_buffer};
-	Regmap_Field_8B low_alert = {1, 6, 1, tx_buffer};
-	Regmap_Field_8B conversion_mode = {1, 3, 2, tx_buffer};
-	Regmap_Field_16B conversion_cycles = {2, 7, 3, 1, tx_buffer};
-	Regmap_Field_8B averaging_mode = {2, 5, 2, tx_buffer};
-	Regmap_Field_8B therm_nalert_mode = {2, 4, 1, tx_buffer};
-	Regmap_Field_8B alert_polarity = {2, 3, 1, tx_buffer};
-	Regmap_Field_8B dr_alert_mode = {2, 2, 1, tx_buffer};
-	Regmap_Field_8B do_soft_reset = {2, 1, 1, tx_buffer};
+	Regmap_Field high_alert = {1, 7, 1, true, tx_buffer};
+	Regmap_Field low_alert = {1, 6, 1, true, tx_buffer};
+	Regmap_Field conversion_mode = {1, 3, 2, true, tx_buffer};
+	Regmap_Field conversion_cycles = {2, 7, 3, true, tx_buffer};
+	Regmap_Field averaging_mode = {2, 5, 2, true, tx_buffer};
+	Regmap_Field therm_nalert_mode = {2, 4, 1, true, tx_buffer};
+	Regmap_Field alert_polarity = {2, 3, 1, true, tx_buffer};
+	Regmap_Field dr_alert_mode = {2, 2, 1, true, tx_buffer};
+	Regmap_Field do_soft_reset = {2, 1, 1, true, tx_buffer};
 
 	//read from the temperature register
 	static constexpr float TEMP_PER_BITS = 7.8125e-3; //mdegC per bit
 	static const uint8_t TEMP_REG_ADDRESS = 0x00;
-	Regmap_Field_16B temp_decode = {1, 0, 16, 1, {}};
+	Regmap_Field temp_decode = {1, 0, 16, true, {}};
 	Atomic_Var<std::array<uint8_t, 2>> temp_bytes; //store the raw temperature bytes directly, only decode when requested
 
 	//read from the DEVICE ID register
 	//only done during initialization
 	static const uint8_t DEVICE_ID_REG_ADDRESS = 0x0F;
-	Regmap_Field_16B device_id_decode = {1, 0, 16, 1, {}};
+	Regmap_Field device_id_decode = {1, 0, 16, true, {}};
 	Atomic_Var<std::array<uint8_t, 2>> device_id_bytes; //store the raw device ID bytes directly, only decode when requested
 };

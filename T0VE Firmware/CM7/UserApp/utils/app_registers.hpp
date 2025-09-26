@@ -11,7 +11,7 @@
 
 #pragma once
 
-#include "app_types.hpp"
+#include <app_proctypes.hpp>
 //forcing aggressive compiler optimizations
 #pragma GCC push_options
 #pragma GCC optimize ("Ofast,unroll-loops,inline-functions")

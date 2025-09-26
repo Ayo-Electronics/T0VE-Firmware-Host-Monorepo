@@ -7,11 +7,11 @@
 
 #pragma once
 
+#include <app_proctypes.hpp>
 #include <array>
 #include <span>
 
 #include "app_utils.hpp" //for callback function
-#include "app_types.hpp"
 #include "app_regmap_helpers.hpp"
 #include "app_threading.hpp" //for atomic variable
 
@@ -59,90 +59,90 @@ private:
 	//#### for the multi-write without EEPROM ####
 	static const uint8_t MULTI_WRITE_COMMAND_CODE = 0b01000;
 	static const size_t MULTI_WRITE_COMMAND_LENGTH = 12;
-	Regmap_Field_8B mwr_multi_write_command = {0, 3, 5, tx_buffer}; //place the MULTI_WRITE_COMMAND_CODE in here
-	std::array<Regmap_Field_8B, 4> mwr_channel_sels = {	//set these corresponding to the particular channel we'd like to write to
-		Regmap_Field_8B(0, 1, 2, tx_buffer),
-		Regmap_Field_8B(3, 1, 2, tx_buffer),
-		Regmap_Field_8B(6, 1, 2, tx_buffer),
-		Regmap_Field_8B(9, 1, 2, tx_buffer),
+	Regmap_Field mwr_multi_write_command = {0, 3, 5, true, tx_buffer}; //place the MULTI_WRITE_COMMAND_CODE in here
+	std::array<Regmap_Field, 4> mwr_channel_sels = {	//set these corresponding to the particular channel we'd like to write to
+		Regmap_Field(0, 1, 2, true, tx_buffer),
+		Regmap_Field(3, 1, 2, true, tx_buffer),
+		Regmap_Field(6, 1, 2, true, tx_buffer),
+		Regmap_Field(9, 1, 2, true, tx_buffer),
 	};
-	std::array<Regmap_Field_8B, 4> mwr_udac_bits = { //set these according to the UDAC configuration
-		Regmap_Field_8B(0, 0, 1, tx_buffer),
-		Regmap_Field_8B(3, 0, 1, tx_buffer),
-		Regmap_Field_8B(6, 0, 1, tx_buffer),
-		Regmap_Field_8B(9, 0, 1, tx_buffer),
+	std::array<Regmap_Field, 4> mwr_udac_bits = { //set these according to the UDAC configuration
+		Regmap_Field(0, 0, 1, true, tx_buffer),
+		Regmap_Field(3, 0, 1, true, tx_buffer),
+		Regmap_Field(6, 0, 1, true, tx_buffer),
+		Regmap_Field(9, 0, 1, true, tx_buffer),
 	};
-	std::array<Regmap_Field_8B, 4> mwr_vref_source_bits = { //set these according to the VREF configuration
-		Regmap_Field_8B(1, 7, 1, tx_buffer),
-		Regmap_Field_8B(4, 7, 1, tx_buffer),
-		Regmap_Field_8B(7, 7, 1, tx_buffer),
-		Regmap_Field_8B(10, 7, 1, tx_buffer),
+	std::array<Regmap_Field, 4> mwr_vref_source_bits = { //set these according to the VREF configuration
+		Regmap_Field(1, 7, 1, true, tx_buffer),
+		Regmap_Field(4, 7, 1, true, tx_buffer),
+		Regmap_Field(7, 7, 1, true, tx_buffer),
+		Regmap_Field(10, 7, 1, true, tx_buffer),
 	};
-	std::array<Regmap_Field_8B, 4> mwr_power_down_bits = { //set these according to the power down configuration
-		Regmap_Field_8B(1, 5, 2, tx_buffer),
-		Regmap_Field_8B(4, 5, 2, tx_buffer),
-		Regmap_Field_8B(7, 5, 2, tx_buffer),
-		Regmap_Field_8B(10, 5, 2, tx_buffer),
+	std::array<Regmap_Field, 4> mwr_power_down_bits = { //set these according to the power down configuration
+		Regmap_Field(1, 5, 2, true, tx_buffer),
+		Regmap_Field(4, 5, 2, true, tx_buffer),
+		Regmap_Field(7, 5, 2, true, tx_buffer),
+		Regmap_Field(10, 5, 2, true, tx_buffer),
 	};
-	std::array<Regmap_Field_8B, 4> mwr_gain_bits = { //set these according to the gain configuration
-		Regmap_Field_8B(1, 4, 1, tx_buffer),
-		Regmap_Field_8B(4, 4, 1, tx_buffer),
-		Regmap_Field_8B(7, 4, 1, tx_buffer),
-		Regmap_Field_8B(10, 4, 1, tx_buffer),
+	std::array<Regmap_Field, 4> mwr_gain_bits = { //set these according to the gain configuration
+		Regmap_Field(1, 4, 1, true, tx_buffer),
+		Regmap_Field(4, 4, 1, true, tx_buffer),
+		Regmap_Field(7, 4, 1, true, tx_buffer),
+		Regmap_Field(10, 4, 1, true, tx_buffer),
 	};
-	std::array<Regmap_Field_16B, 4> mwr_dac_vals = { //set these according to the DAC value
-		Regmap_Field_16B(2, 0, 12, true, tx_buffer),
-		Regmap_Field_16B(5, 0, 12, true, tx_buffer),
-		Regmap_Field_16B(8, 0, 12, true, tx_buffer),
-		Regmap_Field_16B(11, 0, 12, true, tx_buffer),
+	std::array<Regmap_Field, 4> mwr_dac_vals = { //set these according to the DAC value
+		Regmap_Field(2, 0, 12, true, tx_buffer),
+		Regmap_Field(5, 0, 12, true, tx_buffer),
+		Regmap_Field(8, 0, 12, true, tx_buffer),
+		Regmap_Field(11, 0, 12, true, tx_buffer),
 	};
 
 	//#### for the multi-write with EEPROM ####
 	//after the first byte, the pattern repeats for all four channels
 	static const uint8_t SEQUENTIAL_WRITE_COMMAND_CODE = 0b01010;
 	static const size_t SEQUENTIAL_WRITE_COMMAND_LENGTH = 9;
-	Regmap_Field_8B seqwr_sequential_write_command = {0, 3, 5, tx_buffer}; //place the SEQUENTIAL_WRITE_COMMAND_CODE in here
-	Regmap_Field_8B seqwr_start_channel_sel = {0, 1, 2, tx_buffer}; //set this to the first channel we'd like to write to in our sequence
-	Regmap_Field_8B seqwr_udac = {0, 0, 1, tx_buffer}; //set this to the UDAC configuration
-	std::array<Regmap_Field_8B, 4> seqwr_vref_source_bits = { //set these according to the VREF configuration
-		Regmap_Field_8B(1, 7, 1, tx_buffer),
-		Regmap_Field_8B(3, 7, 1, tx_buffer),
-		Regmap_Field_8B(5, 7, 1, tx_buffer),
-		Regmap_Field_8B(7, 7, 1, tx_buffer),
+	Regmap_Field seqwr_sequential_write_command = {0, 3, 5, true, tx_buffer}; //place the SEQUENTIAL_WRITE_COMMAND_CODE in here
+	Regmap_Field seqwr_start_channel_sel = {0, 1, 2, true, tx_buffer}; //set this to the first channel we'd like to write to in our sequence
+	Regmap_Field seqwr_udac = {0, 0, 1, true, tx_buffer}; //set this to the UDAC configuration
+	std::array<Regmap_Field, 4> seqwr_vref_source_bits = { //set these according to the VREF configuration
+		Regmap_Field(1, 7, 1, true, tx_buffer),
+		Regmap_Field(3, 7, 1, true, tx_buffer),
+		Regmap_Field(5, 7, 1, true, tx_buffer),
+		Regmap_Field(7, 7, 1, true, tx_buffer),
 	};
-	std::array<Regmap_Field_8B, 4> seqwr_power_down_bits = { //set these according to the power down configuration
-		Regmap_Field_8B(1, 5, 2, tx_buffer),
-		Regmap_Field_8B(3, 5, 2, tx_buffer),
-		Regmap_Field_8B(5, 5, 2, tx_buffer),
-		Regmap_Field_8B(7, 5, 2, tx_buffer),
+	std::array<Regmap_Field, 4> seqwr_power_down_bits = { //set these according to the power down configuration
+		Regmap_Field(1, 5, 2, true, tx_buffer),
+		Regmap_Field(3, 5, 2, true, tx_buffer),
+		Regmap_Field(5, 5, 2, true, tx_buffer),
+		Regmap_Field(7, 5, 2, true, tx_buffer),
 	};
-	std::array<Regmap_Field_8B, 4> seqwr_gain_bits = { //set these according to the gain configuration
-		Regmap_Field_8B(1, 4, 1, tx_buffer),
-		Regmap_Field_8B(3, 4, 1, tx_buffer),
-		Regmap_Field_8B(5, 4, 1, tx_buffer),
-		Regmap_Field_8B(7, 4, 1, tx_buffer),
+	std::array<Regmap_Field, 4> seqwr_gain_bits = { //set these according to the gain configuration
+		Regmap_Field(1, 4, 1, true, tx_buffer)	,
+		Regmap_Field(3, 4, 1, true, tx_buffer),
+		Regmap_Field(5, 4, 1, true, tx_buffer),
+		Regmap_Field(7, 4, 1, true, tx_buffer),
 	};
-	std::array<Regmap_Field_16B, 4> seqwr_dac_vals = { //set these according to the DAC value per channel
-		Regmap_Field_16B(2, 0, 12, true, tx_buffer),
-		Regmap_Field_16B(4, 0, 12, true, tx_buffer),
-		Regmap_Field_16B(6, 0, 12, true, tx_buffer),
-		Regmap_Field_16B(8, 0, 12, true, tx_buffer),
+	std::array<Regmap_Field, 4> seqwr_dac_vals = { //set these according to the DAC value per channel
+		Regmap_Field(2, 0, 12, true, tx_buffer),
+		Regmap_Field(4, 0, 12, true, tx_buffer),
+		Regmap_Field(6, 0, 12, true, tx_buffer),
+		Regmap_Field(8, 0, 12, true, tx_buffer),
 	};
 
 	//###### for the entire chip read ######
 	static const size_t READ_COMMAND_LENGTH = 24;
 	Atomic_Var<std::array<uint8_t, READ_COMMAND_LENGTH>> status_bytes;
-	std::array<Regmap_Field_16B, 4> devr_dac_vals = { //BUT only care about the assigned DAC values (need to repoint these to work!)
-		Regmap_Field_16B(2, 0, 12, true, {}),
-		Regmap_Field_16B(8, 0, 12, true, {}),
-		Regmap_Field_16B(14, 0, 12, true, {}),
-		Regmap_Field_16B(20, 0, 12, true, {}),
+	std::array<Regmap_Field, 4> devr_dac_vals = { //BUT only care about the assigned DAC values (need to repoint these to work!)
+		Regmap_Field(2, 0, 12, true, {}),
+		Regmap_Field(8, 0, 12, true, {}),
+		Regmap_Field(14, 0, 12, true, {}),
+		Regmap_Field(20, 0, 12, true, {}),
 	};
-	std::array<Regmap_Field_16B, 4> devr_eeprom_vals { //and potentially the values in the DAC EEPROM (need to repoint these to work!)
-		Regmap_Field_16B(5, 0, 12, true, {}),
-		Regmap_Field_16B(11, 0, 12, true, {}),
-		Regmap_Field_16B(17, 0, 12, true, {}),
-		Regmap_Field_16B(23, 0, 12, true, {}),
+	std::array<Regmap_Field, 4> devr_eeprom_vals { //and potentially the values in the DAC EEPROM (need to repoint these to work!)
+		Regmap_Field(5, 0, 12, true, {}),
+		Regmap_Field(11, 0, 12, true, {}),
+		Regmap_Field(17, 0, 12, true, {}),
+		Regmap_Field(23, 0, 12, true, {}),
 	};
 public:
 	//============================== TYPEDEFS =============================

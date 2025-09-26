@@ -7,12 +7,12 @@
 
 #pragma once
 
+#include <app_proctypes.hpp>
 #include <string> //use C++ strings to print
 #include <array> //for transmit buffer
 
 //#include "usb_device.h" //to initialize peripheral
 //#include "usbd_cdc_if.h" //for HAL CDC VCP device
-#include "app_types.hpp"
 
 static constexpr size_t APP_TX_DATA_SIZE = 512;
 

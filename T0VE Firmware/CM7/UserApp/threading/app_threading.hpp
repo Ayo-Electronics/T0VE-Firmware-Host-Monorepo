@@ -15,7 +15,7 @@
 
 #pragma once
 
-#include "app_types.hpp"
+#include <app_proctypes.hpp>
 
 //========================================================== ATOMIC VARIABLE CLASS ===============================================================
 
@@ -120,6 +120,21 @@ public:
 		LOCK();
 		f();
 		UNLOCK();
+	}
+
+	//perform an operation atomically, in lambda function
+	//lambda function should take no arguments
+	//performs a mutex availability check before claiming
+	template <typename Func>
+	bool check_WITH(Func&& f) noexcept(noexcept(std::declval<Func&>()())) {
+		//check if the mutex is available; claim if so
+		//fail immediately/return false if not
+		if(!AVAILABLE(true)) return false;
+
+		//run the function, then unlock the mutex, then return success
+		f();
+		UNLOCK();
+		return true;
 	}
 
 	//check to see if the mutex is free

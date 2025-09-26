@@ -7,12 +7,12 @@
 
 #pragma once
 
+#include <app_proctypes.hpp> //for uint8_t
 #include <type_traits>
 #include <new>
 #include <array>
 #include <span>
 
-#include "app_types.hpp" //for uint8_t
 
 static constexpr size_t DMA_MEM_SIZE = 65536;
 

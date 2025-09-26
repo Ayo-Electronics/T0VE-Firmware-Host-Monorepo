@@ -1,5 +1,6 @@
 #pragma once
 
+#include <app_proctypes.hpp>
 #include <span>
 #include <array>
 #include <string>
@@ -8,16 +9,26 @@
 #include <algorithm> //for std::transform
 #include <type_traits> //for callback function macros
 
-#include "app_types.hpp"
 
 //===================== NUMERICAL CONSTANTS =====================
 
 //no real convenient way to set up pi, so just defining a literal
 constexpr float PI = 3.14159265358979323846;
 constexpr float TWO_PI = 2*PI;
-constexpr float CPU_FREQ_HZ = 480e6; //480MHz CPU clock frequency, used for timing calculations
 
 //============================ ARDUINO-STYLE MAP FUNCTION =========================
+
+template<typename T>
+T min(T a, T b) {
+	if(a < b) return a;
+	else return b;
+}
+
+template<typename T>
+T max(T a, T b) {
+	if(a > b) return a;
+	else return b;
+}
 
 template<typename T>
 T clip(T input, T in_min, T in_max) {
@@ -237,6 +248,24 @@ void pack(const std::string& text, std::span<uint8_t, std::dynamic_extent> buf);
 uint32_t unpack_uint32(std::span<const uint8_t, std::dynamic_extent> buf); //unpack a uint32_t value in big endian order
 int32_t unpack_int32(std::span<const uint8_t, std::dynamic_extent> buf); //unpack an int32_t value in big endian order
 float unpack_float(std::span<const uint8_t, std::dynamic_extent> buf); //unpack an IEEE 754 single-precision float in big endian order
+
+//======================================== ENDIAN SWAPPING =========================================
+//there are typically compiler utilities for this, but that depends on the specific compiler you're using
+//exposing these endian swap functions to guarantee we can call these
+
+inline uint32_t swap_endian_32(uint32_t x) {
+	return __builtin_bswap32(x);
+//    return ((x & 0x000000FFU) << 24) |
+//           ((x & 0x0000FF00U) << 8)  |
+//           ((x & 0x00FF0000U) >> 8)  |
+//           ((x & 0xFF000000U) >> 24);
+}
+
+inline uint16_t swap_endian_16(uint16_t x) {
+	return __builtin_bswap16(x);
+//    return ((x & 0x00FFU) << 8) |
+//           ((x & 0xFF00U) >> 8);
+}
 
 //============================================================================================================================================
  /*
