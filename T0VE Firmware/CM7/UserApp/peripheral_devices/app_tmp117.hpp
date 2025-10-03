@@ -77,6 +77,7 @@ public:
 	 *  \--> soft reset the device
 	 *  \--> load in our desired configuration
 	 *  \--> read device ID
+	 *  NOTE: current implementation of init is BLOCKING
 	 */
 	void init();
 

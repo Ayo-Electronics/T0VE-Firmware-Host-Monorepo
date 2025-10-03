@@ -48,7 +48,6 @@ void ADC_Offset_Control::enable() {
 	//and one-shot schedule our DAC readback task
 	//will get rescheduled every iteration--one-shot scheduling lets schedule in the next loop iteration if I2C was busy
 	read_offset_dac_values_task.schedule_oneshot_ms(BIND_CALLBACK(this, do_read_offset_dac_values), READ_OFFSET_DAC_VALUES_PERIOD_MS);
-
 }
 
 void ADC_Offset_Control::disable() {

@@ -80,7 +80,7 @@ private:
     //and scheduler tasks to execute reading/writing to the offset dac
     Scheduler write_offset_dac_values_task;
     Scheduler read_offset_dac_values_task;
-    static const uint32_t READ_OFFSET_DAC_VALUES_PERIOD_MS = 250; //automatically pull in the offset DAC values at this rate
+    static const uint32_t READ_OFFSET_DAC_VALUES_PERIOD_MS = 1000; //automatically pull in the offset DAC values at this rate
 
     //and a really basic state machine to cycle between enabled/disabled depending on PGOOD status
     ESM_State offset_state_ENABLED;

@@ -13,9 +13,8 @@
 //==================================================== MUTEX CLASS ======================================================
 
 void Mutex::LOCK() {
-	//spin until available
-	while(!AVAILABLE());
-	mutex_locked = true;
+	//spin until available, claim when available
+	while(!AVAILABLE(true));
 }
 
 //release the mutex

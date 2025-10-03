@@ -97,6 +97,12 @@ protected:
 	 */
 	ESM_State* EXECUTE_STATE();
 
+	/*
+	 * Also provide a hook that "resets" the state
+	 * Useful for when we reset our state machines
+	 */
+	void RESET_STATE();
+
 private:
 	//flag that says whether we just entered a particular state
 	//controls the execution of `impl_on_state_entry()`
@@ -143,8 +149,15 @@ public:
 	//call this function in the application loop to run the extended state machine
 	//execution and state transitions will happen automatically
 	void RUN_ESM();
+
+	//call this function in the application loop to reset the extended state machine
+	//state machine will return back to its entry state as if it just started executing
+	void RESET_ESM();
 private:
 	//hold a pointer to the state that is currently executing
 	//this will be initialized to the entry state of the state machine
 	ESM_State* current_state;
+
+	//also remember the entry state for when we reset the state machines
+	ESM_State* entry_state;
 };

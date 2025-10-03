@@ -18,7 +18,9 @@
 #pragma once
 
 #include "app_state_variable.hpp" 	//so we have references to the read/write ports
+
 #include "app_cob_eeprom.hpp"		//for CoB memory size
+#include "app_bias_drives.hpp"		//for waveguide bias setpoint struct
 
 class State_Supervisor {
 public:
@@ -84,6 +86,13 @@ public:
 	SUBSCRIBE_FUNC_RC(	command_cob_eeprom_write_key				);
 	SUBSCRIBE_FUNC_RC(	command_cob_eeprom_write_contents			);
 
+	//#### WAVEGUIDE BIAS DRIVES ####
+	LINK_FUNC(			status_wgbias_device_present				);
+	LINK_FUNC(			status_wgbias_dac_values_readback			);
+	LINK_FUNC_RC(		status_wgbias_dac_error					);
+	SUBSCRIBE_FUNC_RC(	command_wgbias_dac_values					);
+	SUBSCRIBE_FUNC_RC(	command_wgbias_reg_enable					);
+	SUBSCRIBE_FUNC_RC(	command_wgbias_dac_read_update				);
 
 private:
 	//#### PRIVATE VARIABLES FOR STATE SUPERVISOR #####
@@ -97,12 +106,12 @@ private:
 	//#### ONBOARD POWER MONITOR STATES ####
 	SV_Subscription<bool> pm_onboard_immediate_power_status;
 	SV_Subscription<bool> pm_onboard_debounced_power_status;
-	State_Variable<bool> pm_onboard_regulator_enable_command = {true}; //TODO: REVERT TO FALSE AFTER TESTING
+	State_Variable<bool> pm_onboard_regulator_enable_command = {true};
 
 	//#### MOTHERBOARD POWER MONITOR STATES ####
 	SV_Subscription<bool> pm_motherboard_immediate_power_status;
 	SV_Subscription<bool> pm_motherboard_debounced_power_status;
-	State_Variable<bool> pm_motherboard_regulator_enable_command = {false};
+	State_Variable<bool> pm_motherboard_regulator_enable_command = {true}; //TODO: REVERT TO FALSE AFTER TESTING
 
 	//#### ADC OFFSET CONTROL STATES ####
 	SV_Subscription<bool> adc_offset_ctrl_device_present_status; //report whether we detected the device during initialization
@@ -118,7 +127,7 @@ private:
 	SV_Subscription_RC<bool>		status_hispeed_arm_flag_err_sync_timeout;
 	SV_Subscription_RC<bool>		status_hispeed_arm_flag_err_pwr;
 	SV_Subscription_RC<bool>		status_hispeed_arm_flag_complete;
-	State_Variable<bool> 			command_hispeed_sdram_load_test_sequence = {true};		//TESTING TODO: revert to false
+	State_Variable<bool> 			command_hispeed_sdram_load_test_sequence = {false};
 	State_Variable<std::array<bool, 4>> 		command_hispeed_SOA_enable = {{false, false, false, false}};
 	State_Variable<std::array<bool, 4>> 		command_hispeed_TIA_enable = {{false, false, false, false}};
 	State_Variable<std::array<uint16_t, 4>> 	command_hispeed_SOA_DAC_drive = {{0, 0, 0, 0}};
@@ -138,4 +147,12 @@ private:
 	State_Variable<std::array<uint8_t, EEPROM_24AA02UID::MEMORY_SIZE_BYTES>> command_cob_eeprom_write_contents; //what to write to the eeprom
 	State_Variable<bool> command_cob_eeprom_write;			//command to write to the CoB EEPROM
 	State_Variable<uint32_t> command_cob_eeprom_write_key; 	//only write to the EEPROM if the keys match
+
+	//#### WAVEGUIDE BIAS DRIVES #####
+	SV_Subscription<bool> status_wgbias_device_present;			//report whether we detected the device during initialization
+	SV_Subscription<Waveguide_Bias_Drive::Waveguide_Bias_Setpoints_t> status_wgbias_dac_values_readback;	//what the DAC thinks we've written to it
+	SV_Subscription_RC<bool> status_wgbias_dac_error;			//asserted when any kinda dac error happens, expose read-clear port
+	State_Variable<Waveguide_Bias_Drive::Waveguide_Bias_Setpoints_t> command_wgbias_dac_values;				//values we'd like to write to the DAC
+	State_Variable<bool> command_wgbias_reg_enable;				//enable the actual voltage regulators for the waveguide bias system
+	State_Variable<bool> command_wgbias_dac_read_update;		//asserted when we want to perform a DAC read, cleared after read
 };

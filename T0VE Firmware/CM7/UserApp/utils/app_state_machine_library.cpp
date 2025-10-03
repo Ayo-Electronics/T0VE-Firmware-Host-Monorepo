@@ -54,6 +54,12 @@ ESM_State* ESM_State::EXECUTE_STATE() {
     return this; 
 }
 
+//and reset function just resets the `just_entered_state` flag
+//but DON'T call `on_state_exit()`--haven't actually transitioned out of the state
+void ESM_State::RESET_STATE() {
+	just_entered_state = true;
+}
+
 
 //================================================= MEMBER FUNCTIONS FOR ESM_TRANSITION =================================================
 //just save the variables during the constructor
@@ -69,7 +75,7 @@ ESM_State* ESM_Transition::operator()() const {
 
 //================================================= CONTAINER THAT RUNS THE STATE MACHINE =================================================
 Extended_State_Machine::Extended_State_Machine(ESM_State* _entry_state)
-    : current_state(_entry_state) {}
+    : current_state(_entry_state), entry_state(_entry_state) {}
 
 //call this function in the application loop to run the extended state machine
 //execution and state transitions will happen automatically
@@ -77,5 +83,13 @@ void Extended_State_Machine::RUN_ESM() {
     //execute the current state
     //and update the state pointer if we transition states  
     current_state = current_state->EXECUTE_STATE();
+}
+
+//call this function to return an ESM back to its starting state
+void Extended_State_Machine::RESET_ESM() {
+	//reset the state that we're currently executing
+	//and return back to our entry state
+	current_state->RESET_STATE();
+	current_state = entry_state;
 }
 

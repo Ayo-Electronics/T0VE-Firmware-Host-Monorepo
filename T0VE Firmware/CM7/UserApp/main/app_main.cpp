@@ -29,6 +29,7 @@
 #include "app_led_indicators.hpp"
 #include "app_cob_temp_monitor.hpp"
 #include "app_cob_eeprom.hpp"
+#include "app_bias_drives.hpp"
 
 //========= UTILITY INCLUDES =========
 #include "app_scheduler.hpp"
@@ -89,9 +90,7 @@ Power_Monitor pm_motherboard_subsys(Pin_Mapping::EXT_PWR_REG_EN, Pin_Mapping::EX
 ADC_Offset_Control offset_ctrl_subsys(i2c_bus);
 CoB_Temp_Monitor cob_temp_monitor(i2c_bus);
 CoB_EEPROM cob_eeprom(i2c_bus);
-
-//TODO: CoB EEPROM
-//TODO: BIAS_DRIVES (AD5675s)
+Waveguide_Bias_Drive wgbias_subsys(i2c_bus, Pin_Mapping::BIAS_DRIVE_EN, Pin_Mapping::BIAS_DAC_RESET);
 
 Hispeed_Subsystem hispeed_subsys(	CHANNEL_0_HW,
 									CHANNEL_1_HW,
@@ -111,21 +110,6 @@ LED_Indicators indicators_subsys(	Pin_Mapping::LED_RED,
 State_Supervisor state_supervisor;
 
 //TESTING: TODO, remove
-#include "app_state_variable.hpp"
-State_Variable<bool> dummy_pgood;
-
-#include "app_usb_if.hpp"
-#include "app_msc_file.hpp"
-#include "app_msc_if.hpp"
-USB_Interface usb;
-MSC_Interface msc(usb, MSC_Interface::MSC_CHANNEL);
-
-auto test_file_text = s2a("Hi! I'm testing to see if my MSC class is exposing my custom files correctly. This is a test file!");
-auto test_2_text = s2a("Does this second text file work?");
-MSC_File test_file(test_file_text, "test_file.txt", false);
-MSC_File test2_file(test_2_text, "second_test_file.txt", false);
-
-
 
 void LINK_SYSTEM_STATE_VARIABLES() {
 	//##### MULTICARD INFO #####
@@ -149,9 +133,9 @@ void LINK_SYSTEM_STATE_VARIABLES() {
 	state_supervisor.link_adc_offset_ctrl_dac_value_readback_status(offset_ctrl_subsys.subscribe_status_offset_dac_values_readback()			);
 	state_supervisor.link_RC_adc_offset_ctrl_dac_error_status(		offset_ctrl_subsys.subscribe_RC_status_offset_dac_error()					);
 	state_supervisor.link_adc_offset_ctrl_device_present_status(	offset_ctrl_subsys.subscribe_status_device_present()						);
-	//offset_ctrl_subsys.link_status_onboard_pgood(					pm_onboard_subsys.subscribe_debounced_power_status()						);
+	offset_ctrl_subsys.link_status_onboard_pgood(					pm_onboard_subsys.subscribe_debounced_power_status()						);
 	//TESTING, TODO: change back to line above
-	offset_ctrl_subsys.link_status_onboard_pgood(dummy_pgood.subscribe());
+	//offset_ctrl_subsys.link_status_onboard_pgood(dummy_pgood.subscribe());
 
 	//##### HISPEED SUBSYSTEM #####
 	hispeed_subsys.link_RC_command_hispeed_SOA_DAC_drive(				state_supervisor.subscribe_RC_command_hispeed_SOA_DAC_drive()			);
@@ -176,9 +160,9 @@ void LINK_SYSTEM_STATE_VARIABLES() {
 	state_supervisor.link_status_cobtemp_cob_temperature_c(				cob_temp_monitor.subscribe_status_cob_temperature_c()					);
 	state_supervisor.link_status_cobtemp_device_present(				cob_temp_monitor.subscribe_status_device_present()						);
 	state_supervisor.link_status_cobtemp_temp_sensor_device_id(			cob_temp_monitor.subscribe_status_temp_sensor_device_id()				);
-	//cob_temp_monitor.link_status_onboard_pgood(							pm_onboard_subsys.subscribe_debounced_power_status()					);
+	cob_temp_monitor.link_status_onboard_pgood(							pm_onboard_subsys.subscribe_debounced_power_status()					);
 	//TESTING, TODO: change back to line above
-	cob_temp_monitor.link_status_onboard_pgood(dummy_pgood.subscribe());
+	//cob_temp_monitor.link_status_onboard_pgood(dummy_pgood.subscribe());
 
 	//##### CoB EEPROM #####
 	state_supervisor.link_RC_status_cob_eeprom_write_error(				cob_eeprom.subscribe_RC_status_cob_eeprom_write_error()					);
@@ -190,8 +174,16 @@ void LINK_SYSTEM_STATE_VARIABLES() {
 	cob_eeprom.link_RC_command_cob_eeprom_write_key(					state_supervisor.subscribe_RC_command_cob_eeprom_write_key()			);
 	cob_eeprom.link_status_onboard_pgood(								pm_onboard_subsys.subscribe_debounced_power_status()					);
 	//TESTING, TODO: change back to the line above
-	cob_eeprom.link_status_onboard_pgood(dummy_pgood.subscribe());
+	//cob_eeprom.link_status_onboard_pgood(dummy_pgood.subscribe());
 
+	//##### WAVEGUIDE BIAS DRIVES #####
+	state_supervisor.link_status_wgbias_device_present(				wgbias_subsys.subscribe_status_device_present()						);
+	state_supervisor.link_status_wgbias_dac_values_readback(		wgbias_subsys.subscribe_status_bias_dac_values_readback()			);
+	state_supervisor.link_RC_status_wgbias_dac_error(				wgbias_subsys.subscribe_RC_status_bias_dac_error()					);
+	wgbias_subsys.link_RC_command_bias_dac_read_update(				state_supervisor.subscribe_RC_command_wgbias_dac_read_update()		);
+	wgbias_subsys.link_RC_command_bias_dac_values(					state_supervisor.subscribe_RC_command_wgbias_dac_values()			);
+	wgbias_subsys.link_RC_command_bias_reg_enable(					state_supervisor.subscribe_RC_command_wgbias_reg_enable()			);
+	wgbias_subsys.link_status_motherboard_pgood(					pm_motherboard_subsys.subscribe_debounced_power_status()			);
 }
 
 void INIT_SUBSYSTEMS() {
@@ -203,6 +195,7 @@ void INIT_SUBSYSTEMS() {
 	indicators_subsys.init();
 	cob_temp_monitor.init();
 	cob_eeprom.init();
+	wgbias_subsys.init();
 }
 
 void app_init() {
@@ -220,10 +213,6 @@ void app_init() {
 	VCP_Debug::print("SUBSYSTEMS INITIALIZED!\r\n");
 
 	//TESTING, TODO: REMOVE
-	msc.attach_file(test_file);
-	msc.attach_file(test2_file);
-	msc.init();
-	msc.connect_request();
 }
 
 void app_loop() {
