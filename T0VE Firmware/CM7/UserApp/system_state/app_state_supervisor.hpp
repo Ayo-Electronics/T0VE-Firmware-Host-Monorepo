@@ -27,15 +27,16 @@ public:
 	//constructor--don't strictly need to do anything here, gonna default construct all the state variables and subscription channels
 	State_Supervisor();
 
+	//init function sets up a monitoring thread that checks connection status
+	//turns off power when we disconnect; lets rest of subsystems handle putting state variables in safe states
+	//TODO: this, especially how to handle USB suspension during high-speed execution
+
 	//serialization/deserialization of state messages
-	//MAY RUN FROM ISR CONTEXT
-	void serialize(); //TODO: nanoPB encode
-	void deserialize(); //TODO: nanoPB decode
+	//should be ISR safe, but try not to run from there
+	std::span<uint8_t, std::dynamic_extent> serialize();
+	void deserialize(std::span<uint8_t, std::dynamic_extent> encoded_msg);
 
 	//============================== FUNCTIONS TO LINK SUBSCRIPTIONS ==============================
-	//#### STATE SUPERVISOR #####
-	SUBSCRIBE_FUNC_RC(	notify_comms_activity	);
-
 	//#### MULTICARD INFORMATION ####
 	LINK_FUNC(			multicard_info_all_cards_present_status		);
 	LINK_FUNC(			multicard_info_node_id_status				);
@@ -89,14 +90,25 @@ public:
 	//#### WAVEGUIDE BIAS DRIVES ####
 	LINK_FUNC(			status_wgbias_device_present				);
 	LINK_FUNC(			status_wgbias_dac_values_readback			);
-	LINK_FUNC_RC(		status_wgbias_dac_error					);
+	LINK_FUNC_RC(		status_wgbias_dac_error						);
 	SUBSCRIBE_FUNC_RC(	command_wgbias_dac_values					);
 	SUBSCRIBE_FUNC_RC(	command_wgbias_reg_enable					);
 	SUBSCRIBE_FUNC_RC(	command_wgbias_dac_read_update				);
 
+	//#### COMMS INTERFACE ####
+	LINK_FUNC(			status_comms_connected						);
+	SUBSCRIBE_FUNC(		command_comms_allow_connections				);
+
 private:
-	//#### PRIVATE VARIABLES FOR STATE SUPERVISOR #####
-	State_Variable<bool> notify_comms_activity = {false};
+	//special atomic variables to see if we decoded our most recent protobuf message successfully
+	Atomic_Var<bool> decode_failure = false;
+	Atomic_Var<size_t> decode_failure_count = 0;
+	Atomic_Var<bool> encode_failure = false;
+	Atomic_Var<size_t> encode_failure_count = 0;
+
+	//and a buffer to dump our most recently encoded data
+	static constexpr size_t ENCODE_BUFFER_SIZE = 2048;
+	std::array<uint8_t, ENCODE_BUFFER_SIZE> encode_buffer;
 
 	//#### MULTICARD INFORMATION ####
 	SV_Subscription<bool> multicard_info_all_cards_present_status; //true if all cards are present
@@ -155,4 +167,8 @@ private:
 	State_Variable<Waveguide_Bias_Drive::Waveguide_Bias_Setpoints_t> command_wgbias_dac_values;				//values we'd like to write to the DAC
 	State_Variable<bool> command_wgbias_reg_enable;				//enable the actual voltage regulators for the waveguide bias system
 	State_Variable<bool> command_wgbias_dac_read_update;		//asserted when we want to perform a DAC read, cleared after read
+
+	//#### COMMS INTERFACE ####
+	SV_Subscription<bool> status_comms_connected;					//report whether we're connected to a host
+	State_Variable<bool> command_comms_allow_connections = {true};	//allow connections to a host
 };

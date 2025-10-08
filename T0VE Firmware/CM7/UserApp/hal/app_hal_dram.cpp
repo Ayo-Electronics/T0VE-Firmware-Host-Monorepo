@@ -8,7 +8,7 @@
 
 #include "app_hal_dram.hpp"
 #include "app_hal_tick.hpp" //for setup delay
-#include "app_debug_vcp.hpp" //for debug output for testing
+#include "app_debug_if.hpp" //for debug output for testing
 #include "app_utils.hpp" //for CPU frequency
 
 //================================================= STATIC MEMBER DEFINITIONS ====================================================
@@ -97,28 +97,28 @@ void DRAM::de_init() {
 
 void DRAM::test() {
 	// First run a simple write/read test to verify basic functionality
-	VCP_Debug::print("=== DRAM Basic Functionality Test ===\n");
+	Debug::PRINT("=== DRAM Basic Functionality Test ===\n");
 	
 	// Test simple write and read
 	volatile uint32_t* test_addr = static_cast<volatile uint32_t*>(hardware.DRAM_BASE_ADDRESS);
 	uint32_t test_pattern = 0x12345678;
 	
-	VCP_Debug::print("Writing test pattern: 0x" + std::to_string(test_pattern) + "\n");
+	Debug::PRINT("Writing test pattern: 0x" + std::to_string(test_pattern) + "\n");
 	test_addr[0] = test_pattern;
 	
 	uint32_t read_value = test_addr[0];
-	VCP_Debug::print("Read value: 0x" + std::to_string(read_value) + "\n");
+	Debug::PRINT("Read value: 0x" + std::to_string(read_value) + "\n");
 	
 	if (read_value == test_pattern) {
-		VCP_Debug::print("SUCCESS: Write/Read test passed!\n");
+		Debug::PRINT("SUCCESS: Write/Read test passed!\n");
 	} else {
-		VCP_Debug::print("FAILED: Write/Read test failed!\n");
-		VCP_Debug::print("Expected: 0x" + std::to_string(test_pattern) + ", Got: 0x" + std::to_string(read_value) + "\n");
+		Debug::PRINT("FAILED: Write/Read test failed!\n");
+		Debug::PRINT("Expected: 0x" + std::to_string(test_pattern) + ", Got: 0x" + std::to_string(read_value) + "\n");
 		return; // Don't run performance tests if basic functionality fails
 	}
 	
 	// Test multiple locations
-	VCP_Debug::print("\nTesting multiple locations...\n");
+	Debug::PRINT("\nTesting multiple locations...\n");
 	uint32_t fail_count = 0;
 	for (uint32_t i = 0; i < hardware.DRAM_SIZE_BYTES/sizeof(test_addr[0]); i++) test_addr[i] = i; //start by writing to all addresses
 	for (uint32_t i = 0; i < hardware.DRAM_SIZE_BYTES/sizeof(test_addr[0]); i++) {
@@ -127,13 +127,13 @@ void DRAM::test() {
 	}
 	
 	if (fail_count == 0) {
-		VCP_Debug::print("SUCCESS: Multiple location test passed!\n");
+		Debug::PRINT("SUCCESS: Multiple location test passed!\n");
 	} else {
-		VCP_Debug::print("FAILED: Multiple location test failed! (" + std::to_string(fail_count) + " failures)\n");
+		Debug::PRINT("FAILED: Multiple location test failed! (" + std::to_string(fail_count) + " failures)\n");
 		return;
 	}
 	
-	VCP_Debug::print("\n=== DRAM Performance Test Results ===\n");
+	Debug::PRINT("\n=== DRAM Performance Test Results ===\n");
 	
 	// Initialize the debug timer for cycle counting
 	dwt_init();
@@ -145,23 +145,23 @@ void DRAM::test() {
 	float random_read_mbps = test_random_read();
 	
 	// Print test results
-	VCP_Debug::print("CPU Clock: " + f2s<1>(CPU_FREQ_HZ / 1e6) + " MHz\n");
-	VCP_Debug::print("DRAM Size: " + f2s<1>(hardware.DRAM_SIZE_BYTES / 1024.0 / 1024.0) + " MB\n");
-	VCP_Debug::print("\n");
+	Debug::PRINT("CPU Clock: " + f2s<1>(CPU_FREQ_HZ / 1e6) + " MHz\n");
+	Debug::PRINT("DRAM Size: " + f2s<1>(hardware.DRAM_SIZE_BYTES / 1024.0 / 1024.0) + " MB\n");
+	Debug::PRINT("\n");
 	
-	VCP_Debug::print("Sequential Write: " + f2s<3>(seq_write_mbps) + " MBps \n");
-	VCP_Debug::print("Sequential Read:  " + f2s<3>(seq_read_mbps) + " MBps \n");
-	VCP_Debug::print("Random Write:     " + f2s<3>(random_write_mbps) + " MBps \n");
-	VCP_Debug::print("Random Read:      " + f2s<3>(random_read_mbps) + " MBps \n");
-	VCP_Debug::print("\n");
+	Debug::PRINT("Sequential Write: " + f2s<3>(seq_write_mbps) + " MBps \n");
+	Debug::PRINT("Sequential Read:  " + f2s<3>(seq_read_mbps) + " MBps \n");
+	Debug::PRINT("Random Write:     " + f2s<3>(random_write_mbps) + " MBps \n");
+	Debug::PRINT("Random Read:      " + f2s<3>(random_read_mbps) + " MBps \n");
+	Debug::PRINT("\n");
 	
 	// Calculate and display efficiency metrics
 	float write_efficiency = (seq_write_mbps / seq_read_mbps) * 100.0f;
 	float random_efficiency = (random_read_mbps / seq_read_mbps) * 100.0f;
 	
-	VCP_Debug::print("Write/Read Ratio: " + std::to_string((int)write_efficiency) + "%\n");
-	VCP_Debug::print("Random/Sequential Ratio: " + std::to_string((int)random_efficiency) + "%\n");
-	VCP_Debug::print("=====================================\n");
+	Debug::PRINT("Write/Read Ratio: " + std::to_string((int)write_efficiency) + "%\n");
+	Debug::PRINT("Random/Sequential Ratio: " + std::to_string((int)random_efficiency) + "%\n");
+	Debug::PRINT("=====================================\n");
 }
 
 

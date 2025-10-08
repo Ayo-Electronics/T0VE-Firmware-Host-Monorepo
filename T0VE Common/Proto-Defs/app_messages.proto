@@ -1,7 +1,31 @@
 syntax = "proto2";
-package App_Messages;
+package App;
 
-message Command {
-  optional uint32 command_id = 1;
-  optional string command_data = 2;
+//========================== DEBUG MESSAGES ==========================
+
+enum Debug_Level {
+  INFO =    0;
+  WARNING = 1;
+  ERROR =   2;
+}
+
+message Debug {
+  required Debug_Level level =  1;
+  required string msg =         2;
+}
+
+//========================== NODE STATE MESSAGES ==========================
+
+message Node_State {
+  optional uint32 command_id =    1;
+  optional string command_data =  2;
+}
+
+//========================== AGGREGATION INTO SINGLE MESSAGE ==========================
+
+message Communication {
+  oneof payload{
+    Node_State node_state = 1;
+    Debug debug_message =   2;
+  }
 }

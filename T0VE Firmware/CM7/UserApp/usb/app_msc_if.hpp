@@ -12,7 +12,7 @@
 
 #pragma once
 
-#include <app_msc_constants.hpp>
+#include "app_msc_constants.hpp"
 #include "tusb.h"
 #include "app_usb_if.hpp"
 #include "app_msc_file.hpp"
@@ -20,6 +20,8 @@
 #include "app_msc_root_sector.hpp"
 #include "app_msc_fat_table.hpp"
 #include "app_msc_data_sector.hpp"
+
+#include "app_string.hpp"
 
 class MSC_Interface {
 public:
@@ -59,10 +61,10 @@ public:
 
 	//volume name; scsi vid, pid, rev
 	//no need to tweak USB interface string descriptor - already a ton of descriptors to expose
-	void set_string_fields(	const std::span<char, std::dynamic_extent>	_vol_name,
-							const std::span<char, std::dynamic_extent>  _scsi_vid,
-							const std::span<char, std::dynamic_extent>  _scsi_pid,
-							const std::span<char, std::dynamic_extent>  _scsi_rev	);
+	void set_string_fields(	const App_String<11, ' '>	_vol_name,
+							const App_String<8, ' '>  _scsi_vid,
+							const App_String<16, ' '>  _scsi_pid,
+							const App_String<4, ' '>  _scsi_rev	);
 
 	//make this particular file show up in the MSC interface
 	//MSC will take care of building the FAT table and coordinating file reads/writes
@@ -125,10 +127,10 @@ private:
 	bool accessible = false;
 
 	//some strings useful for the SCSI interface + FATFS emulator
-	std::array<uint8_t, 8> scsi_vid = s2a("Ayo Elec");
-	std::array<uint8_t, 16> scsi_pid = s2a("Processor Card  ");
-	std::array<uint8_t, 4> scsi_rev = s2a("A.15");
-	std::array<uint8_t, 11> vol_name = s2a("T0VE DRAM  ");
+	App_String<8, ' '> scsi_vid = "Ayo Elec";
+	App_String<16, ' '> scsi_pid = "Processor Card";
+	App_String<4, ' '> scsi_rev = "A.15";
+	App_String<11, ' '> vol_name = "Node Memory";
 };
 
 

@@ -47,22 +47,16 @@ void MSC_Interface::disconnect_request() {
 	accessible = false;
 }
 
-void MSC_Interface::set_string_fields(	const std::span<char, std::dynamic_extent>	_vol_name,
-										const std::span<char, std::dynamic_extent>  _scsi_vid,
-										const std::span<char, std::dynamic_extent>  _scsi_pid,
-										const std::span<char, std::dynamic_extent>  _scsi_rev	)
+void MSC_Interface::set_string_fields(	const App_String<11, ' '>	_vol_name,
+										const App_String<8, ' '>  	_scsi_vid,
+										const App_String<16, ' '>  	_scsi_pid,
+										const App_String<4, ' '>  	_scsi_rev	)
 {
-	//space pad all strings per spec
-	scsi_vid.fill(' ');
-	scsi_pid.fill(' ');
-	scsi_rev.fill(' ');
-	vol_name.fill(' ');
-
-	//copy all the strings to their spots
-	std::copy(_scsi_vid.begin(), _scsi_vid.begin() + min(_scsi_vid.size(), scsi_vid.size()), scsi_vid.begin());
-	std::copy(_scsi_pid.begin(), _scsi_pid.begin() + min(_scsi_pid.size(), scsi_pid.size()), scsi_pid.begin());
-	std::copy(_scsi_rev.begin(), _scsi_rev.begin() + min(_scsi_rev.size(), scsi_rev.size()), scsi_rev.begin());
-	std::copy(_vol_name.begin(), _vol_name.begin() + min(_vol_name.size(), vol_name.size()), vol_name.begin());
+	//copy our strings
+	vol_name = _vol_name;
+	scsi_pid = _scsi_pid;
+	scsi_vid = _scsi_vid;
+	scsi_rev = _scsi_rev;
 
 	//and regenerate our table based on our strings
 	regenerate();
@@ -119,8 +113,8 @@ void MSC_Interface::regenerate() {
 	auto file_clusters = fat_table.mk(msc_files);
 
 	//then boot sector, then root sector
-	boot_sector.mk(vol_name); //default UID for now,
-	root_sector.mk(vol_name, msc_files, file_clusters);
+	boot_sector.mk(vol_name.array()); //default UID for now,
+	root_sector.mk(vol_name.array(), msc_files, file_clusters);
 
 	//update the data sector dispatcher with latest file cluster indices
 	data_sector.mk(file_clusters);
@@ -129,9 +123,9 @@ void MSC_Interface::regenerate() {
 //############ TINYUSB HANDLERS ###########
 uint32_t MSC_Interface::handle_msc_inquiry(scsi_inquiry_resp_t *inquiry_resp, uint32_t bufsize) {
 	//copy the SCSI strings to the inquiry response
-	memcpy(inquiry_resp->vendor_id, scsi_vid.data(), scsi_vid.size());
-	memcpy(inquiry_resp->product_id, scsi_pid.data(), scsi_pid.size());
-	memcpy(inquiry_resp->product_rev, scsi_rev.data(), scsi_rev.size());
+	memcpy(inquiry_resp->vendor_id, scsi_vid.array().data(), scsi_vid.array().size());
+	memcpy(inquiry_resp->product_id, scsi_pid.array().data(), scsi_pid.array().size());
+	memcpy(inquiry_resp->product_rev, scsi_rev.array().data(), scsi_rev.array().size());
 
 	return sizeof(scsi_inquiry_resp_t);
 }

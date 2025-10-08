@@ -51,7 +51,12 @@ void LED_Indicators::check_state_update() {
 
     //check for any state updates using `available()`
     if(status_hispeed_armed.available()) do_update_leds = true;
+    if(status_hispeed_arm_flag_err_ready.available()) do_update_leds = true;
+    if(status_hispeed_arm_flag_err_sync_timeout.available()) do_update_leds = true;
+    if(status_hispeed_arm_flag_err_pwr.available()) do_update_leds = true;
     if(status_onboard_pgood.available()) do_update_leds = true;
+    if(status_motherboard_pgood.available()) do_update_leds = true;
+    if(status_comms_connected.available()) do_update_leds = true;
     if(status_comms_activity.available()) {
         //update the LEDs now
         do_update_leds = true;
@@ -80,15 +85,19 @@ void LED_Indicators::acknowledge_comms_activity() {
 void LED_Indicators::update_onboard_LEDs() {
     //update onboard RGB LEDs depending on system state
     //implicit prioritization given the ordering of these conditionals
-    if(status_hispeed_armed) ONBOARD_LED_RED();
-    else if(status_comms_activity) ONBOARD_LED_MAGENTA();
-    else if(status_onboard_pgood) ONBOARD_LED_GREEN();
-    else ONBOARD_LED_BLUE();
+    if(status_hispeed_armed)                            ONBOARD_LED_MAGENTA();
+    else if(status_comms_activity)                      ONBOARD_LED_WHITE();
+    else if(status_hispeed_arm_flag_err_ready)          ONBOARD_LED_RED();
+    else if(status_hispeed_arm_flag_err_sync_timeout)   ONBOARD_LED_RED();
+    else if(status_hispeed_arm_flag_err_pwr)            ONBOARD_LED_RED();
+    else if(status_onboard_pgood)                       ONBOARD_LED_GREEN();
+    else if(status_comms_connected)                     ONBOARD_LED_YELLOW();
+    else                                                ONBOARD_LED_BLUE();
 }
 
 void LED_Indicators::update_offboard_LEDs() {
     //update activity 1 LED depending on the power good status
-    if(status_onboard_pgood) ACT1_ON();
+    if(status_motherboard_pgood) ACT1_ON();
     else ACT1_OFF();
 
     //update activity 2 LED depending on the comms activity status

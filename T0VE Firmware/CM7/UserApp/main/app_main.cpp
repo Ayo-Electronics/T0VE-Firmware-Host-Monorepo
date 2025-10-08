@@ -5,12 +5,11 @@
  *      Author: Ishaan
  */
 
-#include <app_hal_pwm.hpp>
-#include <app_hal_tick.hpp>
 #include "app_main.hpp"
 
 //========== DEBUG INCLUDES ==========
-#include "app_debug_vcp.hpp"
+#include "app_debug_if.hpp"
+#include "app_debug_protobuf.hpp"
 
 //========== HAL INCLUDES ==========
 #include "app_hal_gpio.hpp"
@@ -19,6 +18,8 @@
 #include "app_hal_spi.hpp"
 #include "app_hal_dram.hpp"
 #include "app_hal_pwm.hpp"
+#include "app_hal_tick.hpp"
+#include "app_usb_if.hpp"
 
 //============ SUBSYSTEM INCLUDES ===========
 #include "app_state_supervisor.hpp"
@@ -30,12 +31,16 @@
 #include "app_cob_temp_monitor.hpp"
 #include "app_cob_eeprom.hpp"
 #include "app_bias_drives.hpp"
+#include "app_comms_subsys.hpp"
 
 //========= UTILITY INCLUDES =========
 #include "app_scheduler.hpp"
+#include "app_string.hpp"
 
 //============= INSTANTIATION OF HARDWARE ============
 Aux_I2C i2c_bus(Aux_I2C::AUX_I2C_HARDWARE);
+USB_Interface usb = USB_Interface();
+
 Hispeed_Subsystem::Hispeed_Channel_Hardware_t CHANNEL_0_HW = {
 		._spi_channel_hw = HiSpeed_SPI::SPI_CHANNEL_0,
 		._cs_dac_pin = Pin_Mapping::SPI_CS_DAC_CH0,
@@ -73,6 +78,9 @@ Hispeed_Subsystem::Hispeed_Channel_Hardware_t CHANNEL_3_HW = {
 		._cs_adc_timer = PWM::CS_ADC_CH3_CHANNEL,
 };
 
+//=============== CREATING SYSTEM STATE AGGREGATION + LINKING SUBSYSTEM STATE VARIABLES ===============
+State_Supervisor state_supervisor;
+
 //============== INSTANTIATION OF DEVICES ==============
 Multicard_Info multicard_info_subsys(	Pin_Mapping::SYNC_NID_0,
 										Pin_Mapping::SYNC_NID_1,
@@ -106,10 +114,13 @@ LED_Indicators indicators_subsys(	Pin_Mapping::LED_RED,
 									Pin_Mapping::EXT_LED_GREEN,
 									Pin_Mapping::EXT_LED_YELLOW	);
 
-//=============== CREATING SYSTEM STATE AGGREGATION + LINKING SUBSYSTEM STATE VARIABLES ===============
-State_Supervisor state_supervisor;
+Comms_Subsys comms_subsys(usb, state_supervisor);
+
+//============== DEBUG UTILITY SETUP ============
+Debug_Protobuf dbp(comms_subsys);
 
 //TESTING: TODO, remove
+
 
 void LINK_SYSTEM_STATE_VARIABLES() {
 	//##### MULTICARD INFO #####
@@ -150,11 +161,6 @@ void LINK_SYSTEM_STATE_VARIABLES() {
 	state_supervisor.link_RC_status_hispeed_arm_flag_err_sync_timeout(	hispeed_subsys.subscribe_RC_status_hispeed_arm_flag_err_sync_timeout()	);
 	hispeed_subsys.link_RC_command_hispeed_sdram_load_test_sequence(	state_supervisor.subscribe_RC_command_hispeed_sdram_load_test_sequence());
 
-	//##### LED INDICATORS ######
-	indicators_subsys.link_RC_status_comms_activity(	state_supervisor.subscribe_RC_notify_comms_activity()	);
-	indicators_subsys.link_status_hispeed_armed(		hispeed_subsys.subscribe_status_hispeed_armed()			);
-	indicators_subsys.link_status_onboard_pgood(		pm_onboard_subsys.subscribe_debounced_power_status()	);
-
 	//##### CoB TEMP MONITOR #####
 	state_supervisor.link_RC_status_cobtemp_temp_sensor_error(			cob_temp_monitor.subscribe_RC_status_temp_sensor_error()				);
 	state_supervisor.link_status_cobtemp_cob_temperature_c(				cob_temp_monitor.subscribe_status_cob_temperature_c()					);
@@ -184,6 +190,20 @@ void LINK_SYSTEM_STATE_VARIABLES() {
 	wgbias_subsys.link_RC_command_bias_dac_values(					state_supervisor.subscribe_RC_command_wgbias_dac_values()			);
 	wgbias_subsys.link_RC_command_bias_reg_enable(					state_supervisor.subscribe_RC_command_wgbias_reg_enable()			);
 	wgbias_subsys.link_status_motherboard_pgood(					pm_motherboard_subsys.subscribe_debounced_power_status()			);
+
+	//##### COMMS INTERFACE #####
+	state_supervisor.link_status_comms_connected(					comms_subsys.subscribe_status_comms_connected()						);
+	comms_subsys.link_command_comms_allow_connections(				state_supervisor.subscribe_command_comms_allow_connections()		);
+
+	//##### LED INDICATORS ######
+	indicators_subsys.link_status_onboard_pgood(		pm_onboard_subsys.subscribe_debounced_power_status()		);
+	indicators_subsys.link_status_motherboard_pgood(	pm_motherboard_subsys.subscribe_debounced_power_status()	);
+	indicators_subsys.link_RC_status_comms_activity(	comms_subsys.subscribe_RC_status_comms_activity()			);
+	indicators_subsys.link_status_comms_connected(		comms_subsys.subscribe_status_comms_connected()				);
+	indicators_subsys.link_status_hispeed_armed(		hispeed_subsys.subscribe_status_hispeed_armed()				);
+	indicators_subsys.link_status_hispeed_arm_flag_err_pwr(				hispeed_subsys.subscribe_RC_status_hispeed_arm_flag_err_pwr()			);
+	indicators_subsys.link_status_hispeed_arm_flag_err_ready(			hispeed_subsys.subscribe_RC_status_hispeed_arm_flag_err_ready()			);
+	indicators_subsys.link_status_hispeed_arm_flag_err_sync_timeout(	hispeed_subsys.subscribe_RC_status_hispeed_arm_flag_err_sync_timeout()	);
 }
 
 void INIT_SUBSYSTEMS() {
@@ -196,21 +216,20 @@ void INIT_SUBSYSTEMS() {
 	cob_temp_monitor.init();
 	cob_eeprom.init();
 	wgbias_subsys.init();
+	comms_subsys.init();
 }
 
 void app_init() {
-	//start by linking all subsystems
+	//link the debug outputs
+	Debug::associate(&dbp);
+
+	//then link all subsystems
 	LINK_SYSTEM_STATE_VARIABLES();
-
-	VCP_Debug::init();
-	Tick::delay_ms(5000); //get the USB connection initialized
-
-	VCP_Debug::print("STARTED APPLICATION\r\n");
+	Debug::PRINT("STARTED APPLICATION\r\n");
 
 	//initialize all subsystems
 	INIT_SUBSYSTEMS();
-
-	VCP_Debug::print("SUBSYSTEMS INITIALIZED!\r\n");
+	Debug::PRINT("SUBSYSTEMS INITIALIZED!\r\n");
 
 	//TESTING, TODO: REMOVE
 }

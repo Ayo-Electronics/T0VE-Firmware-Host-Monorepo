@@ -1,3 +1,6 @@
 
 #setting the max size of the extension string to 32 characters
-App_Messages.Command.command_data max_size:32
+App.Node_State.command_data max_length:32
+
+#setting the max length of a debug message to 256 characters
+App.Debug.msg max_length:256

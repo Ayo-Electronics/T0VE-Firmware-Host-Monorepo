@@ -3,22 +3,11 @@
 
 //non-trivial constructor
 MSC_File::MSC_File(	std::span<uint8_t, std::dynamic_extent> _file_contents,
-					std::span<uint8_t, std::dynamic_extent> _file_name,
+					App_String<FS_Constants::FILENAME_MAX_LENGTH> _file_name,
 					bool _readonly,
 					Mutex* _file_mutex):
-	file_contents(_file_contents), readonly(_readonly), file_mutex(_file_mutex)
-{
-	//clear filename to NULL characters (0)
-	file_name.fill(0);
-
-	//compute the file name size
-	filename_size = min(_file_name.size(), file_name.size());
-
-	//copy the filename into the filename field
-	std::copy(	_file_name.begin(),
-				_file_name.begin() + filename_size,
-				file_name.begin() );
-}
+	file_contents(_file_contents), file_name(_file_name), readonly(_readonly), file_mutex(_file_mutex)
+{}
 
 //file validity checking --> check span to see if it was nontrivially initialized
 bool MSC_File::is_valid() { return !(file_contents.empty() || (file_contents.data() == nullptr)); }

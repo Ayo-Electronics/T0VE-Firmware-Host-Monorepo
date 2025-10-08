@@ -11,6 +11,7 @@
 #include "app_proctypes.hpp"
 #include "app_utils.hpp"
 #include "app_threading.hpp"
+#include "app_string.hpp"	//for filename
 
 //forward declaring MSC_Interface class for friending
 class MSC_Interface;
@@ -41,18 +42,9 @@ public:
 
 	//and more complete constructor that actually initializes things
 	MSC_File(	std::span<uint8_t, std::dynamic_extent> _file_contents,
-				std::span<uint8_t, std::dynamic_extent> _file_name,
+				App_String<FS_Constants::FILENAME_MAX_LENGTH> _file_name,
 				bool _readonly = false,
 				Mutex* _file_mutex = nullptr);
-
-	//templated constructor so we can pass filenames more easily
-	template <size_t N>
-	MSC_File(	std::span<uint8_t, std::dynamic_extent> _file_contents,
-			 	 const char (&_file_name)[N],
-				 bool readonly = false,
-				 Mutex* _file_mutex = nullptr):
-		MSC_File(_file_contents, std::span<uint8_t, std::dynamic_extent>((uint8_t*)&_file_name[0], N-1), readonly, _file_mutex)
-	{}
 
 	//use default copy constructor and assignment operators
 	//should be fine philosophically, since an MSC file is just a thin wrapper around existing memory
@@ -85,11 +77,7 @@ public:
 	size_t write(size_t byte_offset, std::span<uint8_t, std::dynamic_extent> copy_src);
 
 	//### ACCESSORS ###
-	inline std::span<uint8_t, std::dynamic_extent> get_file_name() {
-		//return a view into the filename with only the valid characters
-		//NOTE: DON'T save this span, since it may dangle if this object gets destroyed
-		return std::span<uint8_t, std::dynamic_extent>(file_name.data(), filename_size);
-	}
+	inline std::span<uint8_t, std::dynamic_extent> get_file_name() { return file_name.span(); } //use built-in conversion function
 	inline bool get_read_only() { return readonly; }
 	inline FName_8d3_t get_short_name() { mk_8p3(); return short_name; } //make the 8.3 name on demand; avoids constructor complications
 	inline size_t get_file_size() { return file_contents.size(); }
@@ -97,9 +85,8 @@ public:
 private:
 	//file details; not marking const to allow for assignment
 	std::span<uint8_t, std::dynamic_extent> file_contents;
-	std::array<uint8_t, FS_Constants::FILENAME_MAX_LENGTH> file_name = {0};	//default nothing
-	size_t filename_size = 0;												//so we return just the valid portion of the filename
-	bool readonly = true;													//default read-only
+	App_String<FS_Constants::FILENAME_MAX_LENGTH> file_name;	//fix max filename size to our max length
+	bool readonly = true;										//default read-only
 
 	//8.3 name, default to 0
 	FName_8d3_t short_name = {0};

@@ -6,7 +6,15 @@
 #error Regenerate this file with the current version of nanopb generator.
 #endif
 
-PB_BIND(App_Messages_Command, App_Messages_Command, AUTO)
+PB_BIND(App_Debug, App_Debug, 2)
+
+
+PB_BIND(App_Node_State, App_Node_State, AUTO)
+
+
+PB_BIND(App_Communication, App_Communication, 2)
+
+
 
 
 

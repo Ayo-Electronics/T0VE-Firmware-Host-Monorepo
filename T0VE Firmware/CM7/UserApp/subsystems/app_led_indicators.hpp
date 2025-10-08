@@ -4,18 +4,29 @@
  *  Created on: Aug 21, 2025
  *      Author: govis
  *
+ *
+ *	To indicate:
+ *		- node connected/disconnected
+ *		- node pgood/not pgood
+ *		- node armed/disarmed
+ *		- node comms activity
+ *		- node arm error
+ *
  *  Intent behind this class is to flash the onboard LEDs to convey some meaningful message of system status
- *  Right now I'm thinking (in order of priority)
- *   - OFF --> RESET
- *   - BLUE --> not PGOOD
- *   - GREEN --> power good, analog on
- *   - MAGENTA --> comms activity
- *   - RED --> ARMed
+ *  Right now I'm thinking: (hand-wavey truth table):
+ *
+ *   - COLOR -		-CONNECTED-		-PGOOD-		-ARMED-		-COMMS-		-ARM ERROR-		-ON-	-PRIORITY-
+ *   - OFF			X				X			X			X			X				N		(6)
+ *   - BLUE			N				X			N			X			X				Y		(5)
+ *   - YELLOW		Y				X			N			X			X				Y		(4)
+ *   - GREEN		X				Y			N			X			X				Y		(3)
+ *   - RED			X				X			N			X			Y				Y		(2)
+ *   - WHITE		X				X			N			Y			X				Y		(1)
+ *   - MAGENTA		X				X			Y			X			X				Y		(0)
  *
  *  And mirror the following functionality to the activity LEDs
- *   - ACT 1 --> PGOOD
+ *   - ACT 1 --> PGOOD, motherboard
  *   - ACT 2 --> comms activity
- *
  */
 
 #pragma once
@@ -40,12 +51,13 @@ public:
 	void init();
 
 	//and finally some functions that link state variables
-	//need to know the following:
-	// --> armed status
-	// --> comms activity
-	// --> pgood status
 	LINK_FUNC(status_onboard_pgood);
+	LINK_FUNC(status_motherboard_pgood);
 	LINK_FUNC(status_hispeed_armed);
+	LINK_FUNC(status_hispeed_arm_flag_err_pwr);
+	LINK_FUNC(status_hispeed_arm_flag_err_sync_timeout);
+	LINK_FUNC(status_hispeed_arm_flag_err_ready);
+	LINK_FUNC(status_comms_connected);
 	LINK_FUNC_RC(status_comms_activity);
 
 private:
@@ -98,7 +110,12 @@ private:
 
 	//and some status variables according to which we'll flash LEDs
 	//pull these variables from other internal subsystems
-	SV_Subscription<bool> status_onboard_pgood;
-	SV_Subscription_RC<bool> status_comms_activity;
-	SV_Subscription<bool> status_hispeed_armed;
+	SV_Subscription<bool> 		status_onboard_pgood;		//pgood, onboard
+	SV_Subscription<bool>		status_motherboard_pgood;	//pgood, motherboard
+	SV_Subscription<bool> 		status_comms_connected;		//comms, connected
+	SV_Subscription_RC<bool> 	status_comms_activity;		//comms, activity
+	SV_Subscription<bool> 		status_hispeed_armed;		//armed
+	SV_Subscription<bool>		status_hispeed_arm_flag_err_ready;			//armed error (code 1)
+	SV_Subscription<bool>		status_hispeed_arm_flag_err_sync_timeout;	//armed error (code 2)
+	SV_Subscription<bool>		status_hispeed_arm_flag_err_pwr;			//armed error (code 3)
 };
