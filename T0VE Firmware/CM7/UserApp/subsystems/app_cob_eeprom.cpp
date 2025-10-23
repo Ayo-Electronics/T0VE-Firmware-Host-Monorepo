@@ -30,19 +30,33 @@ CoB_EEPROM::CoB_EEPROM(Aux_I2C& _bus):
 void CoB_EEPROM::init() {
 	//init just starts the esm in its thread function
 	//binding the `RUN_ESM` function directly for a little less overhead
-	check_state_update_task.schedule_interval_ms(	BIND_CALLBACK(&esm, Extended_State_Machine::RUN_ESM),
+	check_state_update_task.schedule_interval_ms(	BIND_CALLBACK(this, check_state_update),
 													Scheduler::INTERVAL_EVERY_ITERATION);
 }
 
 //========================== PRIVATE FUNCTIONS ==========================
+//main thread function task
+void CoB_EEPROM::check_state_update() {
+	//run the state machine
+	esm.RUN_ESM();
+
+	//and monitor the error flags to push errors upstream
+	if(write_error_listener_pubvar.check()) {
+		//signal that we had a write error using the flag
+		status_cob_eeprom_write_error.publish(true);
+	}
+}
+
 void CoB_EEPROM::enable() {
 	//initialize the eeprom
 	eeprom.init();
 
 	//and save information related to the EEPROM in state variables
-	status_device_present = eeprom.check_presence();
-	status_cob_eeprom_UID = eeprom.get_UID();
-	status_cob_eeprom_contents = eeprom.get_contents();
+	status_device_present.publish(eeprom.check_presence());
+	status_cob_eeprom_UID.publish(eeprom.get_UID());
+	App_String<EEPROM_24AA02UID::MEMORY_SIZE_BYTES> temp_contents(eeprom.get_contents());
+	status_cob_eeprom_contents.publish(temp_contents);
+
 
 	//and clear any stale desires to write to the EEPROM
 	command_cob_eeprom_write.acknowledge_reset();
@@ -60,29 +74,25 @@ void CoB_EEPROM::disable() {
 	command_cob_eeprom_write_contents.acknowledge_reset();
 
 	//and clear the status variables to default values
-	status_cob_eeprom_UID = 0;
-	status_cob_eeprom_contents = {0};
-	status_cob_eeprom_write_error = 0;
-	status_device_present = 0;
+	status_cob_eeprom_UID.publish(0);
+	status_cob_eeprom_contents.publish("");
+	status_cob_eeprom_write_error.publish(0);
+	status_device_present.publish(0);
 }
 
 //##### EEPROM WRITING FUNCTIONS ######
-void CoB_EEPROM::eeprom_write_error() {
-	//signal that we had a write error using the flag
-	status_cob_eeprom_write_error = true;
-
-	//and exit the writing state by clearing our writing flag
-	eeprom_writing = false;
-}
 
 void CoB_EEPROM::eeprom_write_start() {
-	//copy the state variable into the temporary and clear them
-	write_contents_temp = command_cob_eeprom_write_contents;
+	//convert the state variable string into an array
+	//and store into a temp
+	write_contents_temp = command_cob_eeprom_write_contents.read().array();
 
 	//and reset our array index to the start of the EEPROM
 	//and set the flag variable to indicate that we're writing
+	//and clear any pending errors
 	write_index = 0;
-	eeprom_writing = true;
+	eeprom_done_writing.write(false);
+	write_error_listener.refresh();
 
 	//and now we send the first page's worth of data
 	//the `do_write` function will reschedule itself appropriately
@@ -107,16 +117,16 @@ void CoB_EEPROM::eeprom_write_do() {
 
 	//start by checking if we're outta bounds
 	//return if we're outta bounds (or if writing stopped due to recent error)
-	if((write_index + PG_SIZE) > EEPROM_24AA02UID::MEMORY_SIZE_BYTES) eeprom_writing = false;
-	if(!eeprom_writing) return;
+	if((write_index + PG_SIZE) > EEPROM_24AA02UID::MEMORY_SIZE_BYTES) eeprom_done_writing.write(true);
+	if(eeprom_done_writing.read()) return;
 
 	//all good, section the write contents appropriately
 	//creating fixed sized span from c-array version of the data + necessary offsets
 	//a little funky syntax, but no cleaner way really
 	std::span<uint8_t, PG_SIZE> pg(write_contents_temp.data() + write_index, PG_SIZE);
 
-	//perform the write
-	auto scheduled = eeprom.write_page(write_index, pg, BIND_CALLBACK(this, eeprom_write_error));
+	//perform the write, assert the signal if there's an error
+	auto scheduled = eeprom.write_page(write_index, pg, &write_error);
 
 	//if the write was successfully staged, we can write the following page in a little bit
 	if(scheduled) {

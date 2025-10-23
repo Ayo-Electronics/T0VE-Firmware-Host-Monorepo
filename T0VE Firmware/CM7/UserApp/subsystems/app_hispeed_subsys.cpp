@@ -39,7 +39,7 @@ Hispeed_Subsystem::Hispeed_Subsystem(	Hispeed_Channel_Hardware_t ch0,
 	hispeed_state_ARM_FIRE.attach_state_transitions(hispeed_trans_FROM_ARM_FIRE);
 
 	//and link the power monitor power good subscription here
-	status_onboard_pgood = onboard_power_monitor.subscribe_debounced_power_status();
+	status_onboard_pgood = onboard_power_monitor.subscribe_status_debounced_power();
 
 	//and point block sequence to the start of DRAM
 	block_sequence = reinterpret_cast<Hispeed_Block_t*>(block_memory.start());
@@ -79,7 +79,7 @@ void Hispeed_Subsystem::init() {
 void Hispeed_Subsystem::activate() {
 	//reset the state variables
 	command_hispeed_SOA_DAC_drive.acknowledge_reset();
-	status_hispeed_TIA_ADC_readback = {0,0,0,0};
+	status_hispeed_TIA_ADC_readback.publish({0,0,0,0});
 	command_hispeed_SOA_enable.acknowledge_reset();
 	command_hispeed_TIA_enable.acknowledge_reset();
 	command_hispeed_arm_fire_request.acknowledge_reset();
@@ -111,7 +111,7 @@ void Hispeed_Subsystem::deactivate() {
 
 	//reset the state variables
 	command_hispeed_SOA_DAC_drive.acknowledge_reset();
-	status_hispeed_TIA_ADC_readback = {0,0,0,0};
+	status_hispeed_TIA_ADC_readback.publish({0,0,0,0});
 	command_hispeed_SOA_enable.acknowledge_reset();
 	command_hispeed_TIA_enable.acknowledge_reset();
 	command_hispeed_arm_fire_request.acknowledge_reset();
@@ -129,7 +129,7 @@ void Hispeed_Subsystem::check_state_update_run_esm() {
 	//regarding state updates, just need to manage loading an SDRAM test sequence
 	//rest of our state updates will be handled in `do_hispeed_pilot()`
 	//which is started/stopped depending on state
-	if(command_hispeed_sdram_load_test_sequence.available())
+	if(command_hispeed_sdram_load_test_sequence.check())
 		do_load_sdram_test_sequence();
 
 	//otherwise just run our extended state machine
@@ -147,21 +147,21 @@ void Hispeed_Subsystem::do_hispeed_pilot() {
 
 	//write the commanded dac values and read the adc values to all channels
 	//atomically copy the commanded DAC values to a temporary variable
-	std::array<uint16_t, 4> dac_vals = command_hispeed_SOA_DAC_drive;
+	std::array<uint16_t, 4> dac_vals = command_hispeed_SOA_DAC_drive.read();
 	std::array<uint16_t, 4> adc_vals;
 	for(size_t i = 0; i < 4; i++)
 		adc_vals[i] = CHANNELn[i]->device_pair.transfer(dac_vals[i]);
 
 	//then store the adc values into the state variable
-	status_hispeed_TIA_ADC_readback = adc_vals;
+	status_hispeed_TIA_ADC_readback.publish(adc_vals);
 
 	//if we have an update to TIA enable states
-	if(command_hispeed_TIA_enable.available())
+	if(command_hispeed_TIA_enable.check())
 		do_tia_gpio_control();
 
 	//if we have an update to SOA enable states
 	//very deliberately running at the end of the pilot task
-	if(command_hispeed_SOA_enable.available())
+	if(command_hispeed_SOA_enable.check())
 		//pass it the values we've actually written to our DAC
 		//in the improbable event that the commanded DAC values have been updated between now and then
 		do_soa_gpio_control(dac_vals);
@@ -169,7 +169,7 @@ void Hispeed_Subsystem::do_hispeed_pilot() {
 
 void Hispeed_Subsystem::do_tia_gpio_control() {
 	//read the state variable atomically
-	std::array<bool, 4> tia_en_states = command_hispeed_TIA_enable;
+	std::array<bool, 4> tia_en_states = command_hispeed_TIA_enable.read();
 
 	//and enable the TIA on the corresponding hardware channels if desired
 	//do this via this loop
@@ -186,7 +186,7 @@ void Hispeed_Subsystem::do_tia_gpio_control() {
 //makes sure that the DACs are *truly* disabled when assessing SOA enable safety
 void Hispeed_Subsystem::do_soa_gpio_control(std::array<uint16_t, 4> dac_drives) {
 	//read the state variable atomically
-	std::array<bool, 4> soa_en_states = command_hispeed_SOA_enable;
+	std::array<bool, 4> soa_en_states = command_hispeed_SOA_enable.read();
 
 	//enable the SOA on the corresponding hardware channels if safety check passes
 	//safety check being that the corresponding DAC drive is set to 0
@@ -217,10 +217,10 @@ void Hispeed_Subsystem::do_hispeed_arm_fire() {
 	//NOTE: ENTERING THIS FUNCTION ASSUMING TIA/SOA LINES ARE CONFIGURED AS THE USER WANTS!
 	//check if we actually wanna arm/fire the hispeed subsystem
 	//return now if we don't
-	if(!command_hispeed_arm_fire_request) return;
+	if(!command_hispeed_arm_fire_request.read()) return;
 
 	//signal that we're in the armed state
-	status_hispeed_armed = true;
+	status_hispeed_armed.publish(true);
 
 	//then deschedule our main thread update function and call a scheduler update
 	//lets us tell other subsystems that we're in the armed state
@@ -416,16 +416,16 @@ void Hispeed_Subsystem::do_hispeed_arm_fire() {
 
 	//set the appropriate flag state variable depending on the exit state
 	if(exit_status == Loop_Exit_Status_t::LOOP_EXIT_ERR_SYNC_TIMEOUT)
-		status_hispeed_arm_flag_err_sync_timeout = true;
+		status_hispeed_arm_flag_err_sync_timeout.publish(true);
 	else if(exit_status == Loop_Exit_Status_t::LOOP_EXIT_ERR_POWER)
-		status_hispeed_arm_flag_err_pwr = true;
+		status_hispeed_arm_flag_err_pwr.publish(true);
 	else if(exit_status == Loop_Exit_Status_t::LOOP_EXIT_ERR_READY)
-		status_hispeed_arm_flag_err_ready = true;
+		status_hispeed_arm_flag_err_ready.publish(true);
 	else
-		status_hispeed_arm_flag_complete = true;
+		status_hispeed_arm_flag_complete.publish(true);
 
 	//no longer in the armed state
-	status_hispeed_armed = false;
+	status_hispeed_armed.publish(false);
 
 	//and finally, acknowledge the arm/fire request
 	//and reschedule our main thread update function
@@ -440,7 +440,7 @@ void Hispeed_Subsystem::do_hispeed_arm_fire() {
 void Hispeed_Subsystem::do_load_sdram_test_sequence() {
 	//check if we actually want to load an SDRAM test sequence
 	//return if we don't want to
-	if(!command_hispeed_sdram_load_test_sequence) return;
+	if(!command_hispeed_sdram_load_test_sequence.read()) return;
 
 	//compute how many blocks we can build given the DRAM size
 	//remember--the last block in our sequence needs to be a "terminator" i.e. have an invalid destination

@@ -13,9 +13,6 @@
  */
 MCP4728::MCP4728(Aux_I2C& _bus, const MCP4728_Addr_t addr, const MCP4728_Vref_t vref, const MCP4728_Gain_t gain, const MCP4728_LDAC_t ldac):
 	bus(_bus),
-	write_error_cb(),									/* User callback function hooks (default initialization) */
-	read_error_cb(),
-	read_complete_cb(),
 	ADDRESS_MCP4728(addr),							/* Register constants */
 	VREF_MASK(vref),
 	UDAC_MASK(ldac),
@@ -60,12 +57,12 @@ bool MCP4728::check_presence() {
  * 'write_channels()'
  * - per
  * - returns `true` if the I2C bus was free, `false` if it wasn't
- * - will call the `write_error_callback` if there was any issue with the transmission (or other faults/errors here)
+ * - will assert the `_write_error_signal` if there was any issue with the transmission (or other faults/errors here)
  */
-bool MCP4728::write_channels(std::array<uint16_t, 4> values, Callback_Function<> _write_error_cb) {
+bool MCP4728::write_channels(std::array<uint16_t, 4> values, Thread_Signal* _write_error_signal) {
 	//if the device isn't present on the I2C bus
 	if(!device_present) {
-		_write_error_cb(); //report an error
+		if(_write_error_signal) _write_error_signal->signal(); //signal an error
 		return true; //don't try to reschedule
 	}
 
@@ -87,18 +84,16 @@ bool MCP4728::write_channels(std::array<uint16_t, 4> values, Callback_Function<>
 		mwr_dac_vals[i] = clip(values[i], (uint16_t)0, CONVERTER_RESOLUTION); //set the DAC value to the appropriate value, clipping it for known behavior
 	}
 
-	//save our error callback right before we fire off this transmission
-	write_error_cb = _write_error_cb;
-
 	//configure and fire the transmission
 	//will release the bus in the tx_complete callback
-	auto result = bus.write(ADDRESS_MCP4728, section(tx_buffer, 0, MULTI_WRITE_COMMAND_LENGTH), BIND_CALLBACK(this, tx_complete));
+	auto result = bus.write(ADDRESS_MCP4728, section(tx_buffer, 0, MULTI_WRITE_COMMAND_LENGTH),
+							nullptr, _write_error_signal); //assume success, signal if failure
 
 	//and act appropriately depending on if the transmission went through
 	if(result == Aux_I2C::I2C_STATUS::I2C_OK_READY) return true; //everything A-ok, transfer scheduled
 	else if(result == Aux_I2C::I2C_STATUS::I2C_BUSY) return false; //peripheral was busy, transfer not scheduled
 	else { //there was some kinda bus error
-		write_error_cb(); 	//call the error callback
+		if(_write_error_signal) _write_error_signal->signal(); //signal an error
 		return true;		//don't try to reschedule
 	}
 }
@@ -109,10 +104,10 @@ bool MCP4728::write_channels(std::array<uint16_t, 4> values, Callback_Function<>
  * - returns `true` if the I2C bus was free, `false` if it wasn't
  * - will call the `write_error_callback` if there was any issue with the transmission
  */
-bool MCP4728::write_channels_eeprom(std::array<uint16_t, 4> values, Callback_Function<> _write_error_cb) {
+bool MCP4728::write_channels_eeprom(std::array<uint16_t, 4> values, Thread_Signal* _write_error_signal) {
 	//if the device isn't present on the I2C bus
 	if(!device_present) {
-		_write_error_cb(); //report an error
+		if(_write_error_signal) _write_error_signal->signal(); //signal an error
 		return true; //don't try to reschedule
 	}
 	
@@ -132,18 +127,16 @@ bool MCP4728::write_channels_eeprom(std::array<uint16_t, 4> values, Callback_Fun
 		seqwr_dac_vals[i] = clip(values[i], (uint16_t)0, CONVERTER_RESOLUTION); //write the DAC value to the appropriate value, clipping it for known behavior
 	}
 
-	//save our error callback right before we fire off this transmission
-	write_error_cb = _write_error_cb;
-
 	//configure and fire the transmission
 	//will release the bus in the tx_complete callback
-	auto result = bus.write(ADDRESS_MCP4728, section(tx_buffer, 0, SEQUENTIAL_WRITE_COMMAND_LENGTH), BIND_CALLBACK(this, tx_complete));
+	auto result = bus.write(ADDRESS_MCP4728, section(tx_buffer, 0, SEQUENTIAL_WRITE_COMMAND_LENGTH),
+							nullptr, _write_error_signal); //assume success, signal if error
 
 	//and act appropriately depending on if the transmission went through
 	if(result == Aux_I2C::I2C_STATUS::I2C_OK_READY) return true; //everything A-ok, transfer scheduled
 	else if(result == Aux_I2C::I2C_STATUS::I2C_BUSY) return false; //peripheral was busy, transfer not scheduled
 	else { //there was some kinda bus error
-		write_error_cb(); 	//call the error callback
+		if(_write_error_signal) _write_error_signal->signal(); //signal an error
 		return true;		//don't try to reschedule
 	}
 }
@@ -154,27 +147,23 @@ bool MCP4728::write_channels_eeprom(std::array<uint16_t, 4> values, Callback_Fun
  * - returns `true` if the transmission was performed, `false` if it wasn't
  * - will call the `read_error_callback` if there was any issue with the transmission
  */
-bool MCP4728::start_read_update_status(Callback_Function<> _read_complete_cb, Callback_Function<> _read_error_cb) {
+bool MCP4728::start_read_update_status(Thread_Signal* _read_complete_signal, Thread_Signal* _read_error_signal) {
 
 	//if the device isn't present on the I2C bus
 	if(!device_present) {
-		_read_error_cb(); //report an error
+		if(_read_error_signal) _read_error_signal->signal(); //signal an error
 		return true; //don't try to reschedule
 	}
 
-	//save our error and completion callbacks right before we fire off this transmission
-	read_error_cb = _read_error_cb;
-	read_complete_cb = _read_complete_cb;
-
 	//configure and fire the transmission
-	//will read the bytes/release the bus in the rx_complete callback
-	auto result = bus.read(ADDRESS_MCP4728, READ_COMMAND_LENGTH, BIND_CALLBACK(this, rx_complete));
+	auto result = bus.read(	ADDRESS_MCP4728, status_bytes,
+							_read_complete_signal, _read_error_signal);
 
 	//and act appropriately depending on if the transmission went through
 	if(result == Aux_I2C::I2C_STATUS::I2C_OK_READY) return true; //everything A-ok, transfer scheduled
 	else if(result == Aux_I2C::I2C_STATUS::I2C_BUSY) return false; //peripheral was busy, transfer not scheduled
 	else { //there was some kinda bus error
-		read_error_cb(); 	//call the error callback
+		if(_read_error_signal) _read_error_signal->signal(); //signal an error
 		return true;		//don't try to reschedule
 	}
 }
@@ -186,7 +175,7 @@ bool MCP4728::start_read_update_status(Callback_Function<> _read_complete_cb, Ca
 MCP4728::MCP4728_Status_t MCP4728::read_update_status() {
 	MCP4728_Status_t device_status; //create a temporary
 
-	//atomically copy over our status bytes
+	//copy over our status bytes
 	device_status.status_bytes = status_bytes;
 
 	//and finish decoding the status bytes to useful DAC vals
@@ -202,30 +191,4 @@ MCP4728::MCP4728_Status_t MCP4728::read_update_status() {
 
 	//return our decoded status structure
 	return device_status;
-}
-
-//================================= PRIVATE FUNCTION DEFINITIONS ===============================
-
-void MCP4728::tx_complete() {
-	//if we had a bus error, quickly run the provided transmit error handler
-	if(bus.was_bus_success() == Aux_I2C::I2C_STATUS::I2C_ERROR)
-		write_error_cb();
-}
-
-void MCP4728::rx_complete() {
-	//if we had a bus error, quickly run the provided receive error handler
-	if(bus.was_bus_success() == Aux_I2C::I2C_STATUS::I2C_ERROR)
-		read_error_cb();
-	else {
-		//atomically copy over just the receive buffer
-		Aux_I2C::I2C_STATUS st;
-		status_bytes.with([&](std::array<uint8_t, READ_COMMAND_LENGTH>& _status_bytes) {
-			st = bus.retrieve(_status_bytes);
-		});
-
-		//call the error callback if there was some issue with retrieving the bytes
-		//otherwise call the user completion callback
-		if(st != Aux_I2C::I2C_STATUS::I2C_OK_READY) read_error_cb();
-		else read_complete_cb();
-	}
 }

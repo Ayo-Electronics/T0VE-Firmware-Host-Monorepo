@@ -17,7 +17,7 @@ MSC_Interface::MSC_Interface_Channel_t MSC_Interface::MSC_CHANNEL = {
 //================= PUBLIC FUNCTIONS =============
 
 MSC_Interface::MSC_Interface(USB_Interface& _usb_if, MSC_Interface_Channel_t& channel):
-		usb_if(_usb_if), msc_channel(channel), data_sector(msc_files)
+		usb_if(_usb_if), msc_channel(channel)
 {
 	//register our channel with this particular instance
 	msc_channel.msc_if = this;
@@ -67,57 +67,37 @@ void MSC_Interface::attach_file(MSC_File& _file) {
 	//won't do anything if we aren't managing that file yet
 	detach_file(_file);
 
-	//then attach the file in the first free spot
-	//this is at the first invalid file
-	for(size_t i = 0; i < msc_files.size(); i++) {
-		if(!msc_files[i].is_valid()) {
-			//update the files
-			msc_files[i] = _file;
-
-			//since we changed our files, regenerate
-			regenerate();
-
-			//and return early
-			return;
-		}
-	}
+	//then just push the file to the back of the container
+	msc_files.push_back(_file);
 }
 
 void MSC_Interface::detach_file(MSC_File& _file) {
-    //go through our files, see if anything matches
-	//if it does, replace it with a trivial file
+	//go through all of our files and check if the file matches
 	for(size_t i = 0; i < msc_files.size(); i++) {
-		//check if the particular files match
-		//comparison is handled by overloaded equality operator
-		//if they match, reset the file to an invalid one (default construct) and return
+
+		//if we find a file that matches,
+		//remove it and regenerate all our tables
 		if(_file == msc_files[i]) {
-			//reset the file
-			msc_files[i] = MSC_File();
-
-			//since we changed our files, regenerate
+			msc_files.erase(i);
 			regenerate();
-
-			//and return early
 			return;
 		}
 	}
-
-	//since we changed our files, regenerate
-	regenerate();
 }
+
 
 //================= PRIVATE FUNCTIONS =============
 //########### FS REGENERATION AFTER CHANGES ############
 void MSC_Interface::regenerate() {
 	//have to update our FAT tabel first for the file clusters
-	auto file_clusters = fat_table.mk(msc_files);
+	auto file_clusters = fat_table.mk(msc_files.span());
 
 	//then boot sector, then root sector
-	boot_sector.mk(vol_name.array()); //default UID for now,
-	root_sector.mk(vol_name.array(), msc_files, file_clusters);
+	boot_sector.mk(vol_name); //default UID for now,
+	root_sector.mk(vol_name, msc_files.span(), file_clusters);
 
 	//update the data sector dispatcher with latest file cluster indices
-	data_sector.mk(file_clusters);
+	data_sector.mk(msc_files.span(), file_clusters);
 }
 
 //############ TINYUSB HANDLERS ###########

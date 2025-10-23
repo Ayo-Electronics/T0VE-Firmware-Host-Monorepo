@@ -18,7 +18,21 @@ public:
 	constexpr App_String() : string_data{}, actual_length(0)
 	{
 		//just fill with padding
-		for (auto& c : string_data) c = PADDING;
+		string_data.fill(PADDING);
+	}
+
+	//constructor from `std::array`
+	template<size_t N>
+	constexpr App_String(const std::array<uint8_t, N>& arr)
+	    : string_data{}, actual_length(N)
+	{
+	    //sanity check that string sizes match
+	    static_assert(N <= STRING_SIZE, "array initializer too large for string wrapper");
+
+	    // Fill with padding
+	    //and drop the rest of the characters to the beginning of the array
+	    string_data.fill(PADDING);
+	    for (size_t i = 0; i < N; i++) string_data[i] = arr[i];
 	}
 
 	//initialize with a char array
@@ -30,18 +44,17 @@ public:
 
 		//pad all characters with padding
 		//and drop the rest of the characters to the beginning of the array
-		for (auto& c : string_data) c = PADDING;
-		for (size_t i = 0; i < N - 1; ++i) string_data[i] = init[i];
+		string_data.fill(PADDING);
+		for (size_t i = 0; i < N - 1; i++) string_data[i] = init[i];
 	}
 
 	// Constructor from std::string
 	constexpr App_String(const std::string& init) : string_data{}, actual_length(min(init.size(), STRING_SIZE))
 	{
 		// pad all characters with padding
-		for (auto& c : string_data) c = PADDING;
-		// copy as much as fits
-		for (size_t i = 0; i < actual_length; ++i)
-			string_data[i] = init[i];
+		//and copy as much fits
+		string_data.fill(PADDING);
+		for (size_t i = 0; i < actual_length; i++) string_data[i] = init[i];
 	}
 
 	//copy constructor
@@ -51,10 +64,12 @@ public:
 		: string_data{}, actual_length(std::min(STRING_SIZE, other.actual_length))
 	{
 		//now pad our string and fill with the other string's data
-		for (auto& c : string_data) c = PADDING;
-		for (size_t i = 0; i < actual_length; ++i)
+		string_data.fill(PADDING);
+		for (size_t i = 0; i < actual_length; i++)
 			string_data[i] = other.string_data[i];
 	}
+
+	//============================= ASSIGNMENT OPERATORS ===============================
 
 	//assignment operator is basically the copy constructor
 	template<size_t OTHER_SIZE, uint8_t OTHER_PADDING>
@@ -77,7 +92,7 @@ public:
 		string_data.fill(PADDING);
 		// copy as much as fits
 		size_t copy_length = std::min(init.size(), STRING_SIZE);
-		for (size_t i = 0; i < copy_length; ++i)
+		for (size_t i = 0; i < copy_length; i++)
 			string_data[i] = init[i];
 		actual_length = copy_length;
 	}
@@ -96,6 +111,19 @@ public:
 		actual_length = N-1;
 	}
 
+	//assignment operator from `std::array` is basically the constructor
+	template<size_t N>
+	void operator=(const std::array<uint8_t, N>& arr) {
+	    //sanity check input size
+		static_assert(N <= STRING_SIZE, "array initializer too large for string wrapper");
+
+	    // Reset and fill
+	    string_data.fill(PADDING);
+	    for (size_t i = 0; i < N; i++) string_data[i] = arr[i];
+
+	    //and save our actual length
+	    actual_length = N;
+	}
 
 	//====================== UTILITY CONVERSIONS =======================
 	//short function handles to cast into friendly utility types
@@ -110,6 +138,16 @@ public:
 	//array conversion - right now, only support conversions that match the container size
 	explicit operator std::array<uint8_t, STRING_SIZE>() const {
 		return this->array();
+	}
+
+	//======================= EQUALITY COMPARISON OPERATOR ======================
+	template<size_t OTHER_SIZE, uint8_t OTHER_PADDING>
+	constexpr bool operator==(const App_String<OTHER_SIZE, OTHER_PADDING>& other) const {
+	    //check to see if the lengths match
+		if (actual_length != other.size()) return false;
+
+		//then just compare the underlying memory to see if its equal
+	    return memcmp(string_data.data(), other.string_data.data(), actual_length) == 0;
 	}
 
 	//======================= ACCESSORS =========================

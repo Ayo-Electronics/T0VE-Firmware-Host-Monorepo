@@ -74,16 +74,12 @@ float TMP117::read_temperature() {
 	return (float)signed_temp_device_units * TEMP_PER_BITS;
 }
 
-bool TMP117::start_read_temperature(Callback_Function<> _read_complete_cb, Callback_Function<> _read_error_cb) {
+bool TMP117::start_read_temperature(Thread_Signal* _read_complete_signal, Thread_Signal* _read_error_signal) {
 	//if the device isn't present on the I2C bus
 	if(!device_present) {
-		_read_error_cb(); //report an error
+		if(_read_error_signal) _read_error_signal->signal(); //signal an error
 		return true; //don't try to reschedule
 	}
-
-	//save our error and completion callbacks right before we fire off this transmission
-	read_error_cb = _read_error_cb;
-	read_complete_cb = _read_complete_cb;
 
 	//then clear the TX buffer, and set the first byte to the temperature register
 	tx_buffer = {0};
@@ -92,48 +88,19 @@ bool TMP117::start_read_temperature(Callback_Function<> _read_complete_cb, Callb
 	//configure and fire the transmission
 	//will read the bytes/release the bus in the rx_complete callback
 	auto result = bus.write_read(	config.dev_addr,
-									section(tx_buffer, 0, 1),
-									2,
-									BIND_CALLBACK(this, service_read_temperature));
+									section(tx_buffer, 0, 1), temp_bytes,
+									_read_complete_signal, _read_error_signal);
 
 	//and act appropriately depending on if the transmission went through
 	if(result == Aux_I2C::I2C_STATUS::I2C_OK_READY) return true; //everything A-ok, transfer scheduled
 	else if(result == Aux_I2C::I2C_STATUS::I2C_BUSY) return false; //peripheral was busy, transfer not scheduled
 	else { //there was some kinda bus error
-		read_error_cb(); 	//call the error callback
+		if(_read_error_signal) _read_error_signal->signal(); //signal an error
 		return true;		//don't try to reschedule
 	}
 }
 
 //============================== PRIVATE FUNCTIONS USED FOR BEHIND-THE-SCENES I2C TRANSMISSION ==============================
-
-//############ TEMPERATURE ############
-void TMP117::service_read_temperature() {
-	//if we had a bus error, quickly run the provided receive error handler
-	if(bus.was_bus_success() == Aux_I2C::I2C_STATUS::I2C_ERROR)
-		read_error_cb();
-	else {
-		//atomically copy over just the receive buffer
-		Aux_I2C::I2C_STATUS st;
-		temp_bytes.with([&](std::array<uint8_t, 2>& _temp_bytes) {
-			st = bus.retrieve(_temp_bytes);
-		});
-
-		//call the error callback if there was some issue with retrieving the bytes
-		//otherwise call the user completion callback
-		if(st != Aux_I2C::I2C_STATUS::I2C_OK_READY) read_error_cb();
-		else read_complete_cb();
-	}
-}
-
-//############ SOFT RESET ###########
-void TMP117::reset_complete() {
-	//check if the reset command was dispatched without issue
-	transfer_success = bus.was_bus_success() == Aux_I2C::I2C_STATUS::I2C_OK_READY;
-
-	//signal that we finished the transfer
-	transfer_complete_flag.signal();
-}
 
 //blocking call that holds onto the I2C bus until transfer completes and we have a soft-reset
 void TMP117::soft_reset() {
@@ -146,12 +113,13 @@ void TMP117::soft_reset() {
 	tx_buffer[0] = CONFIG_REG_ADDRESS;
 	do_soft_reset = 1;
 
-	//clear our signal flag, and run the transfer on the I2C BUS
-	//tx_buffer is exactly 3 bytes, don't need to section it
-	transfer_complete_flag.clear();
+	//set up some listeners for our signals, and run the I2C transfer until it succeeds
+	auto listen_complete = internal_transfer_complete.listen();
+	auto listen_error = internal_transfer_error.listen();
 	Aux_I2C::I2C_STATUS status;
 	do {
-		status = bus.write(config.dev_addr, tx_buffer, BIND_CALLBACK(this, reset_complete));
+		status = bus.write(	config.dev_addr, tx_buffer,
+							&internal_transfer_complete, &internal_transfer_error);
 	} while(status == Aux_I2C::I2C_STATUS::I2C_BUSY); //stall until the transmission completes
 
 	//and check if the transmission went through
@@ -160,17 +128,23 @@ void TMP117::soft_reset() {
 		return;
 	}
 
-	//if it did, spin on our thread signal, waiting for the transfer to complete
-	//timeout after a certain amount of time
-	if(!transfer_complete_flag.wait(true, 5000)) {
-		device_present = false;
-		return;
-	}
+	//wait for the transmission to complete, error, or timeout
+	auto start_millis = Tick::get_ms();
+	while(true) {
+		//we time out
+		if((Tick::get_ms() - start_millis) > 1000) {
+			device_present = false;
+			return;
+		}
 
-	//and check if the transmission completed successfully
-	if(!transfer_success) {
-		device_present = false;
-		return;
+		//we receive an error
+		if(listen_error.check()) {
+			device_present = false;
+			return;
+		}
+
+		//our read is actually complete, do the final step
+		if(listen_complete.check()) break;
 	}
 
 	//finally wait 2ms for the reset to actually complete
@@ -178,14 +152,6 @@ void TMP117::soft_reset() {
 }
 
 //############ LOAD CONFIGURATION ###########
-
-void TMP117::load_configuration_complete() {
-	//check if the configuration register write was performed successfully
-	transfer_success = bus.was_bus_success() == Aux_I2C::I2C_STATUS::I2C_OK_READY;
-
-	//signal that we finished the transfer
-	transfer_complete_flag.signal();
-}
 
 void TMP117::load_configuration() {
 	//if we don't have a device on the bus, just return
@@ -203,12 +169,13 @@ void TMP117::load_configuration() {
 	alert_polarity = config.alert_polarity_config;
 	dr_alert_mode = config.alert_source_config;
 
-	//clear our signal flag, and run the transfer on the I2C BUS
-	//tx_buffer is exactly 3 bytes, don't need to section it
-	transfer_complete_flag.clear();
+	//set up some listeners for our signals, and run the I2C transfer until it succeeds
+	auto listen_complete = internal_transfer_complete.listen();
+	auto listen_error = internal_transfer_error.listen();
 	Aux_I2C::I2C_STATUS status;
 	do {
-		status = bus.write(config.dev_addr, tx_buffer, BIND_CALLBACK(this, load_configuration_complete));
+		status = bus.write(	config.dev_addr, tx_buffer,
+							&internal_transfer_complete, &internal_transfer_error);
 	} while(status == Aux_I2C::I2C_STATUS::I2C_BUSY); //stall until the transmission completes
 
 	//and check if the transmission went through
@@ -217,41 +184,27 @@ void TMP117::load_configuration() {
 		return;
 	}
 
-	//if it did, spin on our thread signal, waiting for the transfer to complete
-	//timeout after a certain amount of time
-	if(!transfer_complete_flag.wait(true, 5000)) {
-		device_present = false;
-		return;
-	}
+	//wait for the transmission to complete, error, or timeout
+	auto start_millis = Tick::get_ms();
+	while(true) {
+		//we time out
+		if((Tick::get_ms() - start_millis) > 1000) {
+			device_present = false;
+			return;
+		}
 
-	//and check if the transmission completed successfully
-	if(!transfer_success) {
-		device_present = false;
-		return;
+		//we receive an error
+		if(listen_error.check()) {
+			device_present = false;
+			return;
+		}
+
+		//our read is actually complete, just return successfully
+		if(listen_complete.check()) return;
 	}
 }
 
 //############ DEVICE ID ###########
-void TMP117::service_device_ID() {
-	//check that the entire transmission went off without a hitch
-	transfer_success = bus.was_bus_success() == Aux_I2C::I2C_STATUS::I2C_OK_READY;
-
-	//if it did, then read the receive buffer into the device ID
-	if(transfer_success) {
-		//atomically copy over just the receive buffer
-		Aux_I2C::I2C_STATUS st;
-		device_id_bytes.with([&](std::array<uint8_t, 2>& _device_id_bytes) {
-			st = bus.retrieve(_device_id_bytes);
-		});
-
-		//clear the transfer success flag if the decode wasn't successful for whatever reason
-		if(st != Aux_I2C::I2C_STATUS::I2C_OK_READY) transfer_success = false;
-	}
-
-	//signal that the transmission is done
-	transfer_complete_flag.signal();
-}
-
 void TMP117::request_device_ID() {
 	//if we don't have a device on the bus, just return
 	if(!device_present) return;
@@ -260,14 +213,14 @@ void TMP117::request_device_ID() {
 	tx_buffer = {0};
 	tx_buffer[0] = DEVICE_ID_REG_ADDRESS;
 
-	//clear our signal flag, and run the transfer on the I2C BUS
-	transfer_complete_flag.clear();
+	//set up some listeners for our signals, and run the I2C transfer until it succeeds
+	auto listen_complete = internal_transfer_complete.listen();
+	auto listen_error = internal_transfer_error.listen();
 	Aux_I2C::I2C_STATUS status;
 	do {
 		status = bus.write_read(config.dev_addr,
-								section(tx_buffer, 0, 1),
-								2,
-								BIND_CALLBACK(this, service_device_ID));
+								section(tx_buffer, 0, 1), device_id_bytes,
+								&internal_transfer_complete, &internal_transfer_error);
 	} while(status == Aux_I2C::I2C_STATUS::I2C_BUSY); //stall until the transmission completes
 
 	//and check if the transmission went through
@@ -276,16 +229,22 @@ void TMP117::request_device_ID() {
 		return;
 	}
 
-	//if it did, spin on our thread signal, waiting for the transfer to complete
-	//timeout after a certain amount of time
-	if(!transfer_complete_flag.wait(true, 5000)) {
-		device_present = false;
-		return;
-	}
+	//wait for the transmission to complete, error, or timeout
+	auto start_millis = Tick::get_ms();
+	while(true) {
+		//we time out
+		if((Tick::get_ms() - start_millis) > 1000) {
+			device_present = false;
+			return;
+		}
 
-	//and check if the transmission completed successfully
-	if(!transfer_success) {
-		device_present = false;
-		return;
+		//we receive an error
+		if(listen_error.check()) {
+			device_present = false;
+			return;
+		}
+
+		//our read is actually complete, just return successfully
+		if(listen_complete.check()) return;
 	}
 }

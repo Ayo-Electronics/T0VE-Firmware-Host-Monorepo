@@ -48,6 +48,7 @@ void Multicard_Info::init() {
 	aux_pd_sel.init();
 	node_ready.init();
 	all_ready.init();
+	Tick::delay_ms(10); //let GPIOs settle before reading NODE ID
 
 	//defer initialization of the timers into `configure_sync_timer` function
 	//	syncout_timer.init();
@@ -57,7 +58,12 @@ void Multicard_Info::init() {
 	node_not_ready();
 
     //read the GPIO pins to determine the node ID
-    status_node_id = (nid_0.read() << 0) | (nid_1.read() << 1) | (nid_2.read() << 2) | (nid_3.read() << 3);
+	uint8_t node_id = 0;
+	node_id |= nid_0.read() ? 1 : 0;
+	node_id |= nid_1.read() ? 2 : 0;
+	node_id |= nid_2.read() ? 4 : 0;
+	node_id |= nid_3.read() ? 8 : 0;
+    status_node_id.publish(node_id);
 
     //set up the pic/aux photodiode source selection to what we'd like by default
     do_sel_pic_aux_pd();
@@ -96,7 +102,7 @@ void Multicard_Info::disable_sync_timer() {
 //================================= PRIVATE FUNCTION DEFS ================================
 
 void Multicard_Info::check_cards_present() {
-    status_all_cards_present = !pres_intlk.read(); //inverted polarity; hard-coding for now
+    status_all_cards_present.publish(!pres_intlk.read()); //inverted polarity; hard-coding for now
 }
 
 void Multicard_Info::enable_pic_pd_sel() {
@@ -109,7 +115,7 @@ void Multicard_Info::enable_aux_pd_sel() {
 
 void Multicard_Info::do_sel_pic_aux_pd() {
 	//IF we want to enable our input source to be from the auxiliary photodiodes
-	if(command_sel_input_aux_npic) {
+	if(command_sel_input_aux_npic.read()) {
 		pic_pd_sel.clear(); //immediately disable the PIC photodiode source
 		//and changeover to the AUX photodiode source after the changeover period
 		connect_pd_source.schedule_oneshot_ms(BIND_CALLBACK(this, enable_aux_pd_sel), PD_CHANGEOVER_PERIOD_MS);
@@ -125,7 +131,7 @@ void Multicard_Info::do_sel_pic_aux_pd() {
 
 void Multicard_Info::check_state_update() {
 	//check if we've received a new command for the input port selection
-	if(command_sel_input_aux_npic.available())
+	if(command_sel_input_aux_npic.check())
 		//defer command actualization to another function
 		do_sel_pic_aux_pd();
 

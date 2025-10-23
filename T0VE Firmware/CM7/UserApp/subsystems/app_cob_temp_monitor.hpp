@@ -9,7 +9,7 @@
 
 #include "app_hal_i2c.hpp" //for the I2C bus to pass to the TMP117 class
 #include "app_scheduler.hpp" //for the scheduler task
-#include "app_state_variable.hpp" //for shared states
+#include "app_threading.hpp" //for shared states
 #include "app_state_machine_library.hpp" //for enable/disabled state machine
 
 #include "app_tmp117.hpp"
@@ -44,18 +44,19 @@ private:
     Scheduler check_state_update_task;
     void check_state_update();
 
-    //scheduler calls this function periodically to get new temperature sensor data
-    Scheduler stage_temp_sensor_read_task;
-    void stage_temp_sensor_read();
+    //and a couple thread signals for when we want to kickoff reads and have some read errors
+    PERSISTENT((Thread_Signal), read_error);
+    Thread_Signal_Listener read_error_listener = read_error.listen();
+    PERSISTENT((Thread_Signal), read_complete);
+    Thread_Signal_Listener read_complete_listener = read_complete.listen();
+    PERSISTENT((Thread_Signal), read_do);
+    Thread_Signal_Listener read_do_listener = read_do.listen();
+
+    //reading-related functions
+    void stage_temp_sensor_read();							//kicks off the read
+    void service_temp_sensor_read();						//pulls + publishes data
+    Scheduler stage_temp_sensor_read_task;					//signals at the specified period
     static const uint32_t TEMP_SENSOR_READ_PERIOD_MS = 125; //matching sample rate of temperature sensor; timing discrepancy not a huge deal
-
-    //call this function if theres an error reading the temperature
-    void temp_read_error();
-
-    //run this function when we have new temp sensor data
-    //atomic thread signal defers sensor reading from ISR context to main thread context
-    Thread_Signal service_temp_sensor_read_SIGNAL = {};
-    void service_temp_sensor_read();
 
     //own a temperature sensor
     TMP117 temp_sensor;
@@ -68,11 +69,11 @@ private:
 																		.alert_source_config = TMP117::TMP117_ALERT_DRDY,			};
 
     //shared state variables
-    State_Variable<bool> status_device_present; //report whether we detected the device during initialization
-    State_Variable<bool> status_temp_sensor_error; //asserted when any kinda temperature sensor error happens
-    State_Variable<uint16_t> status_temp_sensor_device_id; //report the device ID of the detected temperature sensing
-    State_Variable<float> status_cob_temperature_c; //actual temperature reported by the sensor in deg C
-    SV_Subscription<bool> status_onboard_pgood; //whether motherboard CoB supplies are up--using onboard supplies as proxy
+    PERSISTENT((Pub_Var<bool>), status_device_present); //report whether we detected the device during initialization
+    PERSISTENT((Pub_Var<bool>), status_temp_sensor_error); //asserted when any kinda temperature sensor error happens
+    PERSISTENT((Pub_Var<uint16_t>), status_temp_sensor_device_id); //report the device ID of the detected temperature sensing
+    PERSISTENT((Pub_Var<float>), status_cob_temperature_c); //actual temperature reported by the sensor in deg C
+    Sub_Var<bool> status_onboard_pgood; //whether motherboard CoB supplies are up--using onboard supplies as proxy
     //This can technically result in a failure mode where the 3.3V rail fails, but power is still reported as good
     //locks up the I2C bus and potentially back-powers devices (Not really worrying about this failure mode since non-catastrophic and not common)
     //However if we really cared TODO: Fix hardware such that either
@@ -83,8 +84,8 @@ private:
     //and a really basic state machine to cycle between enabled/disabled depending on PGOOD status
 	ESM_State temp_state_ENABLED;
 	ESM_State temp_state_DISABLED;
-	bool trans_ENABLE_to_DISABLE() { return !status_onboard_pgood; }	//check our subscription variable to see if power is bad
-	bool trans_DISABLE_to_ENABLE() { return status_onboard_pgood; }	//check our subscription variable to see if power is good
+	bool trans_ENABLE_to_DISABLE() { return !status_onboard_pgood.read(); }	//check our subscription variable to see if power is bad
+	bool trans_DISABLE_to_ENABLE() { return status_onboard_pgood.read(); }	//check our subscription variable to see if power is good
 	ESM_Transition trans_from_ENABLED[1] = {	{&temp_state_DISABLED, {BIND_CALLBACK(this, trans_ENABLE_to_DISABLE)}		}	};
 	ESM_Transition trans_from_DISABLED[1] = {	{&temp_state_ENABLED, {BIND_CALLBACK(this, trans_DISABLE_to_ENABLE)}		}	};
 	Extended_State_Machine esm;

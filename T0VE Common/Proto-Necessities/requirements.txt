@@ -1,4 +1,4 @@
-betterproto[compiler]>=1.2.5
+betterproto[compiler]>=2.0.0
 grpclib>=0.4
 grpcio-tools>=1.56
 nanopb>=0.4

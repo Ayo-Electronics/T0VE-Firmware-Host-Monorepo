@@ -7,7 +7,7 @@
 
 #include "app_msc_fat_table.hpp"
 
-FAT16_Table::File_Indices_t FAT16_Table::mk(std::array<MSC_File, FAT16_Table::NUMF>& files) {
+FAT16_Table::File_Indices_t FAT16_Table::mk(std::span<MSC_File> files) {
 	//some helper index variables
 	//first valid cluster we can place a file is at cluster 2;
 	//use uint16_t due to FAT16
@@ -15,28 +15,19 @@ FAT16_Table::File_Indices_t FAT16_Table::mk(std::array<MSC_File, FAT16_Table::NU
 
 	//now go through all files
 	//like using the for loop with index counter because explicit indices
-	for(size_t i = 0; i < NUMF; i++) {
+    for(size_t i = 0; i < files.size(); i++) {
 		//grab the file
 		MSC_File& file = files[i];
 
-		//if the file is valid (i.e. is pointing to real data, rather than being trivially constructed)
-		if(file.is_valid()) {
-			//compute the file size in clusters, round up
-			static const size_t BYTES_PER_CLUSTER = FS_Constants::BYTES_PER_SECTOR * FS_Constants::SECTORS_PER_CLUSTER;
-			size_t file_clusters = (file.get_file_size() + BYTES_PER_CLUSTER - 1) / BYTES_PER_CLUSTER;
+		//compute the file size in clusters, round up
+		static const size_t BYTES_PER_CLUSTER = FS_Constants::BYTES_PER_SECTOR * FS_Constants::SECTORS_PER_CLUSTER;
+		size_t file_clusters = (file.get_file_size() + BYTES_PER_CLUSTER - 1) / BYTES_PER_CLUSTER;
 
-			//place the file at our pointer, grow the pointer by the size of the file
-			//and indicate that the file ends right before our updated pointer position
-			file_start_indices[i] = file_placement_pointer;
-			file_placement_pointer += file_clusters;
-			file_end_indices[i] = file_placement_pointer - 1;
-		}
-
-		//if the file wasn't valid, put a bogus, out of range value in the corresponding index
-		else {
-			file_start_indices[i] = UINT16_MAX;
-			file_end_indices[i] = UINT16_MAX;
-		}
+		//place the file at our pointer, grow the pointer by the size of the file
+		//and indicate that the file ends right before our updated pointer position
+		file_start_indices.push_back(file_placement_pointer);
+		file_placement_pointer += file_clusters;
+		file_end_indices.push_back(file_placement_pointer - 1);
 	}
 
 	//we'll mark all clusters after those where our file lives as "invalid"
@@ -51,6 +42,7 @@ FAT16_Table::File_Indices_t FAT16_Table::mk(std::array<MSC_File, FAT16_Table::NU
 	return indices;
 }
 
+//TODO: make more efficient!
 bool FAT16_Table::read(size_t sector_offset, std::span<uint8_t, std::dynamic_extent> sec) {
 	//only allow reading the FAT table one sector at a time (or smaller intervals)
 	if(sec.size() > FS_Constants::BYTES_PER_SECTOR) return false;

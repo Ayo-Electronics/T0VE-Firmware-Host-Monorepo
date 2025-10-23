@@ -14,7 +14,7 @@
 #include "app_hal_gpio.hpp"
 
 #include "app_scheduler.hpp" //for a bit of break-before-make for photodiode changeover
-#include "app_state_variable.hpp"
+#include "app_threading.hpp"
 #include "app_hal_pwm.hpp"
 
 
@@ -91,11 +91,11 @@ private:
 	PWM syncin_timer;
 
 	//manage system state regarding node id and whether all cards are present
-	State_Variable<uint8_t> status_node_id;
-	State_Variable<bool> status_all_cards_present;
+	PERSISTENT((Pub_Var<uint8_t>), status_node_id);
+	PERSISTENT((Pub_Var<bool>), status_all_cards_present);
 
 	//and subscribe to a state notification about whether we want to use the PIC photodiodes or the aux photodiodes as inputs
-	SV_Subscription<bool> command_sel_input_aux_npic; //FALSE if we're pulling from the PIC, TRUE if from aux
+	Sub_Var<bool> command_sel_input_aux_npic; //FALSE if we're pulling from the PIC, TRUE if from aux
 
 	//a little scheduler for checking for state updates and break-before-make input source changeover
 	Scheduler check_state_update_task;

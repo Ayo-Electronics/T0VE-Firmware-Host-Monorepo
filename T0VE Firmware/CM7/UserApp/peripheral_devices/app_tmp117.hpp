@@ -15,42 +15,42 @@ public:
 	//============================== TYPEDEFS =============================
 
 	//I know this is kinda stupid, but makes explicit what our address options are
-	typedef enum {
+	enum TMP117_Addr_t {
 		TMP117_ADDR_0x48 = 0x48,
 		TMP117_ADDR_0x49 = 0x49,	//this is how the CoBs are wired
 		TMP117_ADDR_0x4A = 0x4A,
 		TMP117_ADDR_0x4B = 0x4B
-	} TMP117_Addr_t;
+	};
 
-	typedef enum {
+	enum TMP117_Sampling_t {
 		TMP117_MODE_CONTINUOUS = 0b00,
 		TMP117_MODE_ONESHOT = 0b11,
 		TMP117_MODE_SHUTDOWN = 0b01
-	} TMP117_Sampling_t;
+	};
 
-	typedef enum {
+	enum TMP117_Averaging_t {
 		TMP117_AVERAGING_NONE = 0b00,
 		TMP117_AVERAGING_8 = 0b01,		//go with this + CONV[2:0] = 0b010
 		TMP117_AVERAGING_32 = 0b10,
 		TMP117_AVERAGING_64 = 0b10,
-	} TMP117_Averaging_t;
+	};
 
-	typedef enum {
+	enum TMP117_Alert_t {
 		TMP117_MODE_ALERT = 0,
 		TMP117_MODE_THERM = 1,
-	} TMP117_Alert_t;
+	};
 
-	typedef enum {
+	enum TMP117_Alert_Pol_t {
 		TMP117_ALERT_ACTIVE_HIGH = 1,
 		TMP117_ALERT_ACTIVE_LOW = 0,
-	} TMP117_Alert_Pol_t;
+	} ;
 
-	typedef enum {
+	enum TMP117_Alert_Source_t {
 		TMP117_ALERT_DRDY = 1,
 		TMP117_ALERT_FLAGS = 0,
-	} TMP117_Alert_Source_t;
+	};
 
-	typedef struct {
+	struct TMP117_Configuration_t {
 		TMP117_Addr_t dev_addr;
 		TMP117_Sampling_t sampling_config;
 		uint8_t conversion_rate_config; //0-7, see datasheet for info/impact on sample rate
@@ -58,7 +58,7 @@ public:
 		TMP117_Alert_t alert_mode_config;
 		TMP117_Alert_Pol_t alert_polarity_config;
 		TMP117_Alert_Source_t alert_source_config;
-	} TMP117_Configuration_t;
+	};
 
 	//========================== PUBLIC FUNCTIONS ===========================
 
@@ -109,7 +109,7 @@ public:
 	 *  \--> the split function is due to the non-blocking nature of these I2C transmissions
 	 *  \--> `start_read_temperature` returns true if transmission scheduled successfully, false if transmission not scheduled
 	 */
-	bool start_read_temperature(Callback_Function<> _read_complete_cb, Callback_Function<> _read_error_cb);
+	bool start_read_temperature(Thread_Signal* _read_complete_signal, Thread_Signal* _read_error_signal);
 	float read_temperature();
 
 private:
@@ -118,23 +118,11 @@ private:
 
 	//some more utility functions we'll call in `init()`
 	void load_configuration();
-	void load_configuration_complete();
-
 	void soft_reset();
-	void reset_complete();
-
 	void request_device_ID();
-	void service_device_ID();
 
 	//and a servicing function we'll call when our temperature read transmission finishes
 	void service_read_temperature();
-
-
-	//callback functions that get invoked when we have a bus transmit or receive error
-	//KEEP THESE LIGHTWEIGHT - THEY ARE CALLED IN ISR CONTEXT
-	//Callback_Function<> write_error_cb; //don't need this
-	Callback_Function<> read_error_cb;
-	Callback_Function<> read_complete_cb;
 
 	//flag that holds whether the device is present on the bus
 	//if the device is absent, functions will just return to reduce bus overhead
@@ -142,8 +130,8 @@ private:
 
 	//and have a little thread signal that signals the non-ISR thread that our write has completed
 	//have both a write complete and write error flag
-	Thread_Signal transfer_complete_flag;
-	Atomic_Var<bool> transfer_success;
+	PERSISTENT((Thread_Signal), internal_transfer_complete);
+	PERSISTENT((Thread_Signal), internal_transfer_error);
 
 	//======================= REGISTER DEFINITIONS =========================
 	//own a TX buffer which to stage transmissions
@@ -166,11 +154,11 @@ private:
 	static constexpr float TEMP_PER_BITS = 7.8125e-3; //mdegC per bit
 	static const uint8_t TEMP_REG_ADDRESS = 0x00;
 	Regmap_Field temp_decode = {1, 0, 16, true, {}};
-	Atomic_Var<std::array<uint8_t, 2>> temp_bytes; //store the raw temperature bytes directly, only decode when requested
+	std::array<uint8_t, 2> temp_bytes; //store the raw temperature bytes directly, only decode when requested, NOT ATOMIC
 
 	//read from the DEVICE ID register
 	//only done during initialization
 	static const uint8_t DEVICE_ID_REG_ADDRESS = 0x0F;
 	Regmap_Field device_id_decode = {1, 0, 16, true, {}};
-	Atomic_Var<std::array<uint8_t, 2>> device_id_bytes; //store the raw device ID bytes directly, only decode when requested
+	std::array<uint8_t, 2> device_id_bytes; //store the raw device ID bytes directly, only decode when requested, NOT ATOMIC
 };

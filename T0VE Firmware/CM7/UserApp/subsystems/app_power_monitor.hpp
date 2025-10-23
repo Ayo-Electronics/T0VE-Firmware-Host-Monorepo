@@ -12,7 +12,7 @@
 #include "app_hal_gpio.hpp"
 #include "app_scheduler.hpp"
 
-#include "app_state_variable.hpp"
+#include "app_threading.hpp"
 
 class Power_Monitor {
 public:
@@ -31,7 +31,7 @@ public:
     	if (PGOOD_POL_INVERTED) return !pwr_pgood.read();
     	else return pwr_pgood.read();
     }
-    __attribute__((always_inline)) inline bool get_debounced_power_status() { return debounced_power_status; }
+    __attribute__((always_inline)) inline bool get_debounced_power_status() { return local_debounced_power_status; }
 
 	#pragma GCC pop_options
 
@@ -43,8 +43,8 @@ public:
 
     //use these functions to get access to the command and status state variables relevant to this system
     //use the macros in the state variable class to generate these easily
-    SUBSCRIBE_FUNC(immediate_power_status);
-    SUBSCRIBE_FUNC(debounced_power_status);
+    SUBSCRIBE_FUNC(status_immedate_power);
+    SUBSCRIBE_FUNC(status_debounced_power);
 	LINK_FUNC(command_regulator_enabled);
 
 private:
@@ -55,9 +55,9 @@ private:
 	void do_en_dis_reg(); //performing regulator enable command update
 
     //shared state variables - these will get piped to the comms system
-    State_Variable<bool> immediate_power_status;
-    State_Variable<bool> debounced_power_status;
-    SV_Subscription<bool> command_regulator_enabled;
+    PERSISTENT((Pub_Var<bool>), status_immedate_power);	//power not good on start
+    PERSISTENT((Pub_Var<bool>), status_debounced_power); 	//power not good on start
+    Sub_Var<bool> command_regulator_enabled;
 
     //internal function that checks the power status of the regulator
     void check_power_status();
@@ -75,15 +75,11 @@ private:
     static constexpr float THRESHOLD_LOW = 0.30;
     static constexpr float MOVING_AVERAGE_DECAY_FACTOR = 0.5;
     float debounce_average = 0;
+    bool local_debounced_power_status = false;	//lightweight local copy, published to the state variable in state update
 
     //own the GPIO pins related to these
     GPIO pwr_reg_en;
     GPIO pwr_pgood;
-
-    //hold callback functions for power events
-    bool callbacks_enabled = false;
-    Callback_Function<> power_became_good = Callback_Function<>();
-    Callback_Function<> power_became_bad = Callback_Function<>();
 
     //create a scheduler task to monitor the power status
     //and a task that monitors for state changes in the variables

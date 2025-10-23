@@ -26,7 +26,7 @@ size_t MSC_File::read(size_t byte_offset, std::span<uint8_t, std::dynamic_extent
 
 	//we'll be reading some bytes, try to acquire the mutex if it exists
 	if(file_mutex)
-		if(!file_mutex->AVAILABLE(true)) return 0;	//mutex acquisition failed, abort copy
+		if(!file_mutex->TRY_LOCK()) return 0;	//mutex acquisition failed, abort copy
 
 	//perform our actual copy
 	size_t req_size = copy_dest.size();
@@ -49,7 +49,7 @@ size_t MSC_File::write(size_t byte_offset, std::span<uint8_t, std::dynamic_exten
 
 	//we'll be writing some bytes, try to acquire the mutex if it exists
 	if(file_mutex)
-		if(!file_mutex->AVAILABLE(true)) return 0;	//mutex acquisition failed, abort copy
+		if(!file_mutex->TRY_LOCK()) return 0;	//mutex acquisition failed, abort copy
 
 	//perform our actual copy
 	size_t req_size = copy_src.size();

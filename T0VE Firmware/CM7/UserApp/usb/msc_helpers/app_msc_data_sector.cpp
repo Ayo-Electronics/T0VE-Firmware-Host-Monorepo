@@ -13,14 +13,12 @@ bool Data_Sector::read(size_t sector_offset, std::span<uint8_t, std::dynamic_ext
 	bool success = false;
 
 	//go through all of our files
-	for(size_t i = 0; i < FS_Constants::MAX_NUM_FILES; i++) {
+	for(size_t i = 0; i < files.size(); i++) {
 		//get the file, start and end indices (in sectors)
 		MSC_File& file = files[i];
 		uint16_t start_cluster = indices.start_indices[i];
 		uint16_t end_cluster   = indices.end_indices[i];
 
-		//check if the file is valid
-		if(!file.is_valid()) continue;
 		//clusters should start at 2 for FAT16 data region
 		if(start_cluster < 2 || end_cluster < 2) continue; //sanity check
 
@@ -51,10 +49,9 @@ bool Data_Sector::write(size_t sector_offset, std::span<uint8_t, std::dynamic_ex
 	bool success = false;
 
 	//go through all of our files
-	for(size_t i = 0; i < FS_Constants::MAX_NUM_FILES; i++) {
-		//get the file, and check if valid
+	for(size_t i = 0; i < files.size(); i++) {
+		//get the file
 		MSC_File& file = files[i];
-		if(!file.is_valid()) continue;
 
 		//get clusters and validate
 		uint16_t start_cluster = indices.start_indices[i];

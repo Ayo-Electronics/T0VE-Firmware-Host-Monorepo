@@ -8,7 +8,7 @@
 
 #include "app_msc_boot_sector.hpp"
 
-void Boot_Sector::mk(std::array<uint8_t, 11> volume_label, const uint32_t UID) {
+void Boot_Sector::mk(App_String<11, ' '>& volume_label, const uint32_t UID) {
 	//some magic constants for FAT16 supposedly
 	//JMP, NOP, OEM NAME
 	boot_sector[0] = 0xEB;
@@ -39,7 +39,7 @@ void Boot_Sector::mk(std::array<uint8_t, 11> volume_label, const uint32_t UID) {
 	Regmap_Field(39, 0, 32, false, boot_sector) = UID;					//Volume ID, not used by OS really, setting to STM32 UID
 
 	//Volume label (11 chars, space padded)
-	std::copy(volume_label.begin(), volume_label.end(), boot_sector.begin() + 43);
+	std::copy(volume_label.array().begin(), volume_label.array().end(), boot_sector.begin() + 43);
 
 	//File system type (8 chars, space padded)
 	//have to use FAT16 if we have more than 4084 clusters

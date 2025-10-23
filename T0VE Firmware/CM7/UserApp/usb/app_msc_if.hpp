@@ -22,6 +22,7 @@
 #include "app_msc_data_sector.hpp"
 
 #include "app_string.hpp"
+#include "app_vector.hpp"	//growable list of files
 
 class MSC_Interface {
 public:
@@ -113,9 +114,8 @@ private:
 	USB_Interface& usb_if;
 	MSC_Interface_Channel_t& msc_channel;
 
-	//A list of "files" that we'd like to represent
-	//start off by initializing to zero
-	std::array<MSC_File, FS_Constants::MAX_NUM_FILES> msc_files = {};
+    //A growable, bounded list of files we'd like to represent
+    App_Vector<MSC_File, FS_Constants::MAX_NUM_FILES> msc_files;
 
 	//Have some special classes that manage the creation/handling of special sector requests
 	Boot_Sector boot_sector;

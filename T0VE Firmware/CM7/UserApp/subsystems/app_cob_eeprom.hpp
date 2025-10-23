@@ -9,8 +9,9 @@
 
 #include "app_hal_i2c.hpp" //for the I2C bus to pass to the TMP117 class
 #include "app_scheduler.hpp" //for the scheduler task
-#include "app_state_variable.hpp" //for shared states
+#include "app_threading.hpp" //for pub/sub vars
 #include "app_state_machine_library.hpp" //for enable/disabled state machine
+#include "app_string.hpp" //for underlying memory representation
 
 #include "app_24AA02UID.hpp"
 
@@ -50,27 +51,30 @@ private:
     //own a temporary array where we can dump write contents, so we don't have a huge stack allocation
     //also own a bool flag saying that we're writing
     std::array<uint8_t, EEPROM_24AA02UID::MEMORY_SIZE_BYTES> write_contents_temp;
-    bool eeprom_writing;		//have a flag variable saying that we're actively writing
-    size_t write_index;			//have an index that we're writing
     static constexpr uint32_t WRITE_ACCESS_KEY = 0xA110CA7E; //a cute little key to allow for EEPROM writing
-    void eeprom_write_start();	//this is the write state entry function
-    void eeprom_write_finish();	//this is the write state exit function
+    PERSISTENT((Thread_Signal), write_error);													//flag asserted when there's a write error on the I2C bus
+    Thread_Signal_Listener write_error_listener = write_error.listen();			//use this for the state machine
+    Thread_Signal_Listener write_error_listener_pubvar = write_error.listen();	//use this for the state variable
+    size_t write_index;						//have an index that we're writing
+    Atomic_Var<bool> eeprom_done_writing;	//and a flag that's asserted when we're finished writing
+
+    void eeprom_write_start();		//this is the write state entry function
+    void eeprom_write_finish();		//this is the write state exit function
     void eeprom_write_do(); 		//this function gets called repeatedly to write the EEPROM page-by-page
-    void eeprom_write_error();		//called if there is any I2C bus write error
     Scheduler eeprom_write_task; 	//and this is the scheduling function that calls the write-page task
 
     //own an EEPROM
     EEPROM_24AA02UID eeprom;
 
     //shared state variables
-    State_Variable<bool> status_device_present; 		//report whether we detected the device during initialization
-    State_Variable<uint32_t> status_cob_eeprom_UID;		//report the UID reported by the EEPROM connected to the CoB
-    State_Variable<std::array<uint8_t, EEPROM_24AA02UID::MEMORY_SIZE_BYTES>> status_cob_eeprom_contents; //user RW section of the eeprom
-    State_Variable<bool> status_cob_eeprom_write_error;	//report any issues that happened during eeprom write
-    SV_Subscription_RC<std::array<uint8_t, EEPROM_24AA02UID::MEMORY_SIZE_BYTES>> command_cob_eeprom_write_contents; //what to write to the eeprom
-    SV_Subscription_RC<bool> command_cob_eeprom_write;			//command to write to the CoB EEPROM
-    SV_Subscription_RC<uint32_t> command_cob_eeprom_write_key; 	//only write to the EEPROM if the keys match
-    SV_Subscription<bool> status_onboard_pgood; //whether motherboard CoB supplies are up--using onboard supplies as proxy
+    PERSISTENT((Pub_Var<bool>), status_device_present); 				//report whether we detected the device during initialization
+    PERSISTENT((Pub_Var<uint32_t>), status_cob_eeprom_UID);			//report the UID reported by the EEPROM connected to the CoB
+    PERSISTENT((Pub_Var<App_String<EEPROM_24AA02UID::MEMORY_SIZE_BYTES>>), status_cob_eeprom_contents); //user RW section of the eeprom
+    PERSISTENT((Pub_Var<bool>), status_cob_eeprom_write_error);		//report any issues that happened during eeprom write
+    Sub_Var_RC<App_String<EEPROM_24AA02UID::MEMORY_SIZE_BYTES>> command_cob_eeprom_write_contents; //what to write to the eeprom
+    Sub_Var_RC<bool> command_cob_eeprom_write;			//command to write to the CoB EEPROM
+    Sub_Var_RC<uint32_t> command_cob_eeprom_write_key; 	//only write to the EEPROM if the keys match
+    Sub_Var<bool> status_onboard_pgood; 				//whether motherboard CoB supplies are up--using onboard supplies as proxy
     //This can technically result in a failure mode where the 3.3V rail fails, but power is still reported as good
     //locks up the I2C bus and potentially back-powers devices (Not really worrying about this failure mode since non-catastrophic and not common)
     //However if we really cared TODO: Fix hardware such that either
@@ -82,14 +86,15 @@ private:
 	ESM_State eeprom_state_ENABLED;
 	ESM_State eeprom_state_DISABLED;
 	ESM_State eeprom_state_WRITING;
-	bool trans_ENABLE_to_DISABLE() 	{ return !status_onboard_pgood; }	//check our subscription variable to see if power is bad
-	bool trans_DISABLE_to_ENABLE() 	{ return status_onboard_pgood; 	}	//check our subscription variable to see if power is good
-	bool trans_WRITING_to_ENABLE() 	{ return !eeprom_writing; 	}		//return to the idle enable state after we finished writing to the EEPROM
-	bool trans_WRITING_to_DISABLE()	{ return !status_onboard_pgood;	}	//return to the idle enable state if power fails during write
+	bool trans_ENABLE_to_DISABLE() 	{ return !status_onboard_pgood.read(); }	//check our subscription variable to see if power is bad
+	bool trans_DISABLE_to_ENABLE() 	{ return status_onboard_pgood.read(); 	}	//check our subscription variable to see if power is good
+																				//return to the idle enable state after we finished writing to the EEPROM or error happened
+	bool trans_WRITING_to_ENABLE() 	{ return eeprom_done_writing.read() || write_error_listener.check(); 	}
+	bool trans_WRITING_to_DISABLE()	{ return !status_onboard_pgood.read();	}	//return to the idle enable state if power fails during write
 	bool trans_ENABLE_to_WRITING()	{
 		//check if we received a write command and the write key is correct
 		//if so, don't acknowledge the command yet to signify that we're writing
-		if(command_cob_eeprom_write && (command_cob_eeprom_write_key == WRITE_ACCESS_KEY))	return true;
+		if(command_cob_eeprom_write.read() && (command_cob_eeprom_write_key.read() == WRITE_ACCESS_KEY)) return true;
 
 		//otherwise, always acknowledge/clear the commands to reset them
 		command_cob_eeprom_write_contents.acknowledge_reset();

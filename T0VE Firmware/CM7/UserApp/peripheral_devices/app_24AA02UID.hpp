@@ -7,8 +7,9 @@
 
 #pragma once
 
-#include <app_proctypes.hpp>
+#include "app_proctypes.hpp"
 #include "app_hal_i2c.hpp"
+#include "app_regmap_helpers.hpp"
 
 class EEPROM_24AA02UID {
 public:
@@ -57,12 +58,14 @@ public:
 	/*
 	 * Gets the device UID of the 24AA02UID as read from the initialization function
 	 *  \--> call `init()` again if you want a refreshed version of device ID
+	 * NOTE: only call this after init, when I2C transactions are finished!
 	 */
 	uint32_t get_UID();
 
 	/*
 	 * Reports the contents of the memory, as read during the initialization sequence
 	 *	\--> call `init()` again if you want a refreshed version of the contents
+	 * NOTE: only call this after init, when I2C transactions are finished!
 	 */
 	std::array<uint8_t, MEMORY_SIZE_BYTES> get_contents();
 
@@ -72,31 +75,26 @@ public:
 	 * 	\--> call `init()` again if you want a refreshed version of the contents
 	 *	\--> returns whether the transmission was staged or not
 	 */
-	bool write_page(size_t start_address, std::span<uint8_t, PAGE_SIZE_BYTES> page_data, Callback_Function<> _write_error_cb);
+	bool write_page(size_t start_address, std::span<uint8_t, PAGE_SIZE_BYTES> page_data, Thread_Signal* write_error_signal);
 
 private:
 	Aux_I2C& bus; //reference to the i2c bus hardware
-	static const uint8_t EEPROM_ADDR_7b = 0b1010000; //I2C address of the EEPROM
+	static const uint8_t EEPROM_ADDR_7b = 0b1010000;	//I2C address of the EEPROM
 
 	//have a function that reads the UID bytes from the eeprom
 	//as well as a place to keep those bytes
+	//thread/ISR safe wrapper to ensure atomicity
 	void read_UID();
-	void service_read_UID();
 	static const size_t UID_LENGTH_BYTES = 4;
 	static const uint8_t UID_START_ADDRESS = 0xFC;
-	Atomic_Var<std::array<uint8_t, UID_LENGTH_BYTES>> UID_bytes;
+	std::array<uint8_t, UID_LENGTH_BYTES> UID_bytes;	//dump the UID bytes into here, NOT THREAD SAFE
 
 	//and have a function that reads the entire contents of the eeprom
 	//as well as a place to keep those bytes
+	//thread/ISR safe wrapper to ensure atomicity
 	void read_contents();
-	void service_read_contents();
 	static const size_t MEMORY_START_ADDRESS = 0;
-	Atomic_Var<std::array<uint8_t, MEMORY_SIZE_BYTES>> eeprom_contents;
-
-	//callback function that get invoked when we have a bus transmit error
-	//KEEP THESE LIGHTWEIGHT - THEY ARE CALLED IN ISR CONTEXT
-	Callback_Function<> write_error_cb; //don't need this
-	void tx_complete();
+	std::array<uint8_t, MEMORY_SIZE_BYTES> eeprom_contents;	//dump EEPROM contents here, NOT THREAD SAFE
 
 	//flag that holds whether the device is present on the bus
 	//if the device is absent, functions will just return to reduce bus overhead
@@ -104,7 +102,7 @@ private:
 
 	//and have a little thread signal that signals the non-ISR thread that our write has completed
 	//have both a write complete and write error flag
-	Thread_Signal transfer_complete_flag;
-	Atomic_Var<bool> transfer_success;
+	PERSISTENT((Thread_Signal), internal_transfer_complete);
+	PERSISTENT((Thread_Signal), internal_transfer_error);
 
 };

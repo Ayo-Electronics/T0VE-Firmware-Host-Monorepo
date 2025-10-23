@@ -17,7 +17,8 @@
 
 #pragma once
 
-#include "app_state_variable.hpp" 	//so we have references to the read/write ports
+#include "app_threading.hpp" 		//so we have references to the read/write ports
+#include "app_string.hpp"			//for CoB eeprom reading/writing
 
 #include "app_cob_eeprom.hpp"		//for CoB memory size
 #include "app_bias_drives.hpp"		//for waveguide bias setpoint struct
@@ -30,6 +31,10 @@ public:
 	//init function sets up a monitoring thread that checks connection status
 	//turns off power when we disconnect; lets rest of subsystems handle putting state variables in safe states
 	//TODO: this, especially how to handle USB suspension during high-speed execution
+
+	//for encode and decode, pop in a magic number to "sign" state as valid
+	//if decode doesn't match this magic number, don't perform state updates
+	static constexpr uint32_t MAGIC_NUMBER = 0xA5A5A5A5;
 
 	//serialization/deserialization of state messages
 	//should be ISR safe, but try not to run from there
@@ -101,74 +106,76 @@ public:
 
 private:
 	//special atomic variables to see if we decoded our most recent protobuf message successfully
-	Atomic_Var<bool> decode_failure = false;
-	Atomic_Var<size_t> decode_failure_count = 0;
-	Atomic_Var<bool> encode_failure = false;
-	Atomic_Var<size_t> encode_failure_count = 0;
+	Atomic_Var<bool> decode_err = false;
+	Atomic_Var<size_t> decode_err_deserz = 0;	//error when deserializing
+	Atomic_Var<size_t> decode_err_magicn = 0;	//error due to incorrect magic number
+	Atomic_Var<size_t> decode_err_msgtype = 0;	//error due to incorrect message type
+	Atomic_Var<bool> encode_err = false;
+	Atomic_Var<size_t> encode_err_serz = 0;		//error due to serialization
 
 	//and a buffer to dump our most recently encoded data
 	static constexpr size_t ENCODE_BUFFER_SIZE = 2048;
 	std::array<uint8_t, ENCODE_BUFFER_SIZE> encode_buffer;
 
 	//#### MULTICARD INFORMATION ####
-	SV_Subscription<bool> multicard_info_all_cards_present_status; //true if all cards are present
-	SV_Subscription<uint8_t> multicard_info_node_id_status; //node ID of the particular card
-	State_Variable<bool> multicard_info_sel_input_aux_npic_command = {false}; //true if our final layer is from the aux inputs, false if it's from the PIC inputs
+	Sub_Var<bool> multicard_info_all_cards_present_status; 				//true if all cards are present
+	Sub_Var<uint8_t> multicard_info_node_id_status; 					//node ID of the particular card
+	PERSISTENT((Pub_Var<bool>), multicard_info_sel_input_aux_npic_command);	//true if our final layer is from the aux inputs, false if it's from the PIC inputs
 
 	//#### ONBOARD POWER MONITOR STATES ####
-	SV_Subscription<bool> pm_onboard_immediate_power_status;
-	SV_Subscription<bool> pm_onboard_debounced_power_status;
-	State_Variable<bool> pm_onboard_regulator_enable_command = {true};
+	Sub_Var<bool> pm_onboard_immediate_power_status;
+	Sub_Var<bool> pm_onboard_debounced_power_status;
+	PERSISTENT((Pub_Var<bool>), pm_onboard_regulator_enable_command);
 
 	//#### MOTHERBOARD POWER MONITOR STATES ####
-	SV_Subscription<bool> pm_motherboard_immediate_power_status;
-	SV_Subscription<bool> pm_motherboard_debounced_power_status;
-	State_Variable<bool> pm_motherboard_regulator_enable_command = {true}; //TODO: REVERT TO FALSE AFTER TESTING
+	Sub_Var<bool> pm_motherboard_immediate_power_status;
+	Sub_Var<bool> pm_motherboard_debounced_power_status;
+	PERSISTENT((Pub_Var<bool>), pm_motherboard_regulator_enable_command); //TODO: REVERT TO FALSE AFTER TESTING
 
 	//#### ADC OFFSET CONTROL STATES ####
-	SV_Subscription<bool> adc_offset_ctrl_device_present_status; //report whether we detected the device during initialization
-	SV_Subscription_RC<bool> adc_offset_ctrl_dac_error_status; //whether there's been some kinda error with the offset DAC, read clear
-	SV_Subscription<std::array<uint16_t, 4>> adc_offset_ctrl_dac_value_readback_status; //current DAC values written to the ADC offset control system
-	State_Variable<std::array<uint16_t, 4>> adc_offset_ctrl_dac_values_command = {{2000, 2000, 2000, 2000}}; //values we want to command to the ADC offset DAC
-	State_Variable<bool> adc_offset_ctrl_perform_device_read_command = {true}; //assert this flag when we want to perform a device read, cleared upon service
+	Sub_Var<bool> adc_offset_ctrl_device_present_status; 						//report whether we detected the device during initialization
+	Sub_Var_RC<bool> adc_offset_ctrl_dac_error_status;							//whether there's been some kinda error with the offset DAC, read clear
+	Sub_Var<std::array<uint16_t, 4>> adc_offset_ctrl_dac_value_readback_status; //current DAC values written to the ADC offset control system
+	PERSISTENT((Pub_Var<std::array<uint16_t, 4>>), adc_offset_ctrl_dac_values_command); //values we want to command to the ADC offset DAC
+	PERSISTENT((Pub_Var<bool>), adc_offset_ctrl_perform_device_read_command); 		//assert this flag when we want to perform a device read, cleared upon service
 
 	//#### HISPEED SUBSYSTEM #####
-	State_Variable<bool> 			command_hispeed_arm_fire_request = {false};
-	SV_Subscription<bool>			status_hispeed_armed;
-	SV_Subscription_RC<bool>		status_hispeed_arm_flag_err_ready;
-	SV_Subscription_RC<bool>		status_hispeed_arm_flag_err_sync_timeout;
-	SV_Subscription_RC<bool>		status_hispeed_arm_flag_err_pwr;
-	SV_Subscription_RC<bool>		status_hispeed_arm_flag_complete;
-	State_Variable<bool> 			command_hispeed_sdram_load_test_sequence = {false};
-	State_Variable<std::array<bool, 4>> 		command_hispeed_SOA_enable = {{false, false, false, false}};
-	State_Variable<std::array<bool, 4>> 		command_hispeed_TIA_enable = {{false, false, false, false}};
-	State_Variable<std::array<uint16_t, 4>> 	command_hispeed_SOA_DAC_drive = {{0, 0, 0, 0}};
-	SV_Subscription<std::array<uint16_t, 4>>	status_hispeed_TIA_ADC_readback;
+	PERSISTENT((Pub_Var<bool>), command_hispeed_arm_fire_request);
+	Sub_Var<bool>			status_hispeed_armed;
+	Sub_Var_RC<bool>		status_hispeed_arm_flag_err_ready;
+	Sub_Var_RC<bool>		status_hispeed_arm_flag_err_sync_timeout;
+	Sub_Var_RC<bool>		status_hispeed_arm_flag_err_pwr;
+	Sub_Var_RC<bool>		status_hispeed_arm_flag_complete;
+	PERSISTENT((Pub_Var<bool>), command_hispeed_sdram_load_test_sequence);
+	PERSISTENT((Pub_Var<std::array<bool, 4>>), command_hispeed_SOA_enable);
+	PERSISTENT((Pub_Var<std::array<bool, 4>>), command_hispeed_TIA_enable);
+	PERSISTENT((Pub_Var<std::array<uint16_t, 4>>), command_hispeed_SOA_DAC_drive);
+	Sub_Var<std::array<uint16_t, 4>>	status_hispeed_TIA_ADC_readback;
 
 	//#### CoB TEMPERATURE MONITOR ####
-	SV_Subscription<bool> status_cobtemp_device_present; //report whether we detected the device during initialization
-	SV_Subscription_RC<bool> status_cobtemp_temp_sensor_error; //asserted when any kinda temperature sensor error happens
-	SV_Subscription<uint16_t> status_cobtemp_temp_sensor_device_id; //report the device ID of the detected temperature sensing
-	SV_Subscription<float> status_cobtemp_cob_temperature_c; //actual temperature reported by the sensor in deg C
+	Sub_Var<bool> status_cobtemp_device_present; 			//report whether we detected the device during initialization
+	Sub_Var_RC<bool> status_cobtemp_temp_sensor_error; 		//asserted when any kinda temperature sensor error happens
+	Sub_Var<uint16_t> status_cobtemp_temp_sensor_device_id; //report the device ID of the detected temperature sensing
+	Sub_Var<float> status_cobtemp_cob_temperature_c;		//actual temperature reported by the sensor in deg C
 
 	//#### CoB EEPROM #####
-	SV_Subscription<bool> status_cob_eeprom_device_present;	//report whether we detected the CoB EEPROM device during initialization
-	SV_Subscription<uint32_t> status_cob_eeprom_UID;		//report the UID reported by the EEPROM connected to the CoB
-	SV_Subscription_RC<bool> status_cob_eeprom_write_error;	//report any issues that happened during eeprom write
-	SV_Subscription<std::array<uint8_t, EEPROM_24AA02UID::MEMORY_SIZE_BYTES>> status_cob_eeprom_contents; //user RW section of the eeprom
-	State_Variable<std::array<uint8_t, EEPROM_24AA02UID::MEMORY_SIZE_BYTES>> command_cob_eeprom_write_contents; //what to write to the eeprom
-	State_Variable<bool> command_cob_eeprom_write;			//command to write to the CoB EEPROM
-	State_Variable<uint32_t> command_cob_eeprom_write_key; 	//only write to the EEPROM if the keys match
+	Sub_Var<bool> status_cob_eeprom_device_present;	//report whether we detected the CoB EEPROM device during initialization
+	Sub_Var<uint32_t> status_cob_eeprom_UID;		//report the UID reported by the EEPROM connected to the CoB
+	Sub_Var_RC<bool> status_cob_eeprom_write_error;	//report any issues that happened during eeprom write
+	Sub_Var<App_String<EEPROM_24AA02UID::MEMORY_SIZE_BYTES>> status_cob_eeprom_contents; 		//user RW section of the eeprom
+	PERSISTENT((Pub_Var<App_String<EEPROM_24AA02UID::MEMORY_SIZE_BYTES>>), command_cob_eeprom_write_contents); //what to write to the eeprom
+	PERSISTENT((Pub_Var<bool>), command_cob_eeprom_write);			//command to write to the CoB EEPROM
+	PERSISTENT((Pub_Var<uint32_t>), command_cob_eeprom_write_key); //only write to the EEPROM if the keys match
 
 	//#### WAVEGUIDE BIAS DRIVES #####
-	SV_Subscription<bool> status_wgbias_device_present;			//report whether we detected the device during initialization
-	SV_Subscription<Waveguide_Bias_Drive::Waveguide_Bias_Setpoints_t> status_wgbias_dac_values_readback;	//what the DAC thinks we've written to it
-	SV_Subscription_RC<bool> status_wgbias_dac_error;			//asserted when any kinda dac error happens, expose read-clear port
-	State_Variable<Waveguide_Bias_Drive::Waveguide_Bias_Setpoints_t> command_wgbias_dac_values;				//values we'd like to write to the DAC
-	State_Variable<bool> command_wgbias_reg_enable;				//enable the actual voltage regulators for the waveguide bias system
-	State_Variable<bool> command_wgbias_dac_read_update;		//asserted when we want to perform a DAC read, cleared after read
+	Sub_Var<bool> status_wgbias_device_present;			//report whether we detected the device during initialization
+	Sub_Var<Waveguide_Bias_Drive::Waveguide_Bias_Setpoints_t> status_wgbias_dac_values_readback;	//what the DAC thinks we've written to it
+	Sub_Var_RC<bool> status_wgbias_dac_error;			//asserted when any kinda dac error happens, expose read-clear port
+	PERSISTENT((Pub_Var<Waveguide_Bias_Drive::Waveguide_Bias_Setpoints_t>), command_wgbias_dac_values);			//values we'd like to write to the DAC
+	PERSISTENT((Pub_Var<bool>), command_wgbias_reg_enable);			//enable the actual voltage regulators for the waveguide bias system
+	PERSISTENT((Pub_Var<bool>), command_wgbias_dac_read_update);		//asserted when we want to perform a DAC read, cleared after read
 
 	//#### COMMS INTERFACE ####
-	SV_Subscription<bool> status_comms_connected;					//report whether we're connected to a host
-	State_Variable<bool> command_comms_allow_connections = {true};	//allow connections to a host
+	Sub_Var<bool> status_comms_connected;					//report whether we're connected to a host
+	PERSISTENT((Pub_Var<bool>), command_comms_allow_connections);	//allow connections to a host
 };

@@ -20,6 +20,8 @@
 #include "app_regmap_helpers.hpp"
 #include "app_msc_file.hpp"
 
+#include "app_vector.hpp"
+
 class FAT16_Table {
 	//treating this like an alias
 	static const size_t NUMF = FS_Constants::MAX_NUM_FILES;
@@ -30,8 +32,8 @@ public:
 	//simple struct to wrap the start and end cluster indices
 	//useful for mapping where files are in our emulated file system
 	struct File_Indices_t {
-		std::array<uint16_t, NUMF> start_indices;
-		std::array<uint16_t, NUMF> end_indices;
+		App_Vector<uint16_t, NUMF> start_indices;
+		App_Vector<uint16_t, NUMF> end_indices;
 	};
 
 	//============= PUBLIC METHODS ============
@@ -39,10 +41,10 @@ public:
 	//trivial constructor
 	FAT16_Table() {}
 
-	//function that generates the table
-	//pass in a reference to an array of files
-	//returns the starting cluster address of each of the files
-	File_Indices_t mk(std::array<MSC_File, NUMF>& files);
+    //function that generates the table
+    //accepts a span of files (may be fewer than NUMF)
+    //returns the starting cluster address of each of the files
+    File_Indices_t mk(std::span<MSC_File, std::dynamic_extent> files);
 
 	//accessor functions
 	//generate the particular sector of the FAT table on the fly
@@ -51,8 +53,8 @@ public:
 private:
 	//a couple arrays of indices, see the notes at the top
 	//these are what get updated during mk();
-	std::array<uint16_t, NUMF> file_start_indices = {0};
-	std::array<uint16_t, NUMF> file_end_indices = {0};
+	App_Vector<uint16_t, NUMF> file_start_indices = {};
+	App_Vector<uint16_t, NUMF> file_end_indices = {};
 	uint16_t end_of_disk_index = 0;
 };
 

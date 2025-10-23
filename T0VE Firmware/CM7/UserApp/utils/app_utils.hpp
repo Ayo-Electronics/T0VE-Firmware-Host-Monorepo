@@ -9,12 +9,23 @@
 #include <algorithm> //for std::transform
 #include <type_traits> //for callback function macros
 
-
 //===================== NUMERICAL CONSTANTS =====================
 
 //no real convenient way to set up pi, so just defining a literal
 constexpr float PI = 3.14159265358979323846;
 constexpr float TWO_PI = 2*PI;
+
+//=========================== PERSISTENT MEMBER INITIALIZATION ==========================
+//these are useful for variables that are intended to last the lifetime of the program
+//useful for variables where we want to delete the constructor
+//all classes that support this must have a factory function
+
+//NOTE: wrap the type with parentheses! the __VA_ARGS__ is a pretty dumb parser so it can break if you don't
+// Unwrap a parenthesized type: (Pub_Var<std::array<uint16_t,4>>) -> Pub_Var<std::array<uint16_t,4>>
+#define _UNPAREN(...) __VA_ARGS__
+
+#define PERSISTENT(TypeParen, name, /*optional ctor args*/...)                   \
+    _UNPAREN TypeParen& name = _UNPAREN TypeParen::mk(__VA_ARGS__)
 
 //============================ ARDUINO-STYLE MAP FUNCTION =========================
 

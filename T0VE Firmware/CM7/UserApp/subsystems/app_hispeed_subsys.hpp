@@ -12,7 +12,7 @@
 #include "app_hal_dram.hpp"
 #include "app_sync_if.hpp"
 #include "app_hal_pwm.hpp"
-#include "app_state_variable.hpp"
+#include "app_threading.hpp"
 
 /*
  * TODO LIST:
@@ -304,9 +304,9 @@ private:
 	Extended_State_Machine hispeed_esm; //the actual extended state machine wrapper
 
 	//and some functions to check for state transitions
-	bool hispeed_trans_INACTIVE_to_ACTIVE() { return status_onboard_pgood; }	//check our subscription variable to see if power is good
-	bool hispeed_trans_ACTIVE_to_INACTIVE() { return !status_onboard_pgood; }	//check our subscription variable to see if power is bad
-	bool hispeed_trans_ACTIVE_to_ARM_FIRE() { return command_hispeed_arm_fire_request; }	//check the subscription variable to see if we got an arm/fire request
+	bool hispeed_trans_INACTIVE_to_ACTIVE() { return status_onboard_pgood.read(); }				//check our subscription variable to see if power is good
+	bool hispeed_trans_ACTIVE_to_INACTIVE() { return !status_onboard_pgood.read(); }			//check our subscription variable to see if power is bad
+	bool hispeed_trans_ACTIVE_to_ARM_FIRE() { return command_hispeed_arm_fire_request.check(); }//check the subscription variable to see if we got an arm/fire request
 	bool hispeed_trans_ARM_FIRE_to_ACTIVE() { return true; }
 	//NOTE: Always return to active state after armed, even in case of power fail
 	//		power monitor state variable will bring us into inactive state in case of actual power fail
@@ -331,19 +331,19 @@ private:
 	//have R/C-command uint16_t[4] SOA_DAC_DRIVE --> writes these values out to the DAC (gets reset in deactivation)
 	//have status uint16_t[4] TIA_ADC_READBACK --> reports the values read by the ADC
 	//have R/C-command to load SDRAM with test sequence
-	SV_Subscription_RC<bool> 	command_hispeed_arm_fire_request;
-	State_Variable<bool>		status_hispeed_armed = {false};
-	State_Variable<bool>		status_hispeed_arm_flag_err_ready = {false};
-	State_Variable<bool>		status_hispeed_arm_flag_err_sync_timeout = {false};
-	State_Variable<bool>		status_hispeed_arm_flag_err_pwr = {false};
-	State_Variable<bool>		status_hispeed_arm_flag_complete = {false};
-	SV_Subscription_RC<bool> 	command_hispeed_sdram_load_test_sequence;
-	SV_Subscription_RC<std::array<bool, 4>> 	command_hispeed_SOA_enable;
-	SV_Subscription_RC<std::array<bool, 4>> 	command_hispeed_TIA_enable;
-	SV_Subscription_RC<std::array<uint16_t, 4>> command_hispeed_SOA_DAC_drive;
-	State_Variable<std::array<uint16_t, 4>>		status_hispeed_TIA_ADC_readback;
+	Sub_Var_RC<bool> 	command_hispeed_arm_fire_request;
+	PERSISTENT((Pub_Var<bool>), status_hispeed_armed);
+	PERSISTENT((Pub_Var<bool>), status_hispeed_arm_flag_err_ready);
+	PERSISTENT((Pub_Var<bool>), status_hispeed_arm_flag_err_sync_timeout);
+	PERSISTENT((Pub_Var<bool>), status_hispeed_arm_flag_err_pwr);
+	PERSISTENT((Pub_Var<bool>), status_hispeed_arm_flag_complete);
+	Sub_Var_RC<bool> 	command_hispeed_sdram_load_test_sequence;
+	Sub_Var_RC<std::array<bool, 4>> 	command_hispeed_SOA_enable;
+	Sub_Var_RC<std::array<bool, 4>> 	command_hispeed_TIA_enable;
+	Sub_Var_RC<std::array<uint16_t, 4>> command_hispeed_SOA_DAC_drive;
+	PERSISTENT((Pub_Var<std::array<uint16_t, 4>>), status_hispeed_TIA_ADC_readback);
 
 	//and let's subscribe to the state of the onboard power monitor
 	//to get whether the power rails are good or not (so we can activate/deactivate the subsystem)
-	SV_Subscription<bool> status_onboard_pgood;
+	Sub_Var<bool> status_onboard_pgood;
 };

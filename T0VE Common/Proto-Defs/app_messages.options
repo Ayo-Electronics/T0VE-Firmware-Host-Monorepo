@@ -1,6 +1,42 @@
 
-#setting the max size of the extension string to 32 characters
-App.Node_State.command_data max_length:32
+App.uint32_2.values max_count:2 fixed_count:true
+App.uint32_4.values max_count:4 fixed_count:true
+App.uint32_10.values max_count:10 fixed_count:true
+App.bool_4.values max_count:4 fixed_count:true
 
-#setting the max length of a debug message to 256 characters
-App.Debug.msg max_length:256
+App.Debug.msg max_size:256
+
+App.CoB_EEPROM_Status.cob_desc max_size:128
+App.CoB_EEPROM_Command.cob_desc_set max_size:128
+
+#require array sub-sub-messages in each submessage
+App.Offset_Ctrl_Status.offset_readback label_override: LABEL_REQUIRED
+App.Hispeed_Status.tia_adc_readback label_override: LABEL_REQUIRED
+App.WG_Bias_Setpoints.stub_setpoint label_override: LABEL_REQUIRED
+App.WG_Bias_Setpoints.mid_setpoint  label_override: LABEL_REQUIRED
+App.WG_Bias_Setpoints.bulk_setpoint label_override: LABEL_REQUIRED
+App.WG_Bias_Status.setpoints_readback label_override: LABEL_REQUIRED
+
+#and require each submessage in the top-level Node_State message
+#optional fields are controlled at the submessage level
+App.Node_State.state_supervisor_st label_override: LABEL_REQUIRED
+App.Node_State.multicard_st label_override: LABEL_REQUIRED
+App.Node_State.multicard_cmd label_override: LABEL_REQUIRED 
+App.Node_State.pm_onboard_st label_override: LABEL_REQUIRED 
+App.Node_State.pm_onboard_cmd label_override: LABEL_REQUIRED 
+App.Node_State.pm_motherboard_st label_override: LABEL_REQUIRED 
+App.Node_State.pm_motherboard_cmd label_override: LABEL_REQUIRED 
+App.Node_State.offset_ctrl_st label_override: LABEL_REQUIRED 
+App.Node_State.offset_ctrl_cmd label_override: LABEL_REQUIRED 
+App.Node_State.hispeed_st label_override: LABEL_REQUIRED 
+App.Node_State.hispeed_cmd label_override: LABEL_REQUIRED 
+App.Node_State.cob_temp_st label_override: LABEL_REQUIRED 
+App.Node_State.cob_eeprom_st label_override: LABEL_REQUIRED 
+App.Node_State.cob_eeprom_cmd label_override: LABEL_REQUIRED 
+App.Node_State.wg_bias_st label_override: LABEL_REQUIRED 
+App.Node_State.wg_bias_cmd label_override: LABEL_REQUIRED 
+App.Node_State.comms_st label_override: LABEL_REQUIRED 
+App.Node_State.comms_cmd label_override: LABEL_REQUIRED 
+
+
+

@@ -31,12 +31,20 @@ public:
 		Stop_Bits stop_bits;
 		Parity parity;
 		uint8_t data_bits;
+
+		//need comparison operator for Pub_Var
+		bool operator==(const CDC_Line_Coding_t& other) {
+			return 	this->baud_rate == other.baud_rate &&
+					this->stop_bits == other.stop_bits &&
+					this->parity == other.parity &&
+					this->data_bits == other.data_bits;
+		}
 	};
 	struct Flow_Control_t {
-		bool dtr_status;	//set if host present, use as "host connected" indicator (that's what TinyUSB does at least)
-		bool rts_status;	//not really useful, set if host wants to transmit data
-		bool dcd_status;	//device is physically present
-		bool dsr_status;	//device is ready to accept data
+		Atomic_Var<bool> dtr_status;	//set if host present, use as "host connected" indicator (that's what TinyUSB does at least)
+		Atomic_Var<bool> rts_status;	//not really useful, set if host wants to transmit data
+		Atomic_Var<bool> dcd_status;	//device is physically present
+		Atomic_Var<bool> dsr_status;	//device is ready to accept data
 	};
 
 	//way to describe a particular CDC interface
@@ -48,8 +56,8 @@ public:
 
 		//flow control status and line coding
 		//make sure these update atomically for thread safety
-		Atomic_Var<Flow_Control_t> flow_control;
-		Atomic_Var<CDC_Line_Coding_t> line_coding;
+		Flow_Control_t flow_control;
+		Pub_Var<CDC_Line_Coding_t>& line_coding;
 
 		//and have some callback functions for events
 		Callback_Function<> flow_control_change_cb;

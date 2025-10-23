@@ -21,27 +21,14 @@ class MCP4728 {
 private:
 	Aux_I2C& bus; //reference to the i2c bus hardware
 
-	/*
-	 * `tx_complete()`
-	 * checks the error flag, releases the I2C bus, and calls the registered TX error handler if applicable
-	 */
-	void tx_complete();
-
-	/*
-	 * `rx_complete()
-	 * checks the error flag, releases the I2C bus, and calls the registered RX error handler if applicable
-	 */
-	void rx_complete();
-
-	//callback functions that get invoked when we have a bus transmit or receive error
-	//KEEP THESE LIGHTWEIGHT - THEY ARE CALLED IN ISR CONTEXT
-	Callback_Function<> write_error_cb;
-	Callback_Function<> read_error_cb;
-	Callback_Function<> read_complete_cb;
-
 	//flag that holds whether the device is present on the bus
 	//if the device is absent, functions will just return to reduce bus overhead
 	bool device_present;
+
+	//and have a little thread signal that signals the non-ISR thread that our write has completed
+	//have both a write complete and write error flag
+	PERSISTENT((Thread_Signal), internal_transfer_complete);
+	PERSISTENT((Thread_Signal), internal_transfer_error);
 
 	//========================== REGISTER DEFINITIONS ==============================
 	// --> write without EEPROM takes 12 bytes
@@ -131,7 +118,7 @@ private:
 
 	//###### for the entire chip read ######
 	static const size_t READ_COMMAND_LENGTH = 24;
-	Atomic_Var<std::array<uint8_t, READ_COMMAND_LENGTH>> status_bytes;
+	std::array<uint8_t, READ_COMMAND_LENGTH> status_bytes;
 	std::array<Regmap_Field, 4> devr_dac_vals = { //BUT only care about the assigned DAC values (need to repoint these to work!)
 		Regmap_Field(2, 0, 12, true, {}),
 		Regmap_Field(8, 0, 12, true, {}),
@@ -216,26 +203,29 @@ public:
 	 * 'write_channels()'
 	 * - per
 	 * - returns `true` if the transmission was performed, `false` if it wasn't
-	 * - will call the `tx_error_cb` if there was any issue with the transmission
+	 * - will assert the `_write_error_signal` if there was any issue with the transmission
+	 * - otherwise assume transmission was successful
 	 */
-	bool write_channels(std::array<uint16_t, 4> values, Callback_Function<> _write_error_cb);
+	bool write_channels(std::array<uint16_t, 4> values, Thread_Signal* _write_error_signal);
 
 	/*
 	 * `write_channels_eeprom()`
 	 * -
 	 * - returns `true` if the transmission was performed, `false` if it wasn't
-	 * - will call the `tx_error_cb` if there was any issue with the transmission
+	 * - will assert the `_write_error_signal` if there was any issue with the transmission
+	 * - otherwise assume transmission was successful
 	 */
-	bool write_channels_eeprom(std::array<uint16_t, 4> values, Callback_Function<> _write_error_cb);
+	bool write_channels_eeprom(std::array<uint16_t, 4> values, Thread_Signal* _write_error_signal);
 
 	/*
 	 * `read_update_status()`
 	 * - reads 24-byte status packet from IC via DMA
 	 * - pass a 4-element `span` into the function as well as a boolean completion flag & `status_valid` flag
 	 * - returns `true` if the transmission was performed, `false` if it wasn't
-	 * - will call the `rx_error_cb` if there was any issue with the transmission
+	 * - will assert the `_read_error_signal` if there was any issue with the transmission
+	 * - and otherwise assert the `_read_complete_signal` when data is ready
 	 */
-	 bool start_read_update_status(Callback_Function<> _read_complete_cb, Callback_Function<> _read_error_cb);
+	 bool start_read_update_status(Thread_Signal* _read_complete_signal, Thread_Signal* _read_error_signal);
 	 MCP4728_Status_t read_update_status();
 
 	//================= THINGS TO DELETE =================

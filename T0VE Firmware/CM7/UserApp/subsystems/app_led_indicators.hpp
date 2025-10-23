@@ -32,7 +32,7 @@
 #pragma once
 
 #include "app_hal_gpio.hpp"
-#include "app_state_variable.hpp"
+#include "app_threading.hpp"
 #include "app_scheduler.hpp"
 
 class LED_Indicators
@@ -110,12 +110,12 @@ private:
 
 	//and some status variables according to which we'll flash LEDs
 	//pull these variables from other internal subsystems
-	SV_Subscription<bool> 		status_onboard_pgood;		//pgood, onboard
-	SV_Subscription<bool>		status_motherboard_pgood;	//pgood, motherboard
-	SV_Subscription<bool> 		status_comms_connected;		//comms, connected
-	SV_Subscription_RC<bool> 	status_comms_activity;		//comms, activity
-	SV_Subscription<bool> 		status_hispeed_armed;		//armed
-	SV_Subscription<bool>		status_hispeed_arm_flag_err_ready;			//armed error (code 1)
-	SV_Subscription<bool>		status_hispeed_arm_flag_err_sync_timeout;	//armed error (code 2)
-	SV_Subscription<bool>		status_hispeed_arm_flag_err_pwr;			//armed error (code 3)
+	Sub_Var<bool> 		status_onboard_pgood;		//pgood, onboard
+	Sub_Var<bool>		status_motherboard_pgood;	//pgood, motherboard
+	Sub_Var<bool> 		status_comms_connected;		//comms, connected
+	Sub_Var_RC<bool> 	status_comms_activity;		//comms, activity
+	Sub_Var<bool> 		status_hispeed_armed;		//armed
+	Sub_Var<bool>		status_hispeed_arm_flag_err_ready;			//armed error (code 1)
+	Sub_Var<bool>		status_hispeed_arm_flag_err_sync_timeout;	//armed error (code 2)
+	Sub_Var<bool>		status_hispeed_arm_flag_err_pwr;			//armed error (code 3)
 };

@@ -7,8 +7,8 @@
 
 #include "app_msc_root_sector.hpp"
 
-void Root_Sector::mk(	std::array<uint8_t, 11> volume_label,
-						std::array<MSC_File, FS_Constants::MAX_NUM_FILES>& files,
+void Root_Sector::mk(	App_String<11, ' '>& volume_label,
+						std::span<MSC_File> files,
 						FAT16_Table::File_Indices_t& cluster_indices)
 {
 	//leverage a lotta the helper functions
@@ -16,23 +16,19 @@ void Root_Sector::mk(	std::array<uint8_t, 11> volume_label,
 	Root_Data_Entry_t vol_entry = mk_root_entry_volname(volume_label);
 
 	//then go through all the files and make root entries for valid ones
-	std::array<Root_File_Buffer_t, FS_Constants::MAX_NUM_FILES> file_buffers = {0};	//actual storage for each root file entry
-	std::array<Root_File_Entry_t, FS_Constants::MAX_NUM_FILES> file_entries = {};	//pointers into the storage
+	App_Vector<Root_File_Entry_t, FS_Constants::MAX_NUM_FILES> file_entries = {};	//growable container of growable containers
 
 	//make entries for all the files
-	for(size_t i = 0; i < FS_Constants::MAX_NUM_FILES; i++) {
+	for(size_t i = 0; i < files.size(); i++) {
 		//get the file and the start cluster associated with that file
 		auto& file = files[i];
-		auto cluster = cluster_indices.start_indices[i];
-		auto& buffer = file_buffers[i];
+		auto start_cluster = cluster_indices.start_indices[i];
 
-		//build an entry for the file
-		//automatically checks if the file is valid
-		file_entries[i] = mk_root_entry_file(file, cluster, buffer);
+		//build a new entry and add it to the end of our list of entries
+		file_entries.push_back(mk_root_entry_file(file, start_cluster));
 	}
 
 	//once we have our volume entries and file entries, update our root sectors
-	//NOTE: our entries refer to our buffers; should still be in scope through this function
 	update_root_sector(vol_entry, file_entries);
 }
 
@@ -63,7 +59,7 @@ bool Root_Sector::read(size_t sector_offset, std::span<uint8_t, std::dynamic_ext
 
 //============================================ PRIVATE HELPER FUNCTIONS ==========================================
 
-Root_Sector::Root_Data_Entry_t Root_Sector::mk_root_entry_volname(std::array<uint8_t, 11> vol_name) {
+Root_Sector::Root_Data_Entry_t Root_Sector::mk_root_entry_volname(App_String<11, ' '>& vol_name) {
 	//placeholder
 	//indicate that we're a volume label (0x08 in spot 11)
 	//leaving timestamps, clusters, and size as 0
@@ -71,15 +67,50 @@ Root_Sector::Root_Data_Entry_t Root_Sector::mk_root_entry_volname(std::array<uin
 	entry[11] = 0x08;
 
 	//otherwise just copy our volume name into the beginning of the entry
-	std::copy(vol_name.begin(), vol_name.end(), entry.begin());
+	std::copy(vol_name.array().begin(), vol_name.array().end(), entry.begin());
 
 	return entry; //and return our entry
 }
 
-//TODO: fix
-Root_Sector::Root_File_Entry_t Root_Sector::mk_root_entry_file(MSC_File& file, uint16_t cluster, Root_File_Buffer_t& file_buffer) {
-	//early exit if file is invalid; return a zero-sized `span`
-	if(!file.is_valid()) return std::span<uint8_t, std::dynamic_extent>(file_buffer.data(), 0);
+Root_Sector::Root_File_Entry_t Root_Sector::mk_root_entry_file(MSC_File& file, uint16_t cluster) {
+	//output temporary
+	Root_Sector::Root_File_Entry_t file_entry = {};
+
+	//##### BUILDING LFN ENTRIES #####
+	//start by building a padded, terminated filename string
+	App_Vector<uint8_t, FS_Constants::FILENAME_MAX_LENGTH> padded_filename = {};
+	auto fname = file.get_file_name();
+	const size_t n_lfn = (fname.size() + LFN_CHARS_PER_ENTRY - 1) / LFN_CHARS_PER_ENTRY;	//how many LFN entries we need, round up
+	const size_t desired_length = n_lfn * LFN_CHARS_PER_ENTRY;								//compute how long we'd like our padded filename to be
+	padded_filename.push_n_back(fname.span());												//push our filename into our growable buffer
+	if(padded_filename.size() < desired_length) padded_filename.push_back(0);				//push a null terminator to our string if we have space
+	while(padded_filename.size() < desired_length) padded_filename.push_back(0xFF);			//add padding until filename is desired size
+
+	//section the padded filename into LFN-entry-sized chunks; store in an app-vector
+	using LFN_Name_Chunk_t = std::array<uint8_t, LFN_CHARS_PER_ENTRY>;
+	App_Vector<LFN_Name_Chunk_t, REQUIRED_LFN_ENTRIES> padded_filename_sections = {};
+	for(size_t i = 0; i < n_lfn; i++) {
+		LFN_Name_Chunk_t name_chunk;
+
+		//calculate some offsets, and copy into the temporary
+		size_t start_offset = i * LFN_CHARS_PER_ENTRY;
+		size_t end_offset = start_offset + LFN_CHARS_PER_ENTRY;
+		std::copy(padded_filename.begin() + start_offset, padded_filename.begin() + end_offset, name_chunk.begin());
+
+		//push the temporary into our vector
+		padded_filename_sections.push_back(name_chunk);
+	}
+
+	//with our padded filename, build our lfn entries successively
+	//remember that lfn entries are in REVERSE ORDER!
+	for (size_t k = n_lfn - 1; k >= 0; k--) {
+		//make the particular LFN entry
+		bool is_last_lfn = (k == (n_lfn - 1));
+		auto lfn_k = mk_root_entry_lfn(padded_filename_sections[k], file.get_short_name().checksum, k, is_last_lfn);
+
+		//and push it into our file entry collection
+		file_entry.push_n_back(lfn_k);
+	}
 
 	//##### SFN ENTRY #####
 	//Build the SFN directory entry (32 bytes), then prepend fixed-count LFN entries
@@ -104,52 +135,11 @@ Root_Sector::Root_File_Entry_t Root_Sector::mk_root_entry_file(MSC_File& file, u
 	// File size (bytes)
 	Regmap_Field(28, 0, 32, false, short_entry) = static_cast<uint32_t>(file.get_file_size());
 
+	//##### FINISHED ######
 	//drop the actual SFN entry at the end of our buffer
-	//build it back to front since LFNs come before the file entry
-	//but start with the short entry
-	size_t entry_byte_index = file_buffer.size() - short_entry.size();
-	std::copy(short_entry.begin(), short_entry.end(), file_buffer.begin() + entry_byte_index);
-
-	//##### BUILDING LFN ENTRIES #####
-	//grab our long file name, and compute how many LFN entries it requires to make
-	auto long_name8 = file.get_file_name();
-	const size_t actual_len = long_name8.size();
-	const size_t n = (actual_len + LFN_CHARS_PER_ENTRY - 1) / LFN_CHARS_PER_ENTRY;	//how many LFN entries we need, round up
-
-	//build our LFN entries successively
-	size_t name_copy_offset = 0;
-	size_t name_remaining = actual_len;
-	for (size_t k = 1; k <= n; k++) {
-		//create a std::array to hold the slice of the filename characters
-		std::array<uint8_t, LFN_CHARS_PER_ENTRY> name_slice;
-		name_slice.fill(0xFF);
-
-		//check if we need to add a null character, and if this is the last element of the sequence
-		//similar, but not exactly the same checks
-		bool is_last_lfn = false;
-		if(name_remaining <= LFN_CHARS_PER_ENTRY) is_last_lfn = true;				//if we can fit the rest of the name into this buffer batch
-		if(name_remaining < LFN_CHARS_PER_ENTRY) name_slice[name_remaining] = 0;	//and if will have space for our null terminator
-
-		//compute how many chars we need to copy and perform the copy
-		//update our pointers afterward
-		size_t to_copy = min(name_remaining, LFN_CHARS_PER_ENTRY);
-		std::copy(	long_name8.begin() + name_copy_offset,
-					long_name8.begin() + name_copy_offset + to_copy,
-					name_slice.begin());
-		name_remaining -= to_copy;
-		name_copy_offset += to_copy;
-
-		// build one LFN entry (back to front)
-		auto lfn_k = mk_root_entry_lfn(name_slice, sfn.checksum, k, is_last_lfn);
-
-		//and copy over the lfn entry; move the entry_byte_index back accordingly
-		entry_byte_index -= lfn_k.size();
-		std::copy(lfn_k.begin(), lfn_k.end(), file_buffer.begin() + entry_byte_index);
-	}
-
-	//at this point, `entry_byte_index` points to the start index of the buffer
-	//return a span that points to the buffer and is the correct size
-	return std::span<uint8_t, std::dynamic_extent>(file_buffer.begin() + entry_byte_index, file_buffer.end());
+	//and finally return the output temporary
+	file_entry.push_n_back(short_entry);
+	return file_entry;
 }
 
 Root_Sector::Root_LFN_Entry_t Root_Sector::mk_root_entry_lfn(	std::span<uint8_t, LFN_CHARS_PER_ENTRY> lfn_chars,
@@ -203,22 +193,15 @@ Root_Sector::Root_LFN_Entry_t Root_Sector::mk_root_entry_lfn(	std::span<uint8_t,
 }
 
 void Root_Sector::update_root_sector(	Root_Data_Entry_t& volname_entry,
-										std::array<Root_File_Entry_t, FS_Constants::MAX_NUM_FILES>& file_entries)
+										App_Vector<Root_File_Entry_t, FS_Constants::MAX_NUM_FILES>& file_entries)
 {
-	//zero-initialize our root entry
-	root_sector.fill(0);
-
-	//initialize an index into our root entry table
-	size_t root_index = 0;
+	//reset our root sector
+	root_sector.clear();
 
 	//put our volume name right at the beginning
-	std::copy(volname_entry.begin(), volname_entry.end(), root_sector.begin());
-	root_index += volname_entry.size();
+	root_sector.push_n_back(volname_entry);
 
 	//then iteratively copy over our file entries into our root sector
-	for(auto& file : file_entries) {
-		std::copy(file.begin(), file.end(), root_sector.begin() + root_index);
-		root_index += file.size();
-	}
+	for(auto& file : file_entries) root_sector.push_n_back(file);
 }
 

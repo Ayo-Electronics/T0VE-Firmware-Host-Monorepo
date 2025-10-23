@@ -17,16 +17,176 @@ typedef enum _App_Debug_Level {
 } App_Debug_Level;
 
 /* Struct definitions */
+/* ========================== SHARED "TYPES" ==========================
+the most standards-compliant way to define fixed-sized arrays, but also define them as optional
+involves wrapping them in a message. Annoying, but it works.
+sizes set in .options file */
+typedef struct _App_uint32_2 {
+    uint32_t values[2];
+} App_uint32_2;
+
+typedef struct _App_uint32_4 {
+    uint32_t values[4];
+} App_uint32_4;
+
+typedef struct _App_uint32_10 {
+    uint32_t values[10];
+} App_uint32_10;
+
+typedef struct _App_bool_4 {
+    bool values[4];
+} App_bool_4;
+
 typedef struct _App_Debug {
     App_Debug_Level level;
-    char msg[257];
+    char msg[256]; /* max length set in .options file, 256 */
 } App_Debug;
 
+/* ### STATE SUPERVISOR ### */
+typedef struct _App_State_Supervisor_Status {
+    bool decode_err;
+    uint32_t decode_err_deserz;
+    uint32_t decode_err_magic;
+    uint32_t decode_err_msgtype;
+    bool encode_err;
+    uint32_t encode_err_serz;
+} App_State_Supervisor_Status;
+
+/* ### MULTICARD INFORMATION ### */
+typedef struct _App_Multicard_Status {
+    bool all_present;
+    uint32_t node_id;
+} App_Multicard_Status;
+
+typedef struct _App_Multicard_Command {
+    bool has_sel_pd_input_aux_npic;
+    bool sel_pd_input_aux_npic;
+} App_Multicard_Command;
+
+/* ### POWER MONITOR ### */
+typedef struct _App_PM_Status {
+    bool immediate_power_status;
+    bool debounced_power_status;
+} App_PM_Status;
+
+typedef struct _App_PM_Command {
+    bool has_regulator_enable;
+    bool regulator_enable;
+} App_PM_Command;
+
+typedef struct _App_Offset_Ctrl_Status {
+    bool device_present;
+    bool device_error;
+    App_uint32_4 offset_readback; /* array of 4 uint32s */
+} App_Offset_Ctrl_Status;
+
+typedef struct _App_Offset_Ctrl_Command {
+    bool has_do_readback;
+    bool do_readback;
+    bool has_offset_set;
+    App_uint32_4 offset_set;
+} App_Offset_Ctrl_Command;
+
+/* ### HISPEED SUBSYSTEM ### */
+typedef struct _App_Hispeed_Status {
+    bool armed;
+    bool done_success;
+    bool done_err_ready;
+    bool done_err_timeout;
+    bool done_err_pwr;
+    App_uint32_4 tia_adc_readback;
+} App_Hispeed_Status;
+
+typedef struct _App_Hispeed_Command {
+    bool has_arm_request;
+    bool arm_request;
+    bool has_load_test_sequence;
+    bool load_test_sequence;
+    bool has_SOA_enable;
+    App_bool_4 SOA_enable;
+    bool has_TIA_enable;
+    App_bool_4 TIA_enable;
+    bool has_SOA_DAC_drive;
+    App_uint32_4 SOA_DAC_drive;
+} App_Hispeed_Command;
+
+/* ### CoB TEMPERATURE ### */
+typedef struct _App_CoB_Temp_Status {
+    bool device_present;
+    bool device_error;
+    uint32_t device_id;
+    float temperature_celsius;
+} App_CoB_Temp_Status;
+
+/* ### CoB EEPROM ### */
+typedef struct _App_CoB_EEPROM_Status {
+    bool device_present;
+    bool device_error;
+    uint32_t cob_UID;
+    char cob_desc[128]; /* max length set in .options file, 128 */
+} App_CoB_EEPROM_Status;
+
+typedef struct _App_CoB_EEPROM_Command {
+    bool has_do_cob_write_desc;
+    bool do_cob_write_desc;
+    bool has_cob_desc_set;
+    char cob_desc_set[128]; /* max length set in .options file, 128 */
+    bool has_cob_write_key;
+    uint32_t cob_write_key;
+} App_CoB_EEPROM_Command;
+
+/* ### WAVEGUIDE BIAS DRIVES ### */
+typedef struct _App_WG_Bias_Setpoints {
+    App_uint32_10 stub_setpoint;
+    App_uint32_4 mid_setpoint;
+    App_uint32_2 bulk_setpoint;
+} App_WG_Bias_Setpoints;
+
+typedef struct _App_WG_Bias_Status {
+    bool device_present;
+    bool device_error;
+    App_WG_Bias_Setpoints setpoints_readback;
+} App_WG_Bias_Status;
+
+typedef struct _App_WG_Bias_Command {
+    bool has_setpoints;
+    App_WG_Bias_Setpoints setpoints;
+    bool has_regulator_enable;
+    bool regulator_enable;
+    bool has_do_readback;
+    bool do_readback;
+} App_WG_Bias_Command;
+
+/* ### COMMS INTERFACE ### */
+typedef struct _App_Comms_Status {
+    bool comms_connected;
+} App_Comms_Status;
+
+typedef struct _App_Comms_Command {
+    bool has_allow_connection;
+    bool allow_connection;
+} App_Comms_Command;
+
 typedef struct _App_Node_State {
-    bool has_command_id;
-    uint32_t command_id;
-    bool has_command_data;
-    char command_data[33];
+    App_State_Supervisor_Status state_supervisor_st;
+    App_Multicard_Status multicard_st;
+    App_Multicard_Command multicard_cmd;
+    App_PM_Status pm_onboard_st;
+    App_PM_Command pm_onboard_cmd;
+    App_PM_Status pm_motherboard_st;
+    App_PM_Command pm_motherboard_cmd;
+    App_Offset_Ctrl_Status offset_ctrl_st;
+    App_Offset_Ctrl_Command offset_ctrl_cmd;
+    App_Hispeed_Status hispeed_st;
+    App_Hispeed_Command hispeed_cmd;
+    App_CoB_Temp_Status cob_temp_st;
+    App_CoB_EEPROM_Status cob_eeprom_st;
+    App_CoB_EEPROM_Command cob_eeprom_cmd;
+    App_WG_Bias_Status wg_bias_st;
+    App_WG_Bias_Command wg_bias_cmd;
+    App_Comms_Status comms_st;
+    App_Comms_Command comms_cmd;
+    uint32_t MAGIC_NUMBER;
 } App_Node_State;
 
 typedef struct _App_Communication {
@@ -47,39 +207,357 @@ extern "C" {
 #define _App_Debug_Level_MAX App_Debug_Level_ERROR
 #define _App_Debug_Level_ARRAYSIZE ((App_Debug_Level)(App_Debug_Level_ERROR+1))
 
+
+
+
+
 #define App_Debug_level_ENUMTYPE App_Debug_Level
 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /* Initializer values for message structs */
+#define App_uint32_2_init_default                {{0, 0}}
+#define App_uint32_4_init_default                {{0, 0, 0, 0}}
+#define App_uint32_10_init_default               {{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
+#define App_bool_4_init_default                  {{0, 0, 0, 0}}
 #define App_Debug_init_default                   {_App_Debug_Level_MIN, ""}
-#define App_Node_State_init_default              {false, 0, false, ""}
+#define App_State_Supervisor_Status_init_default {0, 0, 0, 0, 0, 0}
+#define App_Multicard_Status_init_default        {0, 0}
+#define App_Multicard_Command_init_default       {false, 0}
+#define App_PM_Status_init_default               {0, 0}
+#define App_PM_Command_init_default              {false, 0}
+#define App_Offset_Ctrl_Status_init_default      {0, 0, App_uint32_4_init_default}
+#define App_Offset_Ctrl_Command_init_default     {false, 0, false, App_uint32_4_init_default}
+#define App_Hispeed_Status_init_default          {0, 0, 0, 0, 0, App_uint32_4_init_default}
+#define App_Hispeed_Command_init_default         {false, 0, false, 0, false, App_bool_4_init_default, false, App_bool_4_init_default, false, App_uint32_4_init_default}
+#define App_CoB_Temp_Status_init_default         {0, 0, 0, 0}
+#define App_CoB_EEPROM_Status_init_default       {0, 0, 0, ""}
+#define App_CoB_EEPROM_Command_init_default      {false, 0, false, "", false, 0}
+#define App_WG_Bias_Setpoints_init_default       {App_uint32_10_init_default, App_uint32_4_init_default, App_uint32_2_init_default}
+#define App_WG_Bias_Status_init_default          {0, 0, App_WG_Bias_Setpoints_init_default}
+#define App_WG_Bias_Command_init_default         {false, App_WG_Bias_Setpoints_init_default, false, 0, false, 0}
+#define App_Comms_Status_init_default            {0}
+#define App_Comms_Command_init_default           {false, 0}
+#define App_Node_State_init_default              {App_State_Supervisor_Status_init_default, App_Multicard_Status_init_default, App_Multicard_Command_init_default, App_PM_Status_init_default, App_PM_Command_init_default, App_PM_Status_init_default, App_PM_Command_init_default, App_Offset_Ctrl_Status_init_default, App_Offset_Ctrl_Command_init_default, App_Hispeed_Status_init_default, App_Hispeed_Command_init_default, App_CoB_Temp_Status_init_default, App_CoB_EEPROM_Status_init_default, App_CoB_EEPROM_Command_init_default, App_WG_Bias_Status_init_default, App_WG_Bias_Command_init_default, App_Comms_Status_init_default, App_Comms_Command_init_default, 0}
 #define App_Communication_init_default           {0, {App_Node_State_init_default}}
+#define App_uint32_2_init_zero                   {{0, 0}}
+#define App_uint32_4_init_zero                   {{0, 0, 0, 0}}
+#define App_uint32_10_init_zero                  {{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
+#define App_bool_4_init_zero                     {{0, 0, 0, 0}}
 #define App_Debug_init_zero                      {_App_Debug_Level_MIN, ""}
-#define App_Node_State_init_zero                 {false, 0, false, ""}
+#define App_State_Supervisor_Status_init_zero    {0, 0, 0, 0, 0, 0}
+#define App_Multicard_Status_init_zero           {0, 0}
+#define App_Multicard_Command_init_zero          {false, 0}
+#define App_PM_Status_init_zero                  {0, 0}
+#define App_PM_Command_init_zero                 {false, 0}
+#define App_Offset_Ctrl_Status_init_zero         {0, 0, App_uint32_4_init_zero}
+#define App_Offset_Ctrl_Command_init_zero        {false, 0, false, App_uint32_4_init_zero}
+#define App_Hispeed_Status_init_zero             {0, 0, 0, 0, 0, App_uint32_4_init_zero}
+#define App_Hispeed_Command_init_zero            {false, 0, false, 0, false, App_bool_4_init_zero, false, App_bool_4_init_zero, false, App_uint32_4_init_zero}
+#define App_CoB_Temp_Status_init_zero            {0, 0, 0, 0}
+#define App_CoB_EEPROM_Status_init_zero          {0, 0, 0, ""}
+#define App_CoB_EEPROM_Command_init_zero         {false, 0, false, "", false, 0}
+#define App_WG_Bias_Setpoints_init_zero          {App_uint32_10_init_zero, App_uint32_4_init_zero, App_uint32_2_init_zero}
+#define App_WG_Bias_Status_init_zero             {0, 0, App_WG_Bias_Setpoints_init_zero}
+#define App_WG_Bias_Command_init_zero            {false, App_WG_Bias_Setpoints_init_zero, false, 0, false, 0}
+#define App_Comms_Status_init_zero               {0}
+#define App_Comms_Command_init_zero              {false, 0}
+#define App_Node_State_init_zero                 {App_State_Supervisor_Status_init_zero, App_Multicard_Status_init_zero, App_Multicard_Command_init_zero, App_PM_Status_init_zero, App_PM_Command_init_zero, App_PM_Status_init_zero, App_PM_Command_init_zero, App_Offset_Ctrl_Status_init_zero, App_Offset_Ctrl_Command_init_zero, App_Hispeed_Status_init_zero, App_Hispeed_Command_init_zero, App_CoB_Temp_Status_init_zero, App_CoB_EEPROM_Status_init_zero, App_CoB_EEPROM_Command_init_zero, App_WG_Bias_Status_init_zero, App_WG_Bias_Command_init_zero, App_Comms_Status_init_zero, App_Comms_Command_init_zero, 0}
 #define App_Communication_init_zero              {0, {App_Node_State_init_zero}}
 
 /* Field tags (for use in manual encoding/decoding) */
+#define App_uint32_2_values_tag                  1
+#define App_uint32_4_values_tag                  1
+#define App_uint32_10_values_tag                 1
+#define App_bool_4_values_tag                    1
 #define App_Debug_level_tag                      1
 #define App_Debug_msg_tag                        2
-#define App_Node_State_command_id_tag            1
-#define App_Node_State_command_data_tag          2
+#define App_State_Supervisor_Status_decode_err_tag 1
+#define App_State_Supervisor_Status_decode_err_deserz_tag 2
+#define App_State_Supervisor_Status_decode_err_magic_tag 3
+#define App_State_Supervisor_Status_decode_err_msgtype_tag 4
+#define App_State_Supervisor_Status_encode_err_tag 5
+#define App_State_Supervisor_Status_encode_err_serz_tag 6
+#define App_Multicard_Status_all_present_tag     1
+#define App_Multicard_Status_node_id_tag         2
+#define App_Multicard_Command_sel_pd_input_aux_npic_tag 1
+#define App_PM_Status_immediate_power_status_tag 1
+#define App_PM_Status_debounced_power_status_tag 2
+#define App_PM_Command_regulator_enable_tag      1
+#define App_Offset_Ctrl_Status_device_present_tag 1
+#define App_Offset_Ctrl_Status_device_error_tag  2
+#define App_Offset_Ctrl_Status_offset_readback_tag 3
+#define App_Offset_Ctrl_Command_do_readback_tag  1
+#define App_Offset_Ctrl_Command_offset_set_tag   2
+#define App_Hispeed_Status_armed_tag             1
+#define App_Hispeed_Status_done_success_tag      2
+#define App_Hispeed_Status_done_err_ready_tag    3
+#define App_Hispeed_Status_done_err_timeout_tag  4
+#define App_Hispeed_Status_done_err_pwr_tag      5
+#define App_Hispeed_Status_tia_adc_readback_tag  6
+#define App_Hispeed_Command_arm_request_tag      1
+#define App_Hispeed_Command_load_test_sequence_tag 2
+#define App_Hispeed_Command_SOA_enable_tag       3
+#define App_Hispeed_Command_TIA_enable_tag       4
+#define App_Hispeed_Command_SOA_DAC_drive_tag    5
+#define App_CoB_Temp_Status_device_present_tag   1
+#define App_CoB_Temp_Status_device_error_tag     2
+#define App_CoB_Temp_Status_device_id_tag        3
+#define App_CoB_Temp_Status_temperature_celsius_tag 4
+#define App_CoB_EEPROM_Status_device_present_tag 1
+#define App_CoB_EEPROM_Status_device_error_tag   2
+#define App_CoB_EEPROM_Status_cob_UID_tag        3
+#define App_CoB_EEPROM_Status_cob_desc_tag       4
+#define App_CoB_EEPROM_Command_do_cob_write_desc_tag 1
+#define App_CoB_EEPROM_Command_cob_desc_set_tag  2
+#define App_CoB_EEPROM_Command_cob_write_key_tag 3
+#define App_WG_Bias_Setpoints_stub_setpoint_tag  1
+#define App_WG_Bias_Setpoints_mid_setpoint_tag   2
+#define App_WG_Bias_Setpoints_bulk_setpoint_tag  3
+#define App_WG_Bias_Status_device_present_tag    1
+#define App_WG_Bias_Status_device_error_tag      2
+#define App_WG_Bias_Status_setpoints_readback_tag 3
+#define App_WG_Bias_Command_setpoints_tag        1
+#define App_WG_Bias_Command_regulator_enable_tag 2
+#define App_WG_Bias_Command_do_readback_tag      3
+#define App_Comms_Status_comms_connected_tag     1
+#define App_Comms_Command_allow_connection_tag   1
+#define App_Node_State_state_supervisor_st_tag   1
+#define App_Node_State_multicard_st_tag          2
+#define App_Node_State_multicard_cmd_tag         3
+#define App_Node_State_pm_onboard_st_tag         4
+#define App_Node_State_pm_onboard_cmd_tag        5
+#define App_Node_State_pm_motherboard_st_tag     6
+#define App_Node_State_pm_motherboard_cmd_tag    7
+#define App_Node_State_offset_ctrl_st_tag        8
+#define App_Node_State_offset_ctrl_cmd_tag       9
+#define App_Node_State_hispeed_st_tag            10
+#define App_Node_State_hispeed_cmd_tag           11
+#define App_Node_State_cob_temp_st_tag           12
+#define App_Node_State_cob_eeprom_st_tag         13
+#define App_Node_State_cob_eeprom_cmd_tag        14
+#define App_Node_State_wg_bias_st_tag            15
+#define App_Node_State_wg_bias_cmd_tag           16
+#define App_Node_State_comms_st_tag              17
+#define App_Node_State_comms_cmd_tag             18
+#define App_Node_State_MAGIC_NUMBER_tag          19
 #define App_Communication_node_state_tag         1
 #define App_Communication_debug_message_tag      2
 
 /* Struct field encoding specification for nanopb */
+#define App_uint32_2_FIELDLIST(X, a) \
+X(a, STATIC,   FIXARRAY, UINT32,   values,            1)
+#define App_uint32_2_CALLBACK NULL
+#define App_uint32_2_DEFAULT NULL
+
+#define App_uint32_4_FIELDLIST(X, a) \
+X(a, STATIC,   FIXARRAY, UINT32,   values,            1)
+#define App_uint32_4_CALLBACK NULL
+#define App_uint32_4_DEFAULT NULL
+
+#define App_uint32_10_FIELDLIST(X, a) \
+X(a, STATIC,   FIXARRAY, UINT32,   values,            1)
+#define App_uint32_10_CALLBACK NULL
+#define App_uint32_10_DEFAULT NULL
+
+#define App_bool_4_FIELDLIST(X, a) \
+X(a, STATIC,   FIXARRAY, BOOL,     values,            1)
+#define App_bool_4_CALLBACK NULL
+#define App_bool_4_DEFAULT NULL
+
 #define App_Debug_FIELDLIST(X, a) \
-X(a, STATIC,   REQUIRED, UENUM,    level,             1) \
-X(a, STATIC,   REQUIRED, STRING,   msg,               2)
+X(a, STATIC,   SINGULAR, UENUM,    level,             1) \
+X(a, STATIC,   SINGULAR, STRING,   msg,               2)
 #define App_Debug_CALLBACK NULL
 #define App_Debug_DEFAULT NULL
 
+#define App_State_Supervisor_Status_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, BOOL,     decode_err,        1) \
+X(a, STATIC,   SINGULAR, UINT32,   decode_err_deserz,   2) \
+X(a, STATIC,   SINGULAR, UINT32,   decode_err_magic,   3) \
+X(a, STATIC,   SINGULAR, UINT32,   decode_err_msgtype,   4) \
+X(a, STATIC,   SINGULAR, BOOL,     encode_err,        5) \
+X(a, STATIC,   SINGULAR, UINT32,   encode_err_serz,   6)
+#define App_State_Supervisor_Status_CALLBACK NULL
+#define App_State_Supervisor_Status_DEFAULT NULL
+
+#define App_Multicard_Status_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, BOOL,     all_present,       1) \
+X(a, STATIC,   SINGULAR, UINT32,   node_id,           2)
+#define App_Multicard_Status_CALLBACK NULL
+#define App_Multicard_Status_DEFAULT NULL
+
+#define App_Multicard_Command_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, BOOL,     sel_pd_input_aux_npic,   1)
+#define App_Multicard_Command_CALLBACK NULL
+#define App_Multicard_Command_DEFAULT NULL
+
+#define App_PM_Status_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, BOOL,     immediate_power_status,   1) \
+X(a, STATIC,   SINGULAR, BOOL,     debounced_power_status,   2)
+#define App_PM_Status_CALLBACK NULL
+#define App_PM_Status_DEFAULT NULL
+
+#define App_PM_Command_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, BOOL,     regulator_enable,   1)
+#define App_PM_Command_CALLBACK NULL
+#define App_PM_Command_DEFAULT NULL
+
+#define App_Offset_Ctrl_Status_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, BOOL,     device_present,    1) \
+X(a, STATIC,   SINGULAR, BOOL,     device_error,      2) \
+X(a, STATIC,   REQUIRED, MESSAGE,  offset_readback,   3)
+#define App_Offset_Ctrl_Status_CALLBACK NULL
+#define App_Offset_Ctrl_Status_DEFAULT NULL
+#define App_Offset_Ctrl_Status_offset_readback_MSGTYPE App_uint32_4
+
+#define App_Offset_Ctrl_Command_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, BOOL,     do_readback,       1) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  offset_set,        2)
+#define App_Offset_Ctrl_Command_CALLBACK NULL
+#define App_Offset_Ctrl_Command_DEFAULT NULL
+#define App_Offset_Ctrl_Command_offset_set_MSGTYPE App_uint32_4
+
+#define App_Hispeed_Status_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, BOOL,     armed,             1) \
+X(a, STATIC,   SINGULAR, BOOL,     done_success,      2) \
+X(a, STATIC,   SINGULAR, BOOL,     done_err_ready,    3) \
+X(a, STATIC,   SINGULAR, BOOL,     done_err_timeout,   4) \
+X(a, STATIC,   SINGULAR, BOOL,     done_err_pwr,      5) \
+X(a, STATIC,   REQUIRED, MESSAGE,  tia_adc_readback,   6)
+#define App_Hispeed_Status_CALLBACK NULL
+#define App_Hispeed_Status_DEFAULT NULL
+#define App_Hispeed_Status_tia_adc_readback_MSGTYPE App_uint32_4
+
+#define App_Hispeed_Command_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, BOOL,     arm_request,       1) \
+X(a, STATIC,   OPTIONAL, BOOL,     load_test_sequence,   2) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  SOA_enable,        3) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  TIA_enable,        4) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  SOA_DAC_drive,     5)
+#define App_Hispeed_Command_CALLBACK NULL
+#define App_Hispeed_Command_DEFAULT NULL
+#define App_Hispeed_Command_SOA_enable_MSGTYPE App_bool_4
+#define App_Hispeed_Command_TIA_enable_MSGTYPE App_bool_4
+#define App_Hispeed_Command_SOA_DAC_drive_MSGTYPE App_uint32_4
+
+#define App_CoB_Temp_Status_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, BOOL,     device_present,    1) \
+X(a, STATIC,   SINGULAR, BOOL,     device_error,      2) \
+X(a, STATIC,   SINGULAR, UINT32,   device_id,         3) \
+X(a, STATIC,   SINGULAR, FLOAT,    temperature_celsius,   4)
+#define App_CoB_Temp_Status_CALLBACK NULL
+#define App_CoB_Temp_Status_DEFAULT NULL
+
+#define App_CoB_EEPROM_Status_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, BOOL,     device_present,    1) \
+X(a, STATIC,   SINGULAR, BOOL,     device_error,      2) \
+X(a, STATIC,   SINGULAR, UINT32,   cob_UID,           3) \
+X(a, STATIC,   SINGULAR, STRING,   cob_desc,          4)
+#define App_CoB_EEPROM_Status_CALLBACK NULL
+#define App_CoB_EEPROM_Status_DEFAULT NULL
+
+#define App_CoB_EEPROM_Command_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, BOOL,     do_cob_write_desc,   1) \
+X(a, STATIC,   OPTIONAL, STRING,   cob_desc_set,      2) \
+X(a, STATIC,   OPTIONAL, UINT32,   cob_write_key,     3)
+#define App_CoB_EEPROM_Command_CALLBACK NULL
+#define App_CoB_EEPROM_Command_DEFAULT NULL
+
+#define App_WG_Bias_Setpoints_FIELDLIST(X, a) \
+X(a, STATIC,   REQUIRED, MESSAGE,  stub_setpoint,     1) \
+X(a, STATIC,   REQUIRED, MESSAGE,  mid_setpoint,      2) \
+X(a, STATIC,   REQUIRED, MESSAGE,  bulk_setpoint,     3)
+#define App_WG_Bias_Setpoints_CALLBACK NULL
+#define App_WG_Bias_Setpoints_DEFAULT NULL
+#define App_WG_Bias_Setpoints_stub_setpoint_MSGTYPE App_uint32_10
+#define App_WG_Bias_Setpoints_mid_setpoint_MSGTYPE App_uint32_4
+#define App_WG_Bias_Setpoints_bulk_setpoint_MSGTYPE App_uint32_2
+
+#define App_WG_Bias_Status_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, BOOL,     device_present,    1) \
+X(a, STATIC,   SINGULAR, BOOL,     device_error,      2) \
+X(a, STATIC,   REQUIRED, MESSAGE,  setpoints_readback,   3)
+#define App_WG_Bias_Status_CALLBACK NULL
+#define App_WG_Bias_Status_DEFAULT NULL
+#define App_WG_Bias_Status_setpoints_readback_MSGTYPE App_WG_Bias_Setpoints
+
+#define App_WG_Bias_Command_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  setpoints,         1) \
+X(a, STATIC,   OPTIONAL, BOOL,     regulator_enable,   2) \
+X(a, STATIC,   OPTIONAL, BOOL,     do_readback,       3)
+#define App_WG_Bias_Command_CALLBACK NULL
+#define App_WG_Bias_Command_DEFAULT NULL
+#define App_WG_Bias_Command_setpoints_MSGTYPE App_WG_Bias_Setpoints
+
+#define App_Comms_Status_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, BOOL,     comms_connected,   1)
+#define App_Comms_Status_CALLBACK NULL
+#define App_Comms_Status_DEFAULT NULL
+
+#define App_Comms_Command_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, BOOL,     allow_connection,   1)
+#define App_Comms_Command_CALLBACK NULL
+#define App_Comms_Command_DEFAULT NULL
+
 #define App_Node_State_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, UINT32,   command_id,        1) \
-X(a, STATIC,   OPTIONAL, STRING,   command_data,      2)
+X(a, STATIC,   REQUIRED, MESSAGE,  state_supervisor_st,   1) \
+X(a, STATIC,   REQUIRED, MESSAGE,  multicard_st,      2) \
+X(a, STATIC,   REQUIRED, MESSAGE,  multicard_cmd,     3) \
+X(a, STATIC,   REQUIRED, MESSAGE,  pm_onboard_st,     4) \
+X(a, STATIC,   REQUIRED, MESSAGE,  pm_onboard_cmd,    5) \
+X(a, STATIC,   REQUIRED, MESSAGE,  pm_motherboard_st,   6) \
+X(a, STATIC,   REQUIRED, MESSAGE,  pm_motherboard_cmd,   7) \
+X(a, STATIC,   REQUIRED, MESSAGE,  offset_ctrl_st,    8) \
+X(a, STATIC,   REQUIRED, MESSAGE,  offset_ctrl_cmd,   9) \
+X(a, STATIC,   REQUIRED, MESSAGE,  hispeed_st,       10) \
+X(a, STATIC,   REQUIRED, MESSAGE,  hispeed_cmd,      11) \
+X(a, STATIC,   REQUIRED, MESSAGE,  cob_temp_st,      12) \
+X(a, STATIC,   REQUIRED, MESSAGE,  cob_eeprom_st,    13) \
+X(a, STATIC,   REQUIRED, MESSAGE,  cob_eeprom_cmd,   14) \
+X(a, STATIC,   REQUIRED, MESSAGE,  wg_bias_st,       15) \
+X(a, STATIC,   REQUIRED, MESSAGE,  wg_bias_cmd,      16) \
+X(a, STATIC,   REQUIRED, MESSAGE,  comms_st,         17) \
+X(a, STATIC,   REQUIRED, MESSAGE,  comms_cmd,        18) \
+X(a, STATIC,   SINGULAR, UINT32,   MAGIC_NUMBER,     19)
 #define App_Node_State_CALLBACK NULL
 #define App_Node_State_DEFAULT NULL
+#define App_Node_State_state_supervisor_st_MSGTYPE App_State_Supervisor_Status
+#define App_Node_State_multicard_st_MSGTYPE App_Multicard_Status
+#define App_Node_State_multicard_cmd_MSGTYPE App_Multicard_Command
+#define App_Node_State_pm_onboard_st_MSGTYPE App_PM_Status
+#define App_Node_State_pm_onboard_cmd_MSGTYPE App_PM_Command
+#define App_Node_State_pm_motherboard_st_MSGTYPE App_PM_Status
+#define App_Node_State_pm_motherboard_cmd_MSGTYPE App_PM_Command
+#define App_Node_State_offset_ctrl_st_MSGTYPE App_Offset_Ctrl_Status
+#define App_Node_State_offset_ctrl_cmd_MSGTYPE App_Offset_Ctrl_Command
+#define App_Node_State_hispeed_st_MSGTYPE App_Hispeed_Status
+#define App_Node_State_hispeed_cmd_MSGTYPE App_Hispeed_Command
+#define App_Node_State_cob_temp_st_MSGTYPE App_CoB_Temp_Status
+#define App_Node_State_cob_eeprom_st_MSGTYPE App_CoB_EEPROM_Status
+#define App_Node_State_cob_eeprom_cmd_MSGTYPE App_CoB_EEPROM_Command
+#define App_Node_State_wg_bias_st_MSGTYPE App_WG_Bias_Status
+#define App_Node_State_wg_bias_cmd_MSGTYPE App_WG_Bias_Command
+#define App_Node_State_comms_st_MSGTYPE App_Comms_Status
+#define App_Node_State_comms_cmd_MSGTYPE App_Comms_Command
 
 #define App_Communication_FIELDLIST(X, a) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (payload,node_state,payload.node_state),   1) \
@@ -89,20 +567,83 @@ X(a, STATIC,   ONEOF,    MESSAGE,  (payload,debug_message,payload.debug_message)
 #define App_Communication_payload_node_state_MSGTYPE App_Node_State
 #define App_Communication_payload_debug_message_MSGTYPE App_Debug
 
+extern const pb_msgdesc_t App_uint32_2_msg;
+extern const pb_msgdesc_t App_uint32_4_msg;
+extern const pb_msgdesc_t App_uint32_10_msg;
+extern const pb_msgdesc_t App_bool_4_msg;
 extern const pb_msgdesc_t App_Debug_msg;
+extern const pb_msgdesc_t App_State_Supervisor_Status_msg;
+extern const pb_msgdesc_t App_Multicard_Status_msg;
+extern const pb_msgdesc_t App_Multicard_Command_msg;
+extern const pb_msgdesc_t App_PM_Status_msg;
+extern const pb_msgdesc_t App_PM_Command_msg;
+extern const pb_msgdesc_t App_Offset_Ctrl_Status_msg;
+extern const pb_msgdesc_t App_Offset_Ctrl_Command_msg;
+extern const pb_msgdesc_t App_Hispeed_Status_msg;
+extern const pb_msgdesc_t App_Hispeed_Command_msg;
+extern const pb_msgdesc_t App_CoB_Temp_Status_msg;
+extern const pb_msgdesc_t App_CoB_EEPROM_Status_msg;
+extern const pb_msgdesc_t App_CoB_EEPROM_Command_msg;
+extern const pb_msgdesc_t App_WG_Bias_Setpoints_msg;
+extern const pb_msgdesc_t App_WG_Bias_Status_msg;
+extern const pb_msgdesc_t App_WG_Bias_Command_msg;
+extern const pb_msgdesc_t App_Comms_Status_msg;
+extern const pb_msgdesc_t App_Comms_Command_msg;
 extern const pb_msgdesc_t App_Node_State_msg;
 extern const pb_msgdesc_t App_Communication_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
+#define App_uint32_2_fields &App_uint32_2_msg
+#define App_uint32_4_fields &App_uint32_4_msg
+#define App_uint32_10_fields &App_uint32_10_msg
+#define App_bool_4_fields &App_bool_4_msg
 #define App_Debug_fields &App_Debug_msg
+#define App_State_Supervisor_Status_fields &App_State_Supervisor_Status_msg
+#define App_Multicard_Status_fields &App_Multicard_Status_msg
+#define App_Multicard_Command_fields &App_Multicard_Command_msg
+#define App_PM_Status_fields &App_PM_Status_msg
+#define App_PM_Command_fields &App_PM_Command_msg
+#define App_Offset_Ctrl_Status_fields &App_Offset_Ctrl_Status_msg
+#define App_Offset_Ctrl_Command_fields &App_Offset_Ctrl_Command_msg
+#define App_Hispeed_Status_fields &App_Hispeed_Status_msg
+#define App_Hispeed_Command_fields &App_Hispeed_Command_msg
+#define App_CoB_Temp_Status_fields &App_CoB_Temp_Status_msg
+#define App_CoB_EEPROM_Status_fields &App_CoB_EEPROM_Status_msg
+#define App_CoB_EEPROM_Command_fields &App_CoB_EEPROM_Command_msg
+#define App_WG_Bias_Setpoints_fields &App_WG_Bias_Setpoints_msg
+#define App_WG_Bias_Status_fields &App_WG_Bias_Status_msg
+#define App_WG_Bias_Command_fields &App_WG_Bias_Command_msg
+#define App_Comms_Status_fields &App_Comms_Status_msg
+#define App_Comms_Command_fields &App_Comms_Command_msg
 #define App_Node_State_fields &App_Node_State_msg
 #define App_Communication_fields &App_Communication_msg
 
 /* Maximum encoded size of messages (where known) */
 #define APP_APP_MESSAGES_PB_H_MAX_SIZE           App_Communication_size
-#define App_Communication_size                   264
-#define App_Debug_size                           261
-#define App_Node_State_size                      40
+#define App_CoB_EEPROM_Command_size              138
+#define App_CoB_EEPROM_Status_size               140
+#define App_CoB_Temp_Status_size                 15
+#define App_Comms_Command_size                   2
+#define App_Comms_Status_size                    2
+#define App_Communication_size                   758
+#define App_Debug_size                           260
+#define App_Hispeed_Command_size                 50
+#define App_Hispeed_Status_size                  36
+#define App_Multicard_Command_size               2
+#define App_Multicard_Status_size                8
+#define App_Node_State_size                      755
+#define App_Offset_Ctrl_Command_size             28
+#define App_Offset_Ctrl_Status_size              30
+#define App_PM_Command_size                      2
+#define App_PM_Status_size                       4
+#define App_State_Supervisor_Status_size         28
+#define App_WG_Bias_Command_size                 108
+#define App_WG_Bias_Setpoints_size               102
+#define App_WG_Bias_Status_size                  108
+#define App_bool_4_size                          8
+#define App_uint32_10_size                       60
+#define App_uint32_2_size                        12
+#define App_uint32_4_size                        24
 
 #ifdef __cplusplus
 } /* extern "C" */

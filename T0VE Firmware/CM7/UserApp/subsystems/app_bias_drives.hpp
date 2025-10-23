@@ -12,10 +12,10 @@
 #include "app_proctypes.hpp"
 #include "app_state_machine_library.hpp"
 #include "app_hal_i2c.hpp"
-#include "app_state_variable.hpp"
 #include "app_scheduler.hpp"
 #include "app_hal_gpio.hpp"
 #include "app_hal_pin_mapping.hpp"
+#include "app_threading.hpp"
 
 class Waveguide_Bias_Drive {
 public:
@@ -26,7 +26,7 @@ public:
 		std::array<uint16_t, 4> mid_setpoints;
 		std::array<uint16_t, 10> stub_setpoints;
 
-		//need to define explicity equality operator (equality comparison called in atomic variable)
+		//need to define explicitly equality operator (equality comparison called in Pub_Var)
 		bool operator==(const Waveguide_Bias_Setpoints_t& other) const {
 		return bulk_setpoints == other.bulk_setpoints &&
 			   mid_setpoints  == other.mid_setpoints  &&
@@ -61,13 +61,13 @@ public:
 
 private:
 	//shared state variables
-	State_Variable<bool> status_device_present; 								//report whether we detected the device during initialization
-	State_Variable<Waveguide_Bias_Setpoints_t> status_bias_dac_values_readback;	//what the DAC thinks we've written to it
-	State_Variable<bool> status_bias_dac_error; 								//asserted when any kinda dac error happens, expose read-clear port
-	SV_Subscription_RC<Waveguide_Bias_Setpoints_t> command_bias_dac_values; 	//values we'd like to write to the DAC
-	SV_Subscription_RC<bool> command_bias_reg_enable;							//enable the actual voltage regulators for the waveguide bias system
-	SV_Subscription_RC<bool> command_bias_dac_read_update; 						//asserted when we want to perform a DAC read, cleared after read
-	SV_Subscription<bool> status_motherboard_pgood; 							//whether motherboard CoB supplies are up
+	PERSISTENT((Pub_Var<bool>), status_device_present); 									//report whether we detected the device during initialization
+	PERSISTENT((Pub_Var<Waveguide_Bias_Setpoints_t>), status_bias_dac_values_readback);	//what the DAC thinks we've written to it
+	PERSISTENT((Pub_Var<bool>), status_bias_dac_error); 									//asserted when any kinda dac error happens, expose read-clear port
+	Sub_Var_RC<Waveguide_Bias_Setpoints_t> command_bias_dac_values; 		//values we'd like to write to the DAC
+	Sub_Var_RC<bool> command_bias_reg_enable;								//enable the actual voltage regulators for the waveguide bias system
+	Sub_Var_RC<bool> command_bias_dac_read_update; 							//asserted when we want to perform a DAC read, cleared after read
+	Sub_Var<bool> status_motherboard_pgood; 								//whether motherboard CoB supplies are up
 
 	//################################### DAC INTERFACE HELPERS ########################################
 	//class controls two AD5675s
@@ -142,23 +142,23 @@ private:
 	std::array<Bias_Setpoints_t, 16> bias_setpoints;
 	size_t bias_setpoint_tx_index = 0;
 	bool tx_transfer_staged = false;
-	Thread_Signal write_data_do;
-	Thread_Signal write_error_signal;
-
-	//function called on write transmission error
-	void write_error();
+	PERSISTENT((Thread_Signal), write_do);
+	Thread_Signal_Listener write_do_listener = write_do.listen();
+	PERSISTENT((Thread_Signal), write_error);
+	Thread_Signal_Listener write_error_listener = write_error.listen();
+	Thread_Signal_Listener write_error_listener_pubstate = write_error.listen();
 
 	//and have a state machine that manages the writing functionality
 	//have three states, IDLE, TX, INCREMENT and transitions between them
 	ESM_State bias_tx_state_IDLE;
 	ESM_State bias_tx_state_TX;
 	ESM_State bias_tx_state_INCREMENT;
-	bool trans_IDLE_to_TX() { return 	command_bias_dac_values.available() ||
-										write_data_do.available(); } 								//drop into TX mode if we want to update our bias dac values (via user or internal signal)
-	bool trans_TX_to_INCREMENT() { return tx_transfer_staged && !write_error_signal.available(); }	//increment our setpoint tx index if our transmission was staged successfully
-	bool trans_TX_to_IDLE() { return write_error_signal.available(); }								//return from tx to idle if we have a transmission error
-	bool trans_INCREMENT_to_TX() { return bias_setpoint_tx_index < bias_setpoints.size(); };		//return from increment to tx if we have more data to transmit
-	bool trans_INCREMENT_to_IDLE() { return bias_setpoint_tx_index >= bias_setpoints.size(); }		//return from increment to idle if we've transmitted our entire buffer (tx error will be autonomously set)
+	bool trans_IDLE_to_TX() { return 	command_bias_dac_values.check() ||
+										write_do_listener.check(); } 							//drop into TX mode if we want to update our bias dac values (via user or internal signal)
+	bool trans_TX_to_INCREMENT() { return tx_transfer_staged && !write_error_listener.check(); }//increment our setpoint tx index if our transmission was staged successfully
+	bool trans_TX_to_IDLE() { return write_error_listener.check(); }							//return from tx to idle if we have a transmission error
+	bool trans_INCREMENT_to_TX() { return bias_setpoint_tx_index < bias_setpoints.size(); };	//return from increment to tx if we have more data to transmit
+	bool trans_INCREMENT_to_IDLE() { return bias_setpoint_tx_index >= bias_setpoints.size(); }	//return from increment to idle if we've transmitted our entire buffer (tx error will be autonomously set)
 
 	//provide hooks for our thread functions
 	void tx_IDLE_on_exit();			//update setpoints container, reset counter, clear error signals
@@ -177,13 +177,14 @@ private:
 	//state variables necessary for reading flow control
 	static const uint32_t READ_BIAS_DAC_VALUES_PERIOD_MS = 1000; //automatically pull in the bias DAC values at this rate
 	Scheduler periodic_read_task;	//scheduler that sets the read thread signal periodically
-	Thread_Signal read_data_do;		//for our periodic reading
-	Thread_Signal read_complete;
-	Thread_Signal read_error_signal;
+	PERSISTENT((Thread_Signal), read_do);			//for our periodic reading
+	Thread_Signal_Listener read_do_listener = read_do.listen();
+	PERSISTENT((Thread_Signal), read_complete);
+	Thread_Signal_Listener read_complete_listener = read_complete.listen();
+	PERSISTENT((Thread_Signal), read_error);
+	Thread_Signal_Listener read_error_listener = read_error.listen();			//used for state machine
+	Thread_Signal_Listener read_error_listener_pubstate = read_error.listen();	//used for state updates
 	bool rx_transfer_success;
-
-	//function called on read transmission error
-	void read_error();
 
 	//have a couple states
 	//IDLE, REQUEST_1, WAIT1, REQUEST_2, WAIT2, READBACK_UPDATE
@@ -194,15 +195,15 @@ private:
 	ESM_State bias_rx_state_REQUEST2;
 	ESM_State bias_rx_state_WAIT2;
 	ESM_State bias_rx_state_RBUPDATE;
-	bool trans_IDLE_to_REQUEST1() 		{ return read_data_do.available() || command_bias_dac_read_update; }	//interval read or user requested
-	bool trans_REQUEST1_to_WAIT1() 		{ return rx_transfer_success && !read_error_signal.available(); }		//after first transmission staged successfully
-	bool trans_REQUEST1_to_IDLE()		{ return read_error_signal.available(); }								//if error staging first transmission
-	bool trans_WAIT1_to_REQUEST2()		{ return read_complete.available() && !read_error_signal.available(); }	//move to second request if the read has completed
-	bool trans_WAIT1_to_IDLE()			{ return read_error_signal.available(); }								//move back to idle if there was an error during transmission
-	bool trans_REQUEST2_to_WAIT2() 		{ return rx_transfer_success && !read_error_signal.available(); }		//after second transmission staged successfully
-	bool trans_REQUEST2_to_IDLE() 		{ return read_error_signal.available(); }								//if error staging second transmission
-	bool trans_WAIT2_to_RBUPDATE()		{ return read_complete.available() && !read_error_signal.available(); }	//move to readback update, read 2 complete
-	bool trans_WAIT2_to_IDLE()			{ return read_error_signal.available(); }	//if error after second transmission
+	bool trans_IDLE_to_REQUEST1() 		{ return read_do_listener.check() || command_bias_dac_read_update.read(); }	//interval read or user requested
+	bool trans_REQUEST1_to_WAIT1() 		{ return rx_transfer_success && !read_error_listener.check(); }				//after first transmission staged successfully
+	bool trans_REQUEST1_to_IDLE()		{ return read_error_listener.check(); }										//if error staging first transmission
+	bool trans_WAIT1_to_REQUEST2()		{ return read_complete_listener.check() && !read_error_listener.check(); }	//move to second request if the read has completed
+	bool trans_WAIT1_to_IDLE()			{ return read_error_listener.check(); }										//move back to idle if there was an error during transmission
+	bool trans_REQUEST2_to_WAIT2() 		{ return rx_transfer_success && !read_error_listener.check(); }				//after second transmission staged successfully
+	bool trans_REQUEST2_to_IDLE() 		{ return read_error_listener.check(); }										//if error staging second transmission
+	bool trans_WAIT2_to_RBUPDATE()		{ return read_complete_listener.check() && !read_error_listener.check(); }	//move to readback update, read 2 complete
+	bool trans_WAIT2_to_IDLE()			{ return read_error_listener.check(); }										//if error after second transmission
 	bool trans_RBUPDATE_to_IDLE() 		{ return true; }							//always return to idle after unpacking data
 
 	//provide hooks for our thread functions
@@ -232,8 +233,8 @@ private:
 	//and a really basic state machine to cycle between enabled/disabled depending on PGOOD status
 	ESM_State bias_state_ENABLED;
 	ESM_State bias_state_DISABLED;
-	bool trans_ENABLE_to_DISABLE() { return !status_motherboard_pgood; }	//check our subscription variable to see if power is bad
-	bool trans_DISABLE_to_ENABLE() { return status_motherboard_pgood; }		//check our subscription variable to see if power is good
+	bool trans_ENABLE_to_DISABLE() { return !status_motherboard_pgood.read(); }	//check our subscription variable to see if power is bad
+	bool trans_DISABLE_to_ENABLE() { return status_motherboard_pgood.read(); }	//check our subscription variable to see if power is good
 	ESM_Transition trans_from_ENABLED[1] = {	{&bias_state_DISABLED, {BIND_CALLBACK(this, trans_ENABLE_to_DISABLE)}		}	};
 	ESM_Transition trans_from_DISABLED[1] = {	{&bias_state_ENABLED, {BIND_CALLBACK(this, trans_DISABLE_to_ENABLE)}		}	};
 	Extended_State_Machine esm_supervisor;
@@ -244,15 +245,16 @@ private:
 	inline void run_tx_rx_esm() { esm_tx.RUN_ESM(); esm_rx.RUN_ESM(); } //inline helper to run the tx/rx state machines
 	Scheduler esm_tx_rx_task;
 
-	//########################################### GPIO CONTROL ###########################################
-	GPIO dac_reset_line;	//GPIO pin used to reset the DAC pins
-	GPIO reg_enable;		//GPIO pin used to enable the waveguide bias regulators
+	//########################################### OTHER STATE CONTROL ###########################################
+	GPIO dac_reset_line;				//GPIO pin used to reset the DAC pins
+	GPIO reg_enable;					//GPIO pin used to enable the waveguide bias regulators
+	void do_regulator_ctrl_update(); 	//performs the GPIO control
 
 	//functions relevant to regulator GPIO control management
 	//	- one function actually performs GPIO control based on command variable
 	//	- one function checks if the command value changed
 	//	- a scheduler runs the "check" function
-	void do_regulator_ctrl_update();
-	inline void check_regulator_ctrl_update() { if(command_bias_reg_enable.available()) do_regulator_ctrl_update(); }
-	Scheduler check_regulator_ctrl_update_task;
+
+	void check_state_update();	//runs the GPIO control as well as updating error flags
+	Scheduler check_state_update_task;
 };

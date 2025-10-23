@@ -19,7 +19,11 @@
 #include "app_hal_dram.hpp"
 #include "app_hal_pwm.hpp"
 #include "app_hal_tick.hpp"
+#include "app_hal_board_uid.hpp"
+
+//========== USB INCLUDES ==========
 #include "app_usb_if.hpp"
+#include "app_msc_if.hpp"
 
 //============ SUBSYSTEM INCLUDES ===========
 #include "app_state_supervisor.hpp"
@@ -39,7 +43,8 @@
 
 //============= INSTANTIATION OF HARDWARE ============
 Aux_I2C i2c_bus(Aux_I2C::AUX_I2C_HARDWARE);
-USB_Interface usb = USB_Interface();
+USB_Interface usb = USB_Interface(USB_Interface::USB_CHANNEL);
+//MSC_Interface msc(usb, MSC_Interface::MSC_CHANNEL);
 
 Hispeed_Subsystem::Hispeed_Channel_Hardware_t CHANNEL_0_HW = {
 		._spi_channel_hw = HiSpeed_SPI::SPI_CHANNEL_0,
@@ -120,6 +125,7 @@ Comms_Subsys comms_subsys(usb, state_supervisor);
 Debug_Protobuf dbp(comms_subsys);
 
 //TESTING: TODO, remove
+Scheduler print_test_task;
 
 
 void LINK_SYSTEM_STATE_VARIABLES() {
@@ -130,13 +136,13 @@ void LINK_SYSTEM_STATE_VARIABLES() {
 
 	//##### ONBOARD POWER MONITOR #####
 	pm_onboard_subsys.link_command_regulator_enabled(				state_supervisor.subscribe_pm_onboard_regulator_enable_command()		);
-	state_supervisor.link_pm_onboard_debounced_power_status(		pm_onboard_subsys.subscribe_debounced_power_status()					);
-	state_supervisor.link_pm_onboard_immediate_power_status(		pm_onboard_subsys.subscribe_immediate_power_status()					);
+	state_supervisor.link_pm_onboard_debounced_power_status(		pm_onboard_subsys.subscribe_status_debounced_power()					);
+	state_supervisor.link_pm_onboard_immediate_power_status(		pm_onboard_subsys.subscribe_status_immedate_power()						);
 
 	//##### MOTHERBOARD POWER MONITOR #####
 	pm_motherboard_subsys.link_command_regulator_enabled(			state_supervisor.subscribe_pm_motherboard_regulator_enable_command()	);
-	state_supervisor.link_pm_motherboard_debounced_power_status(	pm_motherboard_subsys.subscribe_debounced_power_status()				);
-	state_supervisor.link_pm_motherboard_immediate_power_status(	pm_motherboard_subsys.subscribe_immediate_power_status()				);
+	state_supervisor.link_pm_motherboard_debounced_power_status(	pm_motherboard_subsys.subscribe_status_debounced_power()				);
+	state_supervisor.link_pm_motherboard_immediate_power_status(	pm_motherboard_subsys.subscribe_status_immedate_power()					);
 
 	//##### ADC OFFSET CONTROL #####
 	offset_ctrl_subsys.link_RC_command_offset_dac_read_update(		state_supervisor.subscribe_RC_adc_offset_ctrl_perform_device_read_command()	);
@@ -144,7 +150,7 @@ void LINK_SYSTEM_STATE_VARIABLES() {
 	state_supervisor.link_adc_offset_ctrl_dac_value_readback_status(offset_ctrl_subsys.subscribe_status_offset_dac_values_readback()			);
 	state_supervisor.link_RC_adc_offset_ctrl_dac_error_status(		offset_ctrl_subsys.subscribe_RC_status_offset_dac_error()					);
 	state_supervisor.link_adc_offset_ctrl_device_present_status(	offset_ctrl_subsys.subscribe_status_device_present()						);
-	offset_ctrl_subsys.link_status_onboard_pgood(					pm_onboard_subsys.subscribe_debounced_power_status()						);
+	offset_ctrl_subsys.link_status_onboard_pgood(					pm_onboard_subsys.subscribe_status_debounced_power()						);
 	//TESTING, TODO: change back to line above
 	//offset_ctrl_subsys.link_status_onboard_pgood(dummy_pgood.subscribe());
 
@@ -166,7 +172,7 @@ void LINK_SYSTEM_STATE_VARIABLES() {
 	state_supervisor.link_status_cobtemp_cob_temperature_c(				cob_temp_monitor.subscribe_status_cob_temperature_c()					);
 	state_supervisor.link_status_cobtemp_device_present(				cob_temp_monitor.subscribe_status_device_present()						);
 	state_supervisor.link_status_cobtemp_temp_sensor_device_id(			cob_temp_monitor.subscribe_status_temp_sensor_device_id()				);
-	cob_temp_monitor.link_status_onboard_pgood(							pm_onboard_subsys.subscribe_debounced_power_status()					);
+	cob_temp_monitor.link_status_onboard_pgood(							pm_onboard_subsys.subscribe_status_debounced_power()					);
 	//TESTING, TODO: change back to line above
 	//cob_temp_monitor.link_status_onboard_pgood(dummy_pgood.subscribe());
 
@@ -178,7 +184,7 @@ void LINK_SYSTEM_STATE_VARIABLES() {
 	cob_eeprom.link_RC_command_cob_eeprom_write(						state_supervisor.subscribe_RC_command_cob_eeprom_write()				);
 	cob_eeprom.link_RC_command_cob_eeprom_write_contents(				state_supervisor.subscribe_RC_command_cob_eeprom_write_contents()		);
 	cob_eeprom.link_RC_command_cob_eeprom_write_key(					state_supervisor.subscribe_RC_command_cob_eeprom_write_key()			);
-	cob_eeprom.link_status_onboard_pgood(								pm_onboard_subsys.subscribe_debounced_power_status()					);
+	cob_eeprom.link_status_onboard_pgood(								pm_onboard_subsys.subscribe_status_debounced_power()					);
 	//TESTING, TODO: change back to the line above
 	//cob_eeprom.link_status_onboard_pgood(dummy_pgood.subscribe());
 
@@ -189,15 +195,15 @@ void LINK_SYSTEM_STATE_VARIABLES() {
 	wgbias_subsys.link_RC_command_bias_dac_read_update(				state_supervisor.subscribe_RC_command_wgbias_dac_read_update()		);
 	wgbias_subsys.link_RC_command_bias_dac_values(					state_supervisor.subscribe_RC_command_wgbias_dac_values()			);
 	wgbias_subsys.link_RC_command_bias_reg_enable(					state_supervisor.subscribe_RC_command_wgbias_reg_enable()			);
-	wgbias_subsys.link_status_motherboard_pgood(					pm_motherboard_subsys.subscribe_debounced_power_status()			);
+	wgbias_subsys.link_status_motherboard_pgood(					pm_motherboard_subsys.subscribe_status_debounced_power()			);
 
 	//##### COMMS INTERFACE #####
 	state_supervisor.link_status_comms_connected(					comms_subsys.subscribe_status_comms_connected()						);
 	comms_subsys.link_command_comms_allow_connections(				state_supervisor.subscribe_command_comms_allow_connections()		);
 
 	//##### LED INDICATORS ######
-	indicators_subsys.link_status_onboard_pgood(		pm_onboard_subsys.subscribe_debounced_power_status()		);
-	indicators_subsys.link_status_motherboard_pgood(	pm_motherboard_subsys.subscribe_debounced_power_status()	);
+	indicators_subsys.link_status_onboard_pgood(		pm_onboard_subsys.subscribe_status_debounced_power()		);
+	indicators_subsys.link_status_motherboard_pgood(	pm_motherboard_subsys.subscribe_status_debounced_power()	);
 	indicators_subsys.link_RC_status_comms_activity(	comms_subsys.subscribe_RC_status_comms_activity()			);
 	indicators_subsys.link_status_comms_connected(		comms_subsys.subscribe_status_comms_connected()				);
 	indicators_subsys.link_status_hispeed_armed(		hispeed_subsys.subscribe_status_hispeed_armed()				);
@@ -207,7 +213,8 @@ void LINK_SYSTEM_STATE_VARIABLES() {
 }
 
 void INIT_SUBSYSTEMS() {
-	multicard_info_subsys.init();
+	//init multicard_info_subsys with USB so we get access to the NODE ID
+	//multicard_info_subsys.init();
 	pm_onboard_subsys.init();
 	pm_motherboard_subsys.init();
 	offset_ctrl_subsys.init();
@@ -219,6 +226,27 @@ void INIT_SUBSYSTEMS() {
 	comms_subsys.init();
 }
 
+void ident_node_usb() {
+	//init multicard_info to get node ID; build string version of node ID
+	multicard_info_subsys.init();
+	auto node_id = multicard_info_subsys.subscribe_status_node_id();
+	const char lookup[16][9] = {	"_NODE_00", "_NODE_01", "_NODE_02", "_NODE_03", "_NODE_04", "_NODE_05", "_NODE_06", "_NODE_07",
+									"_NODE_08", "_NODE_09", "_NODE_10", "_NODE_11", "_NODE_12", "_NODE_13", "_NODE_14", "_NODE_15"	};
+	auto str_node = App_String<8>(lookup[node_id.read() & 0x0F]);
+
+	//get the string version of the UID
+	auto uid_reader = Board_UID();
+	auto str_uid = uid_reader.uid_string();
+
+	//and now make a string wrapper for our serial number
+	std::array<uint8_t, 32> node_serial_array;
+	std::copy(str_uid.span().begin(), str_uid.span().begin() + 24, node_serial_array.begin());
+	std::copy(str_node.span().begin(), str_node.span().end(), node_serial_array.begin() + 24);
+
+	//set our USB serial number accordingly
+	usb.set_serial(node_serial_array);
+}
+
 void app_init() {
 	//link the debug outputs
 	Debug::associate(&dbp);
@@ -228,10 +256,14 @@ void app_init() {
 	Debug::PRINT("STARTED APPLICATION\r\n");
 
 	//initialize all subsystems
+	//msc.init();
+	//msc.connect_request();
+	ident_node_usb();	//enumerate with a serial number according to node ID
 	INIT_SUBSYSTEMS();
 	Debug::PRINT("SUBSYSTEMS INITIALIZED!\r\n");
 
 	//TESTING, TODO: REMOVE
+	print_test_task.schedule_interval_ms([](){Debug::PRINT("Printing Test!\r\n");}, 1000);
 }
 
 void app_loop() {

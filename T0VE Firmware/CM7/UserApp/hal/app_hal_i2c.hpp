@@ -12,7 +12,7 @@
 
 #include "app_utils.hpp" //for callback function
 #include "app_dma_mem_pool.hpp" //to put transmit and receive buffers into DMA memory regions
-#include "app_threading.hpp" //for basic mutexing system
+#include "app_threading.hpp" //for basic mutexing system, thread signals
 #include "app_scheduler.hpp" //to defer calls from non-ISR context
 
 #include "i2c.h" //HAL I2C Stuff
@@ -39,8 +39,12 @@ public:
 		size_t num_bytes_to_read_continue = 0; //how many bytes we want to read after we continue the transmission
 		uint8_t* rx_buffer_address;
 
-		bool bus_error_flag;
-		Callback_Function<> instance_transfer_complete_cb; //hook up either tx or rx callback to this
+		//for reads, copy data directly into the user receive buffer after transfer success
+		std::span<uint8_t, std::dynamic_extent> user_rx_buffer;
+
+		//and some threading primitives for access control and notification
+		Thread_Signal* transfer_complete_signal;
+		Thread_Signal* transfer_error_signal;
 		Mutex mutex;
 	};
 
@@ -64,28 +68,27 @@ public:
 	bool is_device_present(uint8_t address_7b);
 
 	//###### functions to read and write to the bus ######
-	//need to provide a handle of the calling function (or some kinda equivalent key) to allow "authorization" call these functions
 	//this is just an extra step to ensure no resource usage conflicts
 	//`write` will copy the bytes to a local buffer, ensuring buffer does not change during transmit
-	//will return `true` if transmission successfully started, and `false` if there was an issue starting the transmission
-	I2C_STATUS write(uint8_t address_7b, std::span<uint8_t, std::dynamic_extent> bytes_to_transmit, Callback_Function<> _tx_complete_cb);
+	//asserts the appropriate signal flag upon transfer complete or transfer error
+	I2C_STATUS write(	uint8_t address_7b, std::span<uint8_t, std::dynamic_extent> bytes_to_transmit,
+						Thread_Signal* tx_complete_signal = nullptr, Thread_Signal* tx_error_signal = nullptr);
 
 	//`read` will read a determined number of bytes into the local RX buffer via DMA
 	//the bytes can then recalled using the `retrieve()` function and passing in a span of appropriate size
-	I2C_STATUS read(uint8_t address_7b, const size_t num_bytes, Callback_Function<> _rx_complete_cb);
+	//the appropriate signal will be raised upon transfer complete or transfer error
+	I2C_STATUS read(	uint8_t address_7b, std::span<uint8_t, std::dynamic_extent> bytes_to_receive,
+						Thread_Signal* rx_complete_signal = nullptr, Thread_Signal* rx_error_signal = nullptr);
 
 	//`write_read` will write the given number of bytes on the bus
 	//then ideally perform a `repeated_start` (but more likely a stop, then start with the mutex still held)
 	//then read the prescribed number of bytes on the bus
 	//this is a non-blocking transfer, and will call the callback function when complete
 	//will return `I2C_STATUS_OK_READY` if transfer staged successfully, and something else if not
-	I2C_STATUS write_read(	uint8_t address_7b, std::span<uint8_t, std::dynamic_extent> bytes_to_transmit,
-							const size_t num_bytes_to_read, Callback_Function<> _tf_complete_cb);
-
-	//##### Variables to read I2C information after transmission #####
-	//return false if there was any error during transmission
-	I2C_STATUS was_bus_success();
-	I2C_STATUS retrieve(std::span<uint8_t, std::dynamic_extent> dest); //get bytes in the RX buffer
+	I2C_STATUS write_read(	uint8_t address_7b,
+							std::span<uint8_t, std::dynamic_extent> bytes_to_transmit,
+							std::span<uint8_t, std::dynamic_extent> bytes_to_receive,
+							Thread_Signal* _transfer_complete_signal = nullptr, Thread_Signal* _transfer_error_signal = nullptr);
 
 	//========================= CONSTRUCTORS, DESTRUCTORS, OVERLOADS =========================
 	Aux_I2C(I2C_Hardware_Channel& _hardware);

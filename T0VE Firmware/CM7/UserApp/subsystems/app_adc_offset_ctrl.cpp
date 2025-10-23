@@ -35,7 +35,7 @@ void ADC_Offset_Control::init() {
 void ADC_Offset_Control::enable() {
 	//init the DAC and check if it's on the bus
 	offset_dac.init();
-	status_device_present = offset_dac.check_presence();
+	status_device_present.publish(offset_dac.check_presence());
 
 	//update our DAC with its default configuration of values
 	//and readback the the values we wrote to the DAC if we want
@@ -47,12 +47,12 @@ void ADC_Offset_Control::enable() {
 
 	//and one-shot schedule our DAC readback task
 	//will get rescheduled every iteration--one-shot scheduling lets schedule in the next loop iteration if I2C was busy
-	read_offset_dac_values_task.schedule_oneshot_ms(BIND_CALLBACK(this, do_read_offset_dac_values), READ_OFFSET_DAC_VALUES_PERIOD_MS);
+	dac_periodic_read.schedule_interval_ms(BIND_CALLBACK(&do_read_signal, signal), READ_OFFSET_DAC_VALUES_PERIOD_MS);
 }
 
 void ADC_Offset_Control::disable() {
-	//deschedule our read task
-	read_offset_dac_values_task.deschedule();
+	//deschedule the periodic read task
+	dac_periodic_read.deschedule();
 
 	//deschedule our state monitoring thread
 	check_state_update_task.deschedule();
@@ -61,72 +61,62 @@ void ADC_Offset_Control::disable() {
 	offset_dac.deinit();
 
 	//and finally, reset all the status state variables
-	status_device_present = false;
-	status_offset_dac_error = false;
-	status_offset_dac_values_readback = {0};
-}
-
-
-//function that gets called when there's a TX error
-//just report that something happened to the state variable
-void ADC_Offset_Control::write_error() {
-    status_offset_dac_error = true;
-    //NOTE: only gets cleared when read via specialized read port with clear access!
-}
-
-void ADC_Offset_Control::read_error() {
-	//beam up an error signal
-	//but also clear the read/update flag to signal read has been completed
-	status_offset_dac_error = true;
-	command_offset_dac_read_update.acknowledge_reset();
+	status_device_present.publish(false);
+	status_offset_dac_error.publish(false);
+	status_offset_dac_values_readback.publish({0, 0, 0, 0});
 }
 
 void ADC_Offset_Control::check_state_update() {
+	//##### CHECK ERROR FLAGS #####
+	//if our error flags are set, update our state variables
+	if(read_error_listener.check()) {
+		status_offset_dac_error.publish(true);
+		command_offset_dac_read_update.acknowledge_reset();
+	}
+	if(write_error_listener.check()) {
+		status_offset_dac_error.publish(true);
+	}
+
+	//#### WRITE DAC VALUES #####
     //go through each command state variable and take actions accordingly if they're set
-    if(command_offset_dac_values.available()) {
-        //want to write particular DAC valus to the output register
-        do_write_offset_dac_values();   
+    if(command_offset_dac_values.check()) do_write_signal.signal();	//signal that we want to do a write
+    if(do_write_listener.check()) {
+    	//we were signaled to perform a write either by the command
+    	//or by a deferred write after the I2C bus was busy
+    	do_write_offset_dac_values();
     }
 
-    //if we want to read the DAC status
-    if(command_offset_dac_read_update.available()) {
-        //want to read the DAC values from the output register
+    //#### DAC READBACK ####
+    //if we get a read request command, assert our signal
+    if(command_offset_dac_read_update.check()) do_read_signal.signal();
+
+    //coordinate staging new reads and extracting data from completed reads
+    //make sure that they can never happen at the same time due to race conditions!
+	if(read_complete_listener.check()) {	//if we have data to be read
+		service_offset_dac_read();
+	} else if(do_read_listener.check()) {	//if we don't have data to be read and we wanna do another read
         do_read_offset_dac_values();
-    }
-
-    //if we have some new status information
-    if(service_offset_dac_read_SIGNAL.available()) {
-    	//decode the new DAC data and update state, signal that read has completed
-    	service_offset_dac_read();
     }
 }
 
 //##### METHODS TO DEFER I2C WRITES #######
 void ADC_Offset_Control::do_write_offset_dac_values() {
     //write the DAC values to the output register
-    bool tx_scheduled = offset_dac.write_channels(command_offset_dac_values, BIND_CALLBACK(this, write_error));
+    bool tx_scheduled = offset_dac.write_channels(command_offset_dac_values.read(), &write_error_flag);
 
-    //if the transmission couldn't be scheduled, i.e. the bus was occupied, retry calling this function next iteration
-    if(!tx_scheduled) 
-        write_offset_dac_values_task.schedule_oneshot_ms(   BIND_CALLBACK(this, do_write_offset_dac_values), 
-                                                            Scheduler::ONESHOT_NEXT_ITERATION);
+    //if the transmission couldn't be scheduled, i.e. the bus was occupied,
+    //signal that we'd like to retry calling this function next iteration
+    if(!tx_scheduled) do_write_signal.signal();
 }
 
 void ADC_Offset_Control::do_read_offset_dac_values() {
     //read the DAC values from the output register
 	//defer the actual reading of the DAC values to the main system update listener thread
-    bool rx_scheduled = offset_dac.start_read_update_status(BIND_CALLBACK(&service_offset_dac_read_SIGNAL, signal),
-    														BIND_CALLBACK(this, read_error));
+    bool rx_scheduled = offset_dac.start_read_update_status(&read_complete_flag, &read_error_flag);
 
-    //if the transmission couldn't be scheduled, i.e. the bus was occupied, retry calling this function next iteration
-    if(!rx_scheduled)
-        read_offset_dac_values_task.schedule_oneshot_ms(BIND_CALLBACK(this, do_read_offset_dac_values), 
-                                                        Scheduler::ONESHOT_NEXT_ITERATION);
-    //otherwise schedule at its normal rate
-    else
-    	read_offset_dac_values_task.schedule_oneshot_ms(BIND_CALLBACK(this, do_read_offset_dac_values),
-    	                                                READ_OFFSET_DAC_VALUES_PERIOD_MS);
-
+    //if the transmission couldn't be scheduled, i.e. the bus was occupied,
+    //indicate that we'd like to retry calling this function next iteration
+    if(!rx_scheduled) do_read_signal.signal();
 }
 
 //once the read is complete, actually pull the values out of the receive buffer
@@ -138,6 +128,6 @@ void ADC_Offset_Control::service_offset_dac_read() {
 	command_offset_dac_read_update.acknowledge_reset();
 
 	//and for now, just beam up the DAC values actively being commanded
-	status_offset_dac_values_readback = dac_status.dac_vals;
+	status_offset_dac_values_readback.publish(dac_status.dac_vals);
 }
 

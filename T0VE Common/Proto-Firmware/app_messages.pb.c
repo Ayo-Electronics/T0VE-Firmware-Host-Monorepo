@@ -6,10 +6,73 @@
 #error Regenerate this file with the current version of nanopb generator.
 #endif
 
+PB_BIND(App_uint32_2, App_uint32_2, AUTO)
+
+
+PB_BIND(App_uint32_4, App_uint32_4, AUTO)
+
+
+PB_BIND(App_uint32_10, App_uint32_10, AUTO)
+
+
+PB_BIND(App_bool_4, App_bool_4, AUTO)
+
+
 PB_BIND(App_Debug, App_Debug, 2)
 
 
-PB_BIND(App_Node_State, App_Node_State, AUTO)
+PB_BIND(App_State_Supervisor_Status, App_State_Supervisor_Status, AUTO)
+
+
+PB_BIND(App_Multicard_Status, App_Multicard_Status, AUTO)
+
+
+PB_BIND(App_Multicard_Command, App_Multicard_Command, AUTO)
+
+
+PB_BIND(App_PM_Status, App_PM_Status, AUTO)
+
+
+PB_BIND(App_PM_Command, App_PM_Command, AUTO)
+
+
+PB_BIND(App_Offset_Ctrl_Status, App_Offset_Ctrl_Status, AUTO)
+
+
+PB_BIND(App_Offset_Ctrl_Command, App_Offset_Ctrl_Command, AUTO)
+
+
+PB_BIND(App_Hispeed_Status, App_Hispeed_Status, AUTO)
+
+
+PB_BIND(App_Hispeed_Command, App_Hispeed_Command, AUTO)
+
+
+PB_BIND(App_CoB_Temp_Status, App_CoB_Temp_Status, AUTO)
+
+
+PB_BIND(App_CoB_EEPROM_Status, App_CoB_EEPROM_Status, AUTO)
+
+
+PB_BIND(App_CoB_EEPROM_Command, App_CoB_EEPROM_Command, AUTO)
+
+
+PB_BIND(App_WG_Bias_Setpoints, App_WG_Bias_Setpoints, AUTO)
+
+
+PB_BIND(App_WG_Bias_Status, App_WG_Bias_Status, AUTO)
+
+
+PB_BIND(App_WG_Bias_Command, App_WG_Bias_Command, AUTO)
+
+
+PB_BIND(App_Comms_Status, App_Comms_Status, AUTO)
+
+
+PB_BIND(App_Comms_Command, App_Comms_Command, AUTO)
+
+
+PB_BIND(App_Node_State, App_Node_State, 2)
 
 
 PB_BIND(App_Communication, App_Communication, 2)

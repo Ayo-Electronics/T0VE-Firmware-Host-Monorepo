@@ -77,7 +77,7 @@ public:
 	size_t write(size_t byte_offset, std::span<uint8_t, std::dynamic_extent> copy_src);
 
 	//### ACCESSORS ###
-	inline std::span<uint8_t, std::dynamic_extent> get_file_name() { return file_name.span(); } //use built-in conversion function
+	inline App_String<FS_Constants::FILENAME_MAX_LENGTH> get_file_name() { return file_name; }
 	inline bool get_read_only() { return readonly; }
 	inline FName_8d3_t get_short_name() { mk_8p3(); return short_name; } //make the 8.3 name on demand; avoids constructor complications
 	inline size_t get_file_size() { return file_contents.size(); }

@@ -53,12 +53,13 @@ bool EEPROM_24AA02UID::check_presence() {
  *  \--> call `init()` again if you want a refreshed version of device ID
  */
 uint32_t EEPROM_24AA02UID::get_UID() {
-	//create a temporary where to copy the UID bytes
+	//read the UID bytes atomically
 	std::array<uint8_t, UID_LENGTH_BYTES> _UID_bytes = UID_bytes;
 
 	//then decode into the uint32_t
-	//using the `unpack` routine in my utils class
-	uint32_t UID = unpack_uint32(_UID_bytes);
+	//use a regmap field to help do this unpacking
+	Regmap_Field uid_unpacker = Regmap_Field(3, 0, 32, true, _UID_bytes);
+	uint32_t UID = uid_unpacker.read();
 
 	//and finally return our assembled UID
 	return UID;
@@ -82,18 +83,18 @@ std::array<uint8_t, EEPROM_24AA02UID::MEMORY_SIZE_BYTES> EEPROM_24AA02UID::get_c
  */
 bool EEPROM_24AA02UID::write_page(	size_t start_address,
 									std::span<uint8_t, PAGE_SIZE_BYTES> page_data,
-									Callback_Function<> _write_error_cb)
+									Thread_Signal* write_error_signal)
 {
 	//if the device isn't present on the I2C bus
 	if(!device_present) {
-		_write_error_cb(); //report an error
+		if(write_error_signal) write_error_signal->signal(); //signal an error
 		return true; //don't try to reschedule
 	}
 
 	//check if the start address is valid--otherwise just error out, don't try to reschedule
 	//EEPROM will wrap around to beginning if address rolls to 0, likely not intended user behavior
 	if((start_address + PAGE_SIZE_BYTES) > MEMORY_SIZE_BYTES) {
-		_write_error_cb(); //report an error
+		if(write_error_signal) write_error_signal->signal(); //signal an error
 		return true; //don't try to reschedule
 	}
 
@@ -106,65 +107,37 @@ bool EEPROM_24AA02UID::write_page(	size_t start_address,
 	tx_buffer[0] = start_address;
 	std::copy(page_data.begin(), page_data.end(), tx_buffer.begin() + 1);
 
-	//save our error callback right before we fire off this transmission
-	write_error_cb = _write_error_cb;
-
 	//configure and fire the transmission
 	//will release the bus in the tx_complete callback
-	auto result = bus.write(EEPROM_ADDR_7b, tx_buffer, BIND_CALLBACK(this, tx_complete));
+	auto result = bus.write(EEPROM_ADDR_7b, tx_buffer,
+							nullptr, write_error_signal);	//assume success, notify for error
 
 	//and act appropriately depending on if the transmission went through
 	if(result == Aux_I2C::I2C_STATUS::I2C_OK_READY) return true; //everything A-ok, transfer scheduled
 	else if(result == Aux_I2C::I2C_STATUS::I2C_BUSY) return false; //peripheral was busy, transfer not scheduled
 	else { //there was some kinda bus error
-		write_error_cb(); 	//call the error callback
+		if(write_error_signal) write_error_signal->signal(); //signal an error
 		return true;		//don't try to reschedule
 	}
 }
 
 
 //=========================================== PRIVATE FUNCTIONS ==============================================
-void EEPROM_24AA02UID::tx_complete() {
-	//if we had a bus error, quickly run the provided transmit error handler
-	if(bus.was_bus_success() == Aux_I2C::I2C_STATUS::I2C_ERROR)
-		write_error_cb();
-}
-
-void EEPROM_24AA02UID::service_read_UID() {
-	//check that the entire transmission went off without a hitch
-	transfer_success = bus.was_bus_success() == Aux_I2C::I2C_STATUS::I2C_OK_READY;
-
-	//if it did, then read the receive buffer into the device ID
-	if(transfer_success) {
-		//atomically copy over just the receive buffer
-		Aux_I2C::I2C_STATUS st;
-		UID_bytes.with([&](std::array<uint8_t, UID_LENGTH_BYTES>& _UID_bytes) {
-			st = bus.retrieve(_UID_bytes);
-		});
-
-		//clear the transfer success flag if the decode wasn't successful for whatever reason
-		if(st != Aux_I2C::I2C_STATUS::I2C_OK_READY) transfer_success = false;
-	}
-
-	//signal that the transmission is done
-	transfer_complete_flag.signal();
-}
-
 void EEPROM_24AA02UID::read_UID() {
 	//if we don't have a device on the bus, just return
 	if(!device_present) return;
 
 	//start by clearing the TX buffer, and set the first byte to the device ID register
 	std::array<uint8_t, 1> tx_buffer = {UID_START_ADDRESS};
+	std::array<uint8_t, UID_LENGTH_BYTES> rx_buffer = {};	//place to dump the received bytes
 
-	//clear our signal flag, and run the transfer on the I2C BUS
-	transfer_complete_flag.clear();
+	//set up some listeners for our signals, and run the I2C transfer until it succeeds
+	auto listen_complete = internal_transfer_complete.listen();
+	auto listen_error = internal_transfer_error.listen();
 	Aux_I2C::I2C_STATUS status;
 	do {
-		status = bus.write_read(EEPROM_ADDR_7b,
-								tx_buffer,
-								UID_LENGTH_BYTES,
-								BIND_CALLBACK(this, service_read_UID));
+		status = bus.write_read(EEPROM_ADDR_7b, tx_buffer, rx_buffer,
+								&internal_transfer_complete, &internal_transfer_error);	//signals
 	} while(status == Aux_I2C::I2C_STATUS::I2C_BUSY); //stall until the transmission completes
 
 	//and check if the transmission went through
@@ -173,38 +146,24 @@ void EEPROM_24AA02UID::read_UID() {
 		return;
 	}
 
-	//if it did, spin on our thread signal, waiting for the transfer to complete
-	//timeout after a certain amount of time
-	if(!transfer_complete_flag.wait(true, 5000)) {
-		device_present = false;
-		return;
+	//wait for the transmission to complete, error, or timeout
+	auto start_millis = Tick::get_ms();
+	while(true) {
+		//we time out
+		if((Tick::get_ms() - start_millis) > 1000) {
+			device_present = false;
+			return;
+		}
+
+		//we receive an error
+		if(listen_error.check()) {
+			device_present = false;
+			return;
+		}
+
+		//our read is actually complete, just return successfully
+		if(listen_complete.check()) return;
 	}
-
-	//and check if the transmission completed successfully
-	if(!transfer_success) {
-		device_present = false;
-		return;
-	}
-}
-
-void EEPROM_24AA02UID::service_read_contents() {
-	//check that the entire transmission went off without a hitch
-	transfer_success = bus.was_bus_success() == Aux_I2C::I2C_STATUS::I2C_OK_READY;
-
-	//if it did, then read the receive buffer into the device ID
-	if(transfer_success) {
-		//atomically copy over just the receive buffer
-		Aux_I2C::I2C_STATUS st;
-		eeprom_contents.with([&](std::array<uint8_t, MEMORY_SIZE_BYTES>& _eeprom_contents) {
-			st = bus.retrieve(_eeprom_contents);
-		});
-
-		//clear the transfer success flag if the decode wasn't successful for whatever reason
-		if(st != Aux_I2C::I2C_STATUS::I2C_OK_READY) transfer_success = false;
-	}
-
-	//signal that the transmission is done
-	transfer_complete_flag.signal();
 }
 
 void EEPROM_24AA02UID::read_contents() {
@@ -213,15 +172,15 @@ void EEPROM_24AA02UID::read_contents() {
 
 	//start by clearing the TX buffer, and set the first byte to the device ID register
 	std::array<uint8_t, 1> tx_buffer = {MEMORY_START_ADDRESS};
+	std::array<uint8_t, MEMORY_SIZE_BYTES> rx_buffer = {};	//place to dump the received bytes
 
-	//clear our signal flag, and run the transfer on the I2C BUS
-	transfer_complete_flag.clear();
+	//set up some listeners for our signals, and run the I2C transfer until it succeeds
+	auto listen_complete = internal_transfer_complete.listen();
+	auto listen_error = internal_transfer_error.listen();
 	Aux_I2C::I2C_STATUS status;
 	do {
-		status = bus.write_read(EEPROM_ADDR_7b,
-								tx_buffer,
-								MEMORY_SIZE_BYTES,
-								BIND_CALLBACK(this, service_read_contents));
+		status = bus.write_read(EEPROM_ADDR_7b, tx_buffer, rx_buffer,
+								&internal_transfer_complete, &internal_transfer_error);	//signals
 	} while(status == Aux_I2C::I2C_STATUS::I2C_BUSY); //stall until the transmission completes
 
 	//and check if the transmission went through
@@ -230,16 +189,22 @@ void EEPROM_24AA02UID::read_contents() {
 		return;
 	}
 
-	//if it did, spin on our thread signal, waiting for the transfer to complete
-	//timeout after a certain amount of time
-	if(!transfer_complete_flag.wait(true, 5000)) {
-		device_present = false;
-		return;
-	}
+	//wait for the transmission to complete, error, or timeout
+	auto start_millis = Tick::get_ms();
+	while(true) {
+		//we time out
+		if((Tick::get_ms() - start_millis) > 1000) {
+			device_present = false;
+			return;
+		}
 
-	//and check if the transmission completed successfully
-	if(!transfer_success) {
-		device_present = false;
-		return;
+		//we receive an error
+		if(listen_error.check()) {
+			device_present = false;
+			return;
+		}
+
+		//our read is actually complete, just return
+		if(listen_complete.check()) return;
 	}
 }

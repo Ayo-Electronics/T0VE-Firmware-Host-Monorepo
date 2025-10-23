@@ -23,8 +23,11 @@ Aux_I2C::I2C_Hardware_Channel Aux_I2C::AUX_I2C_HARDWARE = {
 	.num_bytes_to_read_continue = 0,
 	.rx_buffer_address = nullptr,
 
-	.bus_error_flag = false, //initialize with no bus error
-	.instance_transfer_complete_cb = Callback_Function<>(),
+	//user buffer for post-read copies
+	.user_rx_buffer = {},
+
+	.transfer_complete_signal = nullptr,
+	.transfer_error_signal = nullptr,
 	.mutex = Mutex(),
 };
 
@@ -37,6 +40,7 @@ Aux_I2C::Aux_I2C(Aux_I2C::I2C_Hardware_Channel& _hardware):
 		i2c_rx_buffer(DMA_MEM_POOL::allocate_buffer<uint8_t, BUFFER_SIZES>())
 {
 	//point the RX buffer in the hardware to our RX buffer for our instance
+	//useful for continued reads and copying into user rx buffer upon completion
 	hardware.rx_buffer_address = i2c_rx_buffer.data();
 }
 
@@ -77,9 +81,10 @@ bool Aux_I2C::is_device_present(uint8_t address_7b) {
 
 	//perform the bus operation atomically
 	hardware.mutex.WITH([&]() {
-		//clear the transfer complete callback function in case we get any bus errors
-		// --> in the event an error interrupt is fired during this sequence, we don't want a different function randomly being called
-		hardware.instance_transfer_complete_cb = Callback_Function<>();
+		//clear the transfer complete/error signals in case we error out during the process
+		hardware.transfer_complete_signal = nullptr;
+		hardware.transfer_error_signal = nullptr;
+		hardware.user_rx_buffer = {};
 
 		//according to function handle, we need to shift the address left
 		//only try for a little bit (20ms)
@@ -91,10 +96,12 @@ bool Aux_I2C::is_device_present(uint8_t address_7b) {
 }
 
 //Write to I2C Device
-Aux_I2C::I2C_STATUS Aux_I2C::write(uint8_t address_7b, std::span<uint8_t, std::dynamic_extent> bytes_to_transmit, Callback_Function<> _tx_complete_cb) {
+Aux_I2C::I2C_STATUS Aux_I2C::write(	uint8_t address_7b, std::span<uint8_t, std::dynamic_extent> bytes_to_transmit,
+									Thread_Signal* tx_complete_signal, Thread_Signal* tx_error_signal)
+{
 	//start by checking if the bus is available--if not, return BUSY
 	//if it's free claim the mutex
-	if(!hardware.mutex.AVAILABLE(true)) return I2C_STATUS::I2C_BUSY;
+	if(!hardware.mutex.TRY_LOCK()) return I2C_STATUS::I2C_BUSY;
 
 	//then check to see if the peripheral isn't ready for another bus operation
 	if(hardware.i2c_handle->State != HAL_I2C_STATE_READY) {
@@ -109,10 +116,12 @@ Aux_I2C::I2C_STATUS Aux_I2C::write(uint8_t address_7b, std::span<uint8_t, std::d
 	}
 
 	//everything is good--copy the bytes into the transmit buffer
+	//reset our "user_bytes_receive" span to empty to tell the transfer complete callback not to copy from rx buffer
 	//attach the transmission complete callback, set the "all good" flag, and fire off the DMA transmit
 	std::copy(bytes_to_transmit.begin(), bytes_to_transmit.end(), i2c_tx_buffer.begin());
-	hardware.instance_transfer_complete_cb = _tx_complete_cb;
-	hardware.bus_error_flag = false;
+	hardware.user_rx_buffer = {};
+	hardware.transfer_complete_signal = tx_complete_signal;
+	hardware.transfer_error_signal = tx_error_signal;
 	auto success = HAL_I2C_Master_Transmit_DMA(hardware.i2c_handle, address_7b << 1, i2c_tx_buffer.data(), bytes_to_transmit.size());
 
 	//check we successfully staged our transfer
@@ -127,10 +136,12 @@ Aux_I2C::I2C_STATUS Aux_I2C::write(uint8_t address_7b, std::span<uint8_t, std::d
 
 //Read from I2C Device
 //read into our class's receive buffer--is in the correct memory region
-Aux_I2C::I2C_STATUS Aux_I2C::read(uint8_t address_7b, const size_t num_bytes, Callback_Function<> _rx_complete_cb) {
+Aux_I2C::I2C_STATUS Aux_I2C::read(	uint8_t address_7b, std::span<uint8_t, std::dynamic_extent> bytes_to_receive,
+									Thread_Signal* rx_complete_signal, Thread_Signal* rx_error_signal)
+{
 	//start by checking if the bus is available--if not, return BUSY
 	//if it's free claim the mutex
-	if(!hardware.mutex.AVAILABLE(true)) return I2C_STATUS::I2C_BUSY;
+	if(!hardware.mutex.TRY_LOCK()) return I2C_STATUS::I2C_BUSY;
 
 	//then check to see if the peripheral isn't ready for another bus operation
 	if(hardware.i2c_handle->State != HAL_I2C_STATE_READY) {
@@ -139,16 +150,17 @@ Aux_I2C::I2C_STATUS Aux_I2C::read(uint8_t address_7b, const size_t num_bytes, Ca
 	}
 
 	//if we can't fit the bytes into the I2C rx buffer, error out
-	if(num_bytes > i2c_rx_buffer.size()) {
+	if(bytes_to_receive.size() > i2c_rx_buffer.size()) {
 		hardware.mutex.UNLOCK();
 		return I2C_STATUS::I2C_ERROR;
 	}
 
-	//everything is good--attach the callback function, reset any bus errors and start a DMA transfer that reads into the receive buffer
-	//once the transfer is complete, the upstream function can pull the bytes out with `retrieve()`
-	hardware.instance_transfer_complete_cb = _rx_complete_cb;
-	hardware.bus_error_flag = false;
-	auto success = HAL_I2C_Master_Receive_DMA(hardware.i2c_handle, address_7b << 1, i2c_rx_buffer.data(), num_bytes);
+	//everything is good--attach the thread signals along with the user destination
+	//bytes will be copied into the buffer upon transmission success
+	hardware.user_rx_buffer = bytes_to_receive;
+	hardware.transfer_complete_signal = rx_complete_signal;
+	hardware.transfer_error_signal = rx_error_signal;
+	auto success = HAL_I2C_Master_Receive_DMA(hardware.i2c_handle, address_7b << 1, i2c_rx_buffer.data(), bytes_to_receive.size());
 
 	//check we successfully staged our transfer
 	if(success != HAL_OK) {
@@ -161,12 +173,14 @@ Aux_I2C::I2C_STATUS Aux_I2C::read(uint8_t address_7b, const size_t num_bytes, Ca
 }
 
 //write data to the address, then read data from the address using repeated start
-Aux_I2C::I2C_STATUS Aux_I2C::write_read(	uint8_t address_7b, std::span<uint8_t, std::dynamic_extent> bytes_to_transmit,
-											const size_t num_bytes_to_read, Callback_Function<> _tf_complete_cb)
+Aux_I2C::I2C_STATUS Aux_I2C::write_read(	uint8_t address_7b,
+											std::span<uint8_t, std::dynamic_extent> bytes_to_transmit,
+											std::span<uint8_t, std::dynamic_extent> bytes_to_receive,
+											Thread_Signal* _transfer_complete_signal, Thread_Signal* _transfer_error_signal)
 {
 	//start by checking if the bus is available--if not, return BUSY
 	//if it's free claim the mutex
-	if(!hardware.mutex.AVAILABLE(true)) return I2C_STATUS::I2C_BUSY;
+	if(!hardware.mutex.TRY_LOCK()) return I2C_STATUS::I2C_BUSY;
 
 	//then check to see if the peripheral isn't ready for another bus operation
 	if(hardware.i2c_handle->State != HAL_I2C_STATE_READY) {
@@ -181,7 +195,7 @@ Aux_I2C::I2C_STATUS Aux_I2C::write_read(	uint8_t address_7b, std::span<uint8_t, 
 	}
 
 	//if we can't fit the bytes into the I2C rx buffer, error out
-	if(num_bytes_to_read > i2c_rx_buffer.size()) {
+	if(bytes_to_receive.size() > i2c_rx_buffer.size()) {
 		hardware.mutex.UNLOCK();
 		return I2C_STATUS::I2C_ERROR;
 	}
@@ -189,15 +203,17 @@ Aux_I2C::I2C_STATUS Aux_I2C::write_read(	uint8_t address_7b, std::span<uint8_t, 
 	//everything is good--save the number of bytes we want to read after this function exits
 	//and assert a flag in the hardware struct saying we'd like to continue this transmission
 	//i.e. hold onto the mutex, schedule a read, when the write finishes
-	hardware.num_bytes_to_read_continue = num_bytes_to_read;
+	hardware.num_bytes_to_read_continue = bytes_to_receive.size();
 	hardware.address_7b_continue = address_7b;
 	hardware.continuing_transmission = true;
+	hardware.user_rx_buffer = bytes_to_receive;
 
 	//then copy the bytes into the transmit buffer
-	//attach the transmission complete callback, set the "all good" flag, and fire off the DMA transmit
+	//attach the thread signals and fire off the DMA transmit
 	std::copy(bytes_to_transmit.begin(), bytes_to_transmit.end(), i2c_tx_buffer.begin());
-	hardware.instance_transfer_complete_cb = _tf_complete_cb;
-	hardware.bus_error_flag = false;
+	hardware.user_rx_buffer = bytes_to_receive;
+	hardware.transfer_complete_signal = _transfer_complete_signal;
+	hardware.transfer_error_signal = _transfer_error_signal;
 	auto success = HAL_I2C_Master_Transmit_DMA(hardware.i2c_handle, address_7b << 1, i2c_tx_buffer.data(), bytes_to_transmit.size());
 
 	//check we successfully staged our transfer
@@ -208,25 +224,6 @@ Aux_I2C::I2C_STATUS Aux_I2C::write_read(	uint8_t address_7b, std::span<uint8_t, 
 
 	//if we have, return okay, CONTINUE HOLDING THE MUTEX UNTIL THE TRANSFER COMPLETES
 	return I2C_STATUS::I2C_OK_READY;
-}
-
-//pull bytes outta the TX buffer
-Aux_I2C::I2C_STATUS Aux_I2C::retrieve(std::span<uint8_t, std::dynamic_extent> dest) {
-	//then make sure our peripheral isn't in the middle of a transmission
-	if(hardware.i2c_handle->State != HAL_I2C_STATE_READY) return I2C_STATUS::I2C_BUSY;
-
-	//see if the number of bytes we wanna read is more than the size of our TX buffer
-	if(dest.size() > i2c_rx_buffer.size()) return I2C_STATUS::I2C_ERROR;
-
-	//everything checks out--make the copy and return okay
-	std::copy(i2c_rx_buffer.begin(), i2c_rx_buffer.begin() + dest.size(), dest.begin());
-	return I2C_STATUS::I2C_OK_READY;
-}
-
-//return false if there was any error during transmission
-//convert the error flag into an enum of the appropriate indication
-Aux_I2C::I2C_STATUS Aux_I2C::was_bus_success() {
-	return (hardware.bus_error_flag) ? I2C_STATUS::I2C_ERROR : I2C_STATUS::I2C_OK_READY;
 }
 
 //======================================== PROCESSOR ISR CALLBACKS ======================================
@@ -242,7 +239,7 @@ void AUX_I2C_TRANSFER_COMPLETE_cb(I2C_HandleTypeDef* i2c_handle) {
 	if(i2c_handle == hw.i2c_handle) {
 		//if we'd like to continue the transmission, fire off the `read()` half
 		if(hw.continuing_transmission) {
-			//don't try to continue this transmission
+			//don't try to continue this transmission after the `read()` half
 			hw.continuing_transmission = false;
 
 			//stage the read half
@@ -252,17 +249,26 @@ void AUX_I2C_TRANSFER_COMPLETE_cb(I2C_HandleTypeDef* i2c_handle) {
 														hw.rx_buffer_address,
 														hw.num_bytes_to_read_continue);
 
-			//check we successfully staged our transfer
+			//check we successfully staged our transfer, we're done here if so
 			if(success == HAL_OK) return;
 
-			//and if we didn't set the error flag to true, and treat this as a completion of transmission (i.e. continue outside this `if`)
-			hw.bus_error_flag = true;
+			//and if we didn't, release the mutex and signal error
+			//do the mutex release first in case a transmission is retried on failure
+			hw.mutex.UNLOCK();
+			if(hw.transfer_error_signal) hw.transfer_error_signal->signal();
 		}
 
-		//do ALL the reading/writing we need to do in the user callback function!
-		//data is guaranteed to be valid during this, but not after this ISR exits!
-		hw.instance_transfer_complete_cb();
-		hw.mutex.UNLOCK(); //release the mutex after servicing the user callback
+		//we're not continuing the transmission, i.e. transfer finished normally
+		else {
+			//copy bytes from the RX buffer if we wanted to receive some bytes
+			if(hw.user_rx_buffer.size())
+				memcpy(hw.user_rx_buffer.data(), hw.rx_buffer_address, hw.user_rx_buffer.size_bytes());
+
+			//release the mutex and signal success
+			//do the mutex release first in case we fire another transmission on success (prevents lock contention)
+			hw.mutex.UNLOCK();
+			if(hw.transfer_complete_signal) hw.transfer_complete_signal->signal();
+		}
 	}
 }
 
@@ -270,23 +276,20 @@ void AUX_I2C_BUS_ERR_cb(I2C_HandleTypeDef* i2c_handle) {
 	//a little helper so we don't have to type stuff out as much
 	auto& hw = Aux_I2C::AUX_I2C_HARDWARE;
 
-	//assert that we've had a bus error, and just call the upstream transmission complete flag
-	//as such, let the upstream module handle the error case, just fowarding here
-	//this conditional check up front is a bit redundant but is an extra sanity check this function is getting called for the right reason
+	//attempt to recover the bus
+	//then unlock the peripheral and signal an error
 	if(i2c_handle == hw.i2c_handle) {
-		hw.bus_error_flag = true; //assert error flag
-
 		//clear the transmission continue flag if it had been set
 		hw.continuing_transmission = false;
 
-		//de-initialize and re-initialize the peripherals--common way to "reset" them
+		//de-initialize and re-initialize the peripherals--attempt to "reset" bus errors
 		hw.i2c_deinit_function();
 		hw.dma_deinit_function();
 		hw.dma_init_function();
 		hw.i2c_init_function();
 
-		//transfer has "finished" in a sense, run the completion callback
-		hw.instance_transfer_complete_cb(); //aborted transmission, is "complete" in that sense
+		//unlock the peripheral and signal an error
 		hw.mutex.UNLOCK(); //release the mutex after servicing the user callback
+		if(hw.transfer_error_signal) hw.transfer_error_signal->signal();
 	}
 }

@@ -85,10 +85,10 @@ void Waveguide_Bias_Drive::enable() {
 	//only report devices present if both are present
 	bool dacs_present = bias_dac_0x0C.check_presence();
 	dacs_present = dacs_present && bias_dac_0x0F.check_presence();
-	status_device_present = dacs_present;
+	status_device_present.publish(dacs_present);
 
 	//update the DACs with our programmed state
-	write_data_do.signal();
+	write_do.signal();
 
 	//reset our regulator enable state
 	//and update our regulator enable pin accordingly (should already be disabled, but just in case)
@@ -96,16 +96,16 @@ void Waveguide_Bias_Drive::enable() {
 	do_regulator_ctrl_update();
 
 	//stage our esm tx/rx tasks, our periodic read "kickoff" task, and our regulator GPIO control task
-	check_regulator_ctrl_update_task.schedule_interval_ms(BIND_CALLBACK(this, check_regulator_ctrl_update), Scheduler::INTERVAL_EVERY_ITERATION);
+	check_state_update_task.schedule_interval_ms(BIND_CALLBACK(this, check_state_update), Scheduler::INTERVAL_EVERY_ITERATION);
 	esm_tx_rx_task.schedule_interval_ms(BIND_CALLBACK(this, run_tx_rx_esm), Scheduler::INTERVAL_EVERY_ITERATION);
-	periodic_read_task.schedule_interval_ms(BIND_CALLBACK(&read_data_do, signal), READ_BIAS_DAC_VALUES_PERIOD_MS);
+	periodic_read_task.schedule_interval_ms(BIND_CALLBACK(&read_do, signal), READ_BIAS_DAC_VALUES_PERIOD_MS);
 }
 
 void Waveguide_Bias_Drive::disable() {
 	//deschedule the tx/rx state machines, periodic read task, and GPIO control thread
 	esm_tx_rx_task.deschedule();
 	periodic_read_task.deschedule();
-	check_regulator_ctrl_update_task.deschedule();
+	check_state_update_task.deschedule();
 
 	//reset the tx/rx state machines so they go back into IDLE
 	esm_tx.RESET_ESM();
@@ -120,33 +120,45 @@ void Waveguide_Bias_Drive::disable() {
 	reg_enable.clear();
 
 	//and finally, reset all the status state variables
-	status_device_present = false;
-	status_bias_dac_error = false;
-	status_bias_dac_values_readback = {0};
+	status_device_present.publish(false);
+	status_bias_dac_error.publish(false);
+	status_bias_dac_values_readback.publish({0});
 	command_bias_reg_enable.acknowledge_reset();
 	//retaining the bias DAC values as a convenience "persistent storage" between power cycles
 	//uncomment below to reset bias DAC values between power cycles
 	//command_bias_dac_values.acknowledge_reset();
 }
 
-//=================== TX STATE MACHINE IMPLEMENTATION ================
-//called when there's an error on the I2C bus during writing
-void Waveguide_Bias_Drive::write_error() {
-	//set the error state variable and signal a write error
-	status_bias_dac_error = true;
-	write_error_signal.signal();
+//=================== GENERAL STATE UPDATE =====================
+void Waveguide_Bias_Drive::check_state_update() {
+	//if we have a new regulator enable command value
+	if(command_bias_reg_enable.check()) {
+		do_regulator_ctrl_update();
+	}
+
+	//if we had any read or write errors, publish them accordingly
+	if(read_error_listener_pubstate.check()) {
+		//set the upstream state variable and acknowledge the read command
+		status_bias_dac_error.publish(true);
+		command_bias_dac_read_update.acknowledge_reset();
+	}
+	if(write_error_listener_pubstate.check()) {
+		//just set the upstream state variable
+		status_bias_dac_error.publish(true);
+	}
 }
 
+//=================== TX STATE MACHINE IMPLEMENTATION ================
 //called when we've commanded a write, exiting idle
 void Waveguide_Bias_Drive::tx_IDLE_on_exit() {
 	//update the channel-wise bias setpoints
-	Bias_Setpoints_t::update_collection(bias_setpoints, bulk_mapping, mid_mapping, stub_mapping, command_bias_dac_values);
+	Bias_Setpoints_t::update_collection(bias_setpoints, bulk_mapping, mid_mapping, stub_mapping, command_bias_dac_values.read());
 
 	//reset our setpoint write index
 	bias_setpoint_tx_index = 0;
 
 	//clear any write errors
-	write_error_signal.clear();
+	write_error_listener.refresh();
 }
 
 //called while in the transmitting state
@@ -156,9 +168,9 @@ void Waveguide_Bias_Drive::tx_TX_thread_func() {
 
 	//try to write to the particular channel
 	//if the write scheduling is successful, we'll automatically switch states to INCREMENT
-	tx_transfer_staged = sp.mapping.dac->write_channel(sp.mapping.channel,
+	tx_transfer_staged = sp.mapping.dac->write_channel(	sp.mapping.channel,
 														sp.channel_val,
-														BIND_CALLBACK(this, write_error));
+														&write_error);
 
 }
 
@@ -169,21 +181,11 @@ void Waveguide_Bias_Drive::tx_INCREMENT_on_entry() {
 }
 
 //=================== RX STATE MACHINE IMPLEMENTATION ================
-//called when there's an error on the I2C bus during reading
-void Waveguide_Bias_Drive::read_error() {
-	//set the error state variable and signal a read error
-	status_bias_dac_error = true;
-	read_error_signal.signal();
-
-	//also acknowledge that the read completed (though error occurred)
-	command_bias_dac_read_update.acknowledge_reset();
-}
-
 //reset all thread signals coming out of the IDLE state
 void Waveguide_Bias_Drive::rx_IDLE_on_exit() {
-	read_data_do.clear();
-	read_complete.clear();
-	read_error_signal.clear();
+	read_do_listener.refresh();
+	read_complete_listener.refresh();
+	read_error_listener.refresh();
 }
 
 //stage a transmission to the first DAC
@@ -191,8 +193,7 @@ void Waveguide_Bias_Drive::rx_REQUEST1_thread_func() {
 	//try to read from the particular DAC
 	//if the read was successfully staged, automatically move to the next (wait) state
 	//set the thread signal directly in the read complete callback function
-	rx_transfer_success = bias_dac_0x0C.start_dac_readback(	BIND_CALLBACK(&read_complete, signal),
-															BIND_CALLBACK(this, read_error));
+	rx_transfer_success = bias_dac_0x0C.start_dac_readback(&read_complete, &read_error);
 }
 
 //stage a transmission to the second DAC
@@ -200,8 +201,7 @@ void Waveguide_Bias_Drive::rx_REQUEST2_thread_func() {
 	//try to read from the particular DAC
 	//if the read was successfully staged, automatically move to the next (wait) state
 	//set the thread signal directly in the read complete callback function
-	rx_transfer_success = bias_dac_0x0F.start_dac_readback(	BIND_CALLBACK(&read_complete, signal),
-															BIND_CALLBACK(this, read_error));
+	rx_transfer_success = bias_dac_0x0F.start_dac_readback(&read_complete, &read_error);
 }
 
 //parse responses from DACs, update state variables, acknowledge read
@@ -234,7 +234,7 @@ void Waveguide_Bias_Drive::rx_RBUPDATE_on_entry() {
 	place_readback(_bias_readback.stub_setpoints, stub_mapping);
 
 	//update state variable, acknowledge that the read has completed
-	status_bias_dac_values_readback = _bias_readback;
+	status_bias_dac_values_readback.publish(_bias_readback);
 	command_bias_dac_read_update.acknowledge_reset();
 }
 

@@ -28,7 +28,7 @@ void Comms_Subsys::init() {
     do_command_comms_allow_connections();
 
     //initialize connection status here too
-    status_comms_connected = cdc_interface.connected();
+    status_comms_connected.publish(cdc_interface.connected());
 
     //and schedule the main thread function
     check_state_update_comms_task.schedule_interval_ms( BIND_CALLBACK(this, check_state_update_comms),
@@ -59,14 +59,14 @@ void Comms_Subsys::inject(std::span<uint8_t, std::dynamic_extent> msg) {
 //main thread function
 void Comms_Subsys::check_state_update_comms() {
     //check for any state updates using `available()`
-    if(command_comms_allow_connections.available()) {
+    if(command_comms_allow_connections.check()) {
         //update the CDC interface
         do_command_comms_allow_connections();
     }
 
     //check our thread signal for flow control changes
-    if(flow_control_changed.available()) {
-        status_comms_connected = cdc_interface.connected();
+    if(flow_control_changed_listener.check()) {
+        status_comms_connected.publish(cdc_interface.connected());
     }
     
     //run the comms copy/parse/dispatch function every single iteration
@@ -76,7 +76,7 @@ void Comms_Subsys::check_state_update_comms() {
 //handler for our command variable
 //just forward to the CDC class
 void Comms_Subsys::do_command_comms_allow_connections() {
-    if(command_comms_allow_connections) {
+    if(command_comms_allow_connections.read()) {
         cdc_interface.connect_request();
         cdc_interface.set_ready();
     }
@@ -145,7 +145,7 @@ void Comms_Subsys::comms_copy_parse_dispatch() {
         inbound_buffer_head = 0;
 
         //and finally mark comms activiy
-        status_comms_activity = true;
+        status_comms_activity.publish(true);
     }
 
     //if we didn't detect a start byte in this frame and haven't detected one yet

@@ -15,7 +15,7 @@ CDC_Interface::CDC_Interface_Channel_t CDC_Interface::CDC_CHANNEL = {
 
 		//flow control status and line coding
 		.flow_control = {{0}},
-		.line_coding = {{0}},
+		.line_coding = Pub_Var<CDC_Line_Coding_t>::mk(),
 
 		//callbacks
 		.flow_control_change_cb = {},
@@ -36,21 +36,19 @@ void CDC_Interface::init() {
 	usb_if.init();
 
 	//record the line coding
-	cdc_line_coding_t coding;
-	tud_cdc_n_get_line_coding(cdc_channel.cdc_itf_no, &coding);
-	cdc_channel.line_coding.with([&](CDC_Line_Coding_t& _line_coding){
-		_line_coding.baud_rate = coding.bit_rate;
-		_line_coding.data_bits = coding.data_bits;
-		_line_coding.parity = static_cast<Parity>(coding.parity);
-		_line_coding.stop_bits = static_cast<Stop_Bits>(coding.stop_bits);
-	});
+	cdc_line_coding_t coding;									//TinyUSB type temporary
+	tud_cdc_n_get_line_coding(cdc_channel.cdc_itf_no, &coding);	//get line coding from TinyUSB
+	CDC_Interface::CDC_Line_Coding_t new_line_coding;			//create a temporary and fill it in
+	new_line_coding.baud_rate = coding.bit_rate;
+	new_line_coding.data_bits = coding.data_bits;
+	new_line_coding.parity = static_cast<CDC_Interface::Parity>(coding.parity);
+	new_line_coding.stop_bits = static_cast<CDC_Interface::Stop_Bits>(coding.stop_bits);
+	cdc_channel.line_coding.publish(new_line_coding);			//atomically update our line coding
 
 	//and get the flow control status
 	uint8_t line_state = tud_cdc_n_get_line_state(cdc_channel.cdc_itf_no);
-	cdc_channel.flow_control.with([&](Flow_Control_t& _flow_control){
-		_flow_control.dtr_status = line_state & (1 << 0); //DTR bit here
-		_flow_control.rts_status = line_state & (1 << 1); //RTS bit here
-	});
+	cdc_channel.flow_control.dtr_status.write(line_state & (1 << 0)); //DTR bit here
+	cdc_channel.flow_control.rts_status.write(line_state & (1 << 1)); //RTS bit here
 }
 
 //############### CALLBACK REGISTERATION ###############
@@ -104,20 +102,16 @@ void CDC_Interface::connect_request() {
 
 	//and say that we're present on the line
 	//NOTE: not gonna set DSR status here--have the upstream explicitly call "set ready" afterward
-	cdc_channel.flow_control.with([&](Flow_Control_t& _flow_control){
-		_flow_control.dcd_status = true;
-		_flow_control.dsr_status = false;
-	});
+	cdc_channel.flow_control.dcd_status.write(true);
+	cdc_channel.flow_control.dsr_status.write(false);
 	update_uart_status();
 }
 
 void CDC_Interface::disconnect_request() {
 	//mark that we're "busy"; clear presence status
 	//and update the host on this status
-	cdc_channel.flow_control.with([&](Flow_Control_t& _flow_control){
-		_flow_control.dcd_status = false;
-		_flow_control.dsr_status = false;
-	});
+	cdc_channel.flow_control.dcd_status.write(false);
+	cdc_channel.flow_control.dsr_status.write(false);
 	update_uart_status();
 
 	//clear the TX fifo
@@ -128,20 +122,16 @@ void CDC_Interface::disconnect_request() {
 }
 
 CDC_Interface::CDC_Line_Coding_t CDC_Interface::get_line_coding() {
-	return cdc_channel.line_coding;
+	return cdc_channel.line_coding.read();
 }
 
 void CDC_Interface::set_ready() {
-	cdc_channel.flow_control.with([&](Flow_Control_t& _flow_control){
-		_flow_control.dsr_status = true;
-	});
+	cdc_channel.flow_control.dsr_status.write(true);
 	update_uart_status();
 }
 
 void CDC_Interface::set_busy() {
-	cdc_channel.flow_control.with([&](Flow_Control_t& _flow_control){
-		_flow_control.dsr_status = false;
-	});
+	cdc_channel.flow_control.dsr_status.write(false);
 	update_uart_status();
 }
 
@@ -151,10 +141,8 @@ void CDC_Interface::set_busy() {
 void CDC_Interface::update_uart_status() {
 	//structure we'll pass to tinyUSB
 	cdc_notify_uart_state_t uart_state = {0};
-	cdc_channel.flow_control.with([&](Flow_Control_t& _flow_control){
-		uart_state.dcd = _flow_control.dcd_status;
-		uart_state.dsr = _flow_control.dsr_status;
-	});
+	uart_state.dcd = cdc_channel.flow_control.dcd_status.read();
+	uart_state.dsr = cdc_channel.flow_control.dsr_status.read();
 
 	//actually send the state
 	tud_cdc_n_notify_uart_state(cdc_channel.cdc_itf_no, &uart_state);
@@ -172,13 +160,9 @@ void tud_cdc_rx_cb(uint8_t itf) {
 //called when line states change
 void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts) {
 	if(itf == CDC_Interface::CDC_CHANNEL.cdc_itf_no) {
-		//fill in the updated flow control information atomically
-		bool last_dtr;
-		CDC_Interface::CDC_CHANNEL.flow_control.with([&](CDC_Interface::Flow_Control_t& _flow_control){
-			last_dtr = _flow_control.dtr_status;
-			_flow_control.dtr_status = dtr;
-			_flow_control.rts_status = rts;
-		});
+		//update the appropriate fields of our flow control container
+		CDC_Interface::CDC_CHANNEL.flow_control.dtr_status.write(dtr);
+		CDC_Interface::CDC_CHANNEL.flow_control.rts_status.write(rts);
 
 		//and notify that we have new flow control information (set our flag)
 		CDC_Interface::CDC_CHANNEL.flow_control_change_cb();
@@ -188,13 +172,15 @@ void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts) {
 //called when line coding changes
 void tud_cdc_line_coding_cb(uint8_t itf, cdc_line_coding_t const* p_line_coding) {
 	if(itf == CDC_Interface::CDC_CHANNEL.cdc_itf_no) {
-		//fill in the updated line coding information atomically
-		CDC_Interface::CDC_CHANNEL.line_coding.with([&](CDC_Interface::CDC_Line_Coding_t& _line_coding){
-			_line_coding.baud_rate = p_line_coding->bit_rate;;
-			_line_coding.data_bits =  p_line_coding->data_bits;
-			_line_coding.parity = static_cast<CDC_Interface::Parity>(p_line_coding->parity);
-			_line_coding.stop_bits = static_cast<CDC_Interface::Stop_Bits>(p_line_coding->stop_bits);
-		});
+		//fill in the updated line coding information to a local struct
+		CDC_Interface::CDC_Line_Coding_t new_line_coding;
+		new_line_coding.baud_rate = p_line_coding->bit_rate;
+		new_line_coding.data_bits = p_line_coding->data_bits;
+		new_line_coding.parity = static_cast<CDC_Interface::Parity>(p_line_coding->parity);
+		new_line_coding.stop_bits = static_cast<CDC_Interface::Stop_Bits>(p_line_coding->stop_bits);
+
+		//and atomically update our local
+		CDC_Interface::CDC_CHANNEL.line_coding.publish(new_line_coding);
 
 		//and notify that we have new line coding information (set our flag)
 		CDC_Interface::CDC_CHANNEL.coding_change_cb();

@@ -14,7 +14,7 @@
 #include "app_usb_if.hpp"
 #include "app_cdc_if.hpp"
 #include "app_state_supervisor.hpp"
-#include "app_state_variable.hpp"
+#include "app_threading.hpp"
 #include "app_regmap_helpers.hpp"	//to pack and unpack message size into bytestream
 
 //protobuf includes for string printing
@@ -83,16 +83,17 @@ private:
 	Regmap_Field injection_data_size = {2, 0, 16, true, INJECTION_DATA};
 
 	//Comms system has some states for itself
-	State_Variable<bool> status_comms_connected = {false};
-	State_Variable<bool> status_comms_activity = {false};
-	SV_Subscription<bool> command_comms_allow_connections;
+	PERSISTENT((Pub_Var<bool>), status_comms_connected);
+	PERSISTENT((Pub_Var<bool>), status_comms_activity);
+	Sub_Var<bool> command_comms_allow_connections;
 
 	//and a little handler to handle our command variable
 	void do_command_comms_allow_connections();
 	
 	//and this is our main comms thread function
 	//this will handle state variable management and also run the comms copy/parse/dispatch function
-	Thread_Signal flow_control_changed; //use to detect connection changes
+	PERSISTENT((Thread_Signal), flow_control_changed); //use to detect connection changes
+	Thread_Signal_Listener flow_control_changed_listener = flow_control_changed.listen();
 	void check_state_update_comms();
 	Scheduler check_state_update_comms_task;
 };

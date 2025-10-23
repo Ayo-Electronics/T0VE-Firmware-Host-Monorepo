@@ -1,5 +1,25 @@
-syntax = "proto2";
+syntax = "proto3";
 package App;
+
+//========================== SHARED "TYPES" ==========================
+//the most standards-compliant way to define fixed-sized arrays, but also define them as optional
+//involves wrapping them in a message. Annoying, but it works.
+//sizes set in .options file
+message uint32_2 {
+  repeated uint32 values = 1;
+}
+
+message uint32_4 {
+  repeated uint32 values = 1;
+}
+
+message uint32_10 {
+  repeated uint32 values = 1;
+}
+
+message bool_4 {
+  repeated bool values = 1;
+}
 
 //========================== DEBUG MESSAGES ==========================
 
@@ -10,21 +30,153 @@ enum Debug_Level {
 }
 
 message Debug {
-  required Debug_Level level =  1;
-  required string msg =         2;
+  Debug_Level level =  1;
+  string msg =         2; //max length set in .options file, 256 
 }
 
 //========================== NODE STATE MESSAGES ==========================
 
+//### STATE SUPERVISOR ###
+message State_Supervisor_Status {
+  bool decode_err =             1;
+  uint32 decode_err_deserz =    2;
+  uint32 decode_err_magic =     3;
+  uint32 decode_err_msgtype =   4;
+  bool encode_err =             5;
+  uint32 encode_err_serz =      6;
+}
+
+//### MULTICARD INFORMATION ###
+message Multicard_Status {
+  bool all_present =       1;
+  uint32 node_id =         2;
+}
+
+message Multicard_Command {
+  optional bool sel_pd_input_aux_npic = 1;
+}
+
+//### POWER MONITOR ###
+message PM_Status {
+  bool immediate_power_status = 1;
+  bool debounced_power_status = 2;
+}
+
+message PM_Command {
+  optional bool regulator_enable = 1;
+}
+
+//### ADC OFFSET CONTROL ###
+
+message Offset_Ctrl_Status {
+  bool device_present =              1;
+  bool device_error =                2;
+  uint32_4 offset_readback =         3; //array of 4 uint32s
+}
+
+message Offset_Ctrl_Command {
+  optional bool do_readback =     1;
+  optional uint32_4 offset_set =  2;
+}
+
+//### HISPEED SUBSYSTEM ###
+message Hispeed_Status {
+  bool armed =                1;
+  bool done_success =         2;
+  bool done_err_ready =       3;
+  bool done_err_timeout =     4;
+  bool done_err_pwr =         5;
+  uint32_4 tia_adc_readback = 6;
+}
+
+message Hispeed_Command {
+  optional bool arm_request =         1;
+  optional bool load_test_sequence =  2;
+  optional bool_4 SOA_enable =        3;
+  optional bool_4 TIA_enable =        4;
+  optional uint32_4 SOA_DAC_drive =   5;
+}
+
+//### CoB TEMPERATURE ###
+message CoB_Temp_Status {
+  bool device_present =        1;
+  bool device_error =          2;
+  uint32 device_id =           3;
+  float temperature_celsius =  4;
+}
+
+//no commands for the CoB temperature sensor
+
+//### CoB EEPROM ###
+message CoB_EEPROM_Status {
+  bool device_present =  1;
+  bool device_error =    2;
+  uint32 cob_UID =       3;
+  string cob_desc =      4; //max length set in .options file, 128
+}
+
+message CoB_EEPROM_Command {
+  optional bool do_cob_write_desc = 1;
+  optional string cob_desc_set =    2; //max length set in .options file, 128
+  optional uint32 cob_write_key =   3;
+}
+
+//### WAVEGUIDE BIAS DRIVES ###
+message WG_Bias_Setpoints {
+  uint32_10 stub_setpoint = 1;
+  uint32_4 mid_setpoint =   2;
+  uint32_2 bulk_setpoint =  3;
+}
+
+message WG_Bias_Status {
+  bool device_present =                  1;
+  bool device_error =                    2;
+  WG_Bias_Setpoints setpoints_readback = 3;
+}
+
+message WG_Bias_Command {
+  optional WG_Bias_Setpoints setpoints =  1;
+  optional bool regulator_enable =        2;   
+  optional bool do_readback =             3;
+}
+
+//### COMMS INTERFACE ###
+message Comms_Status {
+  bool comms_connected = 1;
+}
+
+message Comms_Command {
+  optional bool allow_connection = 1;
+}
+
+//########### STATE AGGREGATION ###########
+
 message Node_State {
-  optional uint32 command_id =    1;
-  optional string command_data =  2;
+  State_Supervisor_Status state_supervisor_st =  1;
+  Multicard_Status multicard_st =                2;
+  Multicard_Command multicard_cmd =              3;
+  PM_Status pm_onboard_st =                      4;
+  PM_Command pm_onboard_cmd =                    5;
+  PM_Status pm_motherboard_st =                  6;
+  PM_Command pm_motherboard_cmd =                7;
+  Offset_Ctrl_Status offset_ctrl_st =            8;
+  Offset_Ctrl_Command offset_ctrl_cmd =          9;
+  Hispeed_Status hispeed_st =                   10;
+  Hispeed_Command hispeed_cmd =                 11;
+  CoB_Temp_Status cob_temp_st =                 12;
+  CoB_EEPROM_Status cob_eeprom_st =             13;
+  CoB_EEPROM_Command cob_eeprom_cmd =           14;
+  WG_Bias_Status wg_bias_st =                   15;
+  WG_Bias_Command wg_bias_cmd =                 16;
+  Comms_Status comms_st =                       17;
+  Comms_Command comms_cmd =                     18;
+  uint32 MAGIC_NUMBER =                         19;
 }
 
 //========================== AGGREGATION INTO SINGLE MESSAGE ==========================
 
 message Communication {
-  oneof payload{
+  oneof payload {
     Node_State node_state = 1;
     Debug debug_message =   2;
   }
