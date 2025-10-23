@@ -44,7 +44,7 @@
 //============= INSTANTIATION OF HARDWARE ============
 Aux_I2C i2c_bus(Aux_I2C::AUX_I2C_HARDWARE);
 USB_Interface usb = USB_Interface(USB_Interface::USB_CHANNEL);
-//MSC_Interface msc(usb, MSC_Interface::MSC_CHANNEL);
+MSC_Interface msc(usb, MSC_Interface::MSC_CHANNEL);
 
 Hispeed_Subsystem::Hispeed_Channel_Hardware_t CHANNEL_0_HW = {
 		._spi_channel_hw = HiSpeed_SPI::SPI_CHANNEL_0,
@@ -245,6 +245,12 @@ void ident_node_usb() {
 
 	//set our USB serial number accordingly
 	usb.set_serial(node_serial_array);
+
+	//and initialize our MSC volume name according to the NODE_ID too
+	App_String<11, ' '> new_volname("MEM");
+	new_volname.cat(str_node);
+	msc.set_string_fields(new_volname, "Ayo Elec", "T0VE Proc Card", "A.15");
+	msc.connect_request();
 }
 
 void app_init() {
@@ -256,8 +262,6 @@ void app_init() {
 	Debug::PRINT("STARTED APPLICATION\r\n");
 
 	//initialize all subsystems
-	//msc.init();
-	//msc.connect_request();
 	ident_node_usb();	//enumerate with a serial number according to node ID
 	INIT_SUBSYSTEMS();
 	Debug::PRINT("SUBSYSTEMS INITIALIZED!\r\n");

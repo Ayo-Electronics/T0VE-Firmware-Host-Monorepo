@@ -102,11 +102,11 @@ Root_Sector::Root_File_Entry_t Root_Sector::mk_root_entry_file(MSC_File& file, u
 	}
 
 	//with our padded filename, build our lfn entries successively
-	//remember that lfn entries are in REVERSE ORDER!
-	for (size_t k = n_lfn - 1; k >= 0; k--) {
+	//remember that lfn entries are in REVERSE ORDER, 1-INDEXED!
+	for (size_t k = n_lfn; k > 0; k--) {
 		//make the particular LFN entry
-		bool is_last_lfn = (k == (n_lfn - 1));
-		auto lfn_k = mk_root_entry_lfn(padded_filename_sections[k], file.get_short_name().checksum, k, is_last_lfn);
+		bool is_last_lfn = (k == n_lfn);
+		auto lfn_k = mk_root_entry_lfn(padded_filename_sections[k - 1], file.get_short_name().checksum, k, is_last_lfn);
 
 		//and push it into our file entry collection
 		file_entry.push_n_back(lfn_k);

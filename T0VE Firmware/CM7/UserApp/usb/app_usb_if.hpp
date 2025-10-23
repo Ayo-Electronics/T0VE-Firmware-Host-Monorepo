@@ -172,6 +172,9 @@ private:
 
 	//a scheduler just to run the tinyusb core
 	Scheduler tud_task_scheduler;
+
+	//flag to say if we're already init'ed
+	bool is_init = false;
 };
 
 

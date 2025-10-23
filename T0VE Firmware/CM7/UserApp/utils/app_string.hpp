@@ -127,18 +127,17 @@ public:
 
 	//====================== UTILITY CONVERSIONS =======================
 	//short function handles to cast into friendly utility types
-	std::span<uint8_t, std::dynamic_extent> span() { return section(string_data, 0, actual_length); }
-	std::array<uint8_t, STRING_SIZE> array() { return string_data; }
 
-	//span conversion - return a view into our array of only the non-padded bytes
-	explicit operator std::span<uint8_t, std::dynamic_extent>() const {
-		return this->span();
+	// Make both const and non-const overloads for span() (just views valid region of string)
+	std::span<uint8_t, std::dynamic_extent> span() {
+		return std::span<uint8_t, std::dynamic_extent>(string_data.data(), actual_length);
+	}
+	std::span<const uint8_t, std::dynamic_extent> span() const {
+		return std::span<const uint8_t, std::dynamic_extent>(string_data.data(), actual_length);
 	}
 
-	//array conversion - right now, only support conversions that match the container size
-	explicit operator std::array<uint8_t, STRING_SIZE>() const {
-		return this->array();
-	}
+	//and get an uneditable reference to the
+	const std::array<uint8_t, STRING_SIZE>& array() const { return string_data; }
 
 	//======================= EQUALITY COMPARISON OPERATOR ======================
 	template<size_t OTHER_SIZE, uint8_t OTHER_PADDING>
@@ -148,6 +147,34 @@ public:
 
 		//then just compare the underlying memory to see if its equal
 	    return memcmp(string_data.data(), other.string_data.data(), actual_length) == 0;
+	}
+
+	//======================= MUTATORS ======================
+
+	//concatenate with bytes
+	void cat(const std::span<const uint8_t, std::dynamic_extent> bytes) {
+		//best effort concatenation, truncate if we can't fit
+		auto to_copy = min(STRING_SIZE - actual_length, bytes.size());
+		if(to_copy != bytes.size()); // Debug::WARN("App String concatenation truncated!"); //debug requires app string
+
+		//grow the string by the correct number of bytes
+		std::copy(bytes.begin(), bytes.begin() + to_copy, string_data.begin() + actual_length);
+		actual_length += to_copy;
+	}
+
+	//concatenate with char array
+	template<size_t N>
+	void cat(const char (&other)[N]) {
+		//make a span with the char array and cat using span constructor
+		std::span<const uint8_t, N> char_span(reinterpret_cast<const uint8_t*>(other), N);
+		cat(char_span);
+	}
+
+	//concatenate with other app string
+	template<size_t OTHER_SIZE, uint8_t OTHER_PADDING>
+	void cat(const App_String<OTHER_SIZE, OTHER_PADDING>& other) {
+		//use span concatenation
+		cat(other.span());
 	}
 
 	//======================= ACCESSORS =========================

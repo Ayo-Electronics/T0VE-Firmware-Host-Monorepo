@@ -8,6 +8,10 @@
 #include "app_msc_fat_table.hpp"
 
 FAT16_Table::File_Indices_t FAT16_Table::mk(std::span<MSC_File> files) {
+    //clear any previously generated indices to avoid stale data accumulation
+    file_start_indices.clear();
+    file_end_indices.clear();
+
 	//some helper index variables
 	//first valid cluster we can place a file is at cluster 2;
 	//use uint16_t due to FAT16

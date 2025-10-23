@@ -69,6 +69,8 @@ void MSC_Interface::attach_file(MSC_File& _file) {
 
 	//then just push the file to the back of the container
 	msc_files.push_back(_file);
+    //regenerate tables to reflect the newly attached file
+    regenerate();
 }
 
 void MSC_Interface::detach_file(MSC_File& _file) {

@@ -92,6 +92,9 @@ USB_Interface::USB_Interface(USB_Channel_t& _usb_channel): usb_channel(_usb_chan
 
 
 void USB_Interface::init() {
+	//early exit if we're already initialized
+	if(is_init) return;
+
 	//not strictly necessary to call the TinyUSB version of `board_init()`
 	//this just calls the HAL usb init
 	board_init();
@@ -111,6 +114,9 @@ void USB_Interface::init() {
 	//schedule the TinyUSB device task to run every loop iteration
 	//I think this is due to ISR servicing being deferred to main loop
 	tud_task_scheduler.schedule_interval_ms(tud_task, Scheduler::INTERVAL_EVERY_ITERATION);
+
+	//and now we're initialized
+	is_init = true;
 }
 
 //### editing the string descriptors ###

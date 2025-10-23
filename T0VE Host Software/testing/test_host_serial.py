@@ -62,6 +62,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         description="Connect to a device by serial-number regex using Host_Serial and log RX frames."
     )
+    #note: when passing in an external regex, don't include the `r` prefix. Just include the regex in single quotes
+    #e.g. >>> python .\test_host_serial.py -r '^[0-9A-F]{24}_NODE_15$'
     parser.add_argument(
         "-r",
         "--regex",
