@@ -47,8 +47,12 @@ _Min_Stack_Size = 0x400; /* required amount of stack */
 MEMORY
 {
 /* Start MX regions */
+  SHARED_RAM	(xrw)	: ORIGIN = 0x38000000, LENGTH = 32K
   FLASH	(rx)	: ORIGIN = 0x08100000, LENGTH = 1024K
+  MEM_DMA	(xrw)	: ORIGIN = 0x3800c000, LENGTH = 16K
   RAM	(xrw)	: ORIGIN = 0x10000000, LENGTH = 288K
+  FAST_SRAM	(xrw)	: ORIGIN = 0x24000000, LENGTH = 512K
+  EXTMEM	(xrw)	: ORIGIN = 0xc0000000, LENGTH = 8192K
 /* End MX regions */
 }
 
@@ -172,4 +176,36 @@ SECTIONS
   }
 
   .ARM.attributes 0 : { *(.ARM.attributes) }
+
+ /*  Unitialized MEM_DMA section into "MEM_DMA" MEM_DMA type memory [MMT section] */
+ .MEM_DMA_Section :
+  {
+    . = ALIGN(4);
+    KEEP (*(.MEM_DMA_Section))
+    . = ALIGN(4);
+  } >MEM_DMA
+
+ /*  Unitialized FAST_SRAM section into "FAST_SRAM" FAST_SRAM type memory [MMT section] */
+ .FAST_SRAM_Section :
+  {
+    . = ALIGN(4);
+    KEEP (*(.FAST_SRAM_Section))
+    . = ALIGN(4);
+  } >FAST_SRAM
+
+ /*  Unitialized EXTMEM section into "EXTMEM" EXTMEM type memory [MMT section] */
+ .EXTMEM_Section :
+  {
+    . = ALIGN(4);
+    KEEP (*(.EXTMEM_Section))
+    . = ALIGN(4);
+  } >EXTMEM
+ /*  Unitialized SHARED_RAM section into "SHARED_RAM" SHARED_RAM type memory [MMT section] */
+ .SHARED_RAM_Section :
+  {
+    . = ALIGN(4);
+    KEEP (*(.SHARED_RAM_Section))
+    . = ALIGN(4);
+  } >SHARED_RAM
+
 }

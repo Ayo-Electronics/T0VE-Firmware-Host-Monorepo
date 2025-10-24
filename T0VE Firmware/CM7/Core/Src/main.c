@@ -23,6 +23,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "app_main.hpp"
+#include "app_hal_board_uid.hpp"	//need to move the UID to shared memory
+#include <string.h>					//for memcpy
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -101,6 +103,11 @@ int main(void)
   SCB_EnableDCache();
 
 /* USER CODE BEGIN Boot_Mode_Sequence_1 */
+	//wait for the CM4 to go to sleep
+	//safest to wait for the D2 clock to suspend before modifying any clock-related registers
+	size_t timeout = 0xFFFF;
+	while((__HAL_RCC_GET_FLAG(RCC_FLAG_D2CKRDY) != RESET) && (timeout-- > 0));
+	if ( timeout == 0 ) Error_Handler();
 /* USER CODE END Boot_Mode_Sequence_1 */
   /* MCU Configuration--------------------------------------------------------*/
 
@@ -117,7 +124,17 @@ int main(void)
   /* Configure the peripherals common clocks */
   PeriphCommonClock_Config();
 /* USER CODE BEGIN Boot_Mode_Sequence_2 */
-//using single core so don't have to do anything here
+  //last thing we do is publish the UID to shared memory
+  //shared memory is in D3 which should be up while the CM4 is booting (powered down D2)
+  memcpy((void*)PUBLIC_SHARED_UID_ADDRESS, (void*)UID_BASE, 96/8); //move 96 bits
+
+  //take and release the semaphore to wake up the other core
+  //make sure semaphore clocks are enabled
+  __HAL_RCC_HSEM_CLK_ENABLE();
+  /*Take HSEM */
+  HAL_HSEM_FastTake(HSEM_ID_0);
+  HAL_HSEM_Release(HSEM_ID_0,0);
+
 /* USER CODE END Boot_Mode_Sequence_2 */
 
   /* USER CODE BEGIN SysInit */
@@ -278,8 +295,9 @@ void MPU_Config(void)
   */
   MPU_InitStruct.Number = MPU_REGION_NUMBER2;
   MPU_InitStruct.BaseAddress = 0x38000000;
-  MPU_InitStruct.Size = MPU_REGION_SIZE_64KB;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_32KB;
   MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
+  MPU_InitStruct.IsShareable = MPU_ACCESS_SHAREABLE;
   MPU_InitStruct.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
 
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
@@ -287,9 +305,19 @@ void MPU_Config(void)
   /** Initializes and configures the Region and the memory to be protected
   */
   MPU_InitStruct.Number = MPU_REGION_NUMBER3;
+  MPU_InitStruct.BaseAddress = 0x38008000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_16KB;
+  MPU_InitStruct.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
+
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+  /** Initializes and configures the Region and the memory to be protected
+  */
+  MPU_InitStruct.Number = MPU_REGION_NUMBER4;
   MPU_InitStruct.BaseAddress = 0xC0000000;
   MPU_InitStruct.Size = MPU_REGION_SIZE_8MB;
   MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;
+  MPU_InitStruct.IsShareable = MPU_ACCESS_SHAREABLE;
   MPU_InitStruct.IsCacheable = MPU_ACCESS_CACHEABLE;
 
   HAL_MPU_ConfigRegion(&MPU_InitStruct);

@@ -36,6 +36,11 @@
 			<locationURI>PARENT-1-PROJECT_LOC/Common</locationURI>
 		</link>
 		<link>
+			<name>T0VE Common</name>
+			<type>2</type>
+			<location>C:/Users/govis/OneDrive/1 - Tapeout 0 Validation Electronics/T0VE-Firmware-Host-Monorepo/T0VE Common</location>
+		</link>
+		<link>
 			<name>Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal.c</locationURI>
@@ -96,6 +101,26 @@
 			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_mdma.c</locationURI>
 		</link>
 		<link>
+			<name>Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_nand.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_nand.c</locationURI>
+		</link>
+		<link>
+			<name>Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_nor.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_nor.c</locationURI>
+		</link>
+		<link>
+			<name>Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_pcd.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_pcd.c</locationURI>
+		</link>
+		<link>
+			<name>Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_pcd_ex.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_pcd_ex.c</locationURI>
+		</link>
+		<link>
 			<name>Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_pwr.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_pwr.c</locationURI>
@@ -114,6 +139,46 @@
 			<name>Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_rcc_ex.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rcc_ex.c</locationURI>
+		</link>
+		<link>
+			<name>Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_sdram.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_sdram.c</locationURI>
+		</link>
+		<link>
+			<name>Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_spi.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_spi.c</locationURI>
+		</link>
+		<link>
+			<name>Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_spi_ex.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_spi_ex.c</locationURI>
+		</link>
+		<link>
+			<name>Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_sram.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_sram.c</locationURI>
+		</link>
+		<link>
+			<name>Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_tim.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim.c</locationURI>
+		</link>
+		<link>
+			<name>Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_tim_ex.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim_ex.c</locationURI>
+		</link>
+		<link>
+			<name>Drivers/STM32H7xx_HAL_Driver/stm32h7xx_ll_fmc.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_ll_fmc.c</locationURI>
+		</link>
+		<link>
+			<name>Drivers/STM32H7xx_HAL_Driver/stm32h7xx_ll_usb.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_ll_usb.c</locationURI>
 		</link>
 	</linkedResources>
 </projectDescription>

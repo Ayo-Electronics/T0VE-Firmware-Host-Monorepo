@@ -32,144 +32,16 @@
 
 /* USER CODE END 1 */
 
-/** Configure pins
+/** Pinout Configuration
 */
 void MX_GPIO_Init(void)
 {
 
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-
   /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOG_CLK_ENABLE();
-  __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
-  __HAL_RCC_GPIOJ_CLK_ENABLE();
-  __HAL_RCC_GPIOH_CLK_ENABLE();
-  __HAL_RCC_GPIOK_CLK_ENABLE();
-  __HAL_RCC_GPIOD_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOI_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOF_CLK_ENABLE();
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOG, BIAS_DRIVE_EN_Pin|PD_SEL_PIC_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOJ, SOA_EN_CH1_Pin|TIA_EN_CH2_Pin|SOA_EN_CH3_Pin|LED_GREEN_Pin
-                          |TIA_EN_CH3_Pin|SOA_EN_CH2_Pin|TIA_EN_CH1_Pin|SOA_EN_CH0_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOK, TIA_EN_CH0_Pin|EXT_LED_YELLOW_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOE, PD_SEL_AUX_Pin|LED_BLUE_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOI, SYNC_NODE_RDY_Pin|LED_RED_Pin|BIAS_DAC_RESET_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(EXT_PWR_REG_EN_GPIO_Port, EXT_PWR_REG_EN_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(EXT_LED_GREEN_GPIO_Port, EXT_LED_GREEN_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(REG_EN_GPIO_Port, REG_EN_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pins : BIAS_DRIVE_EN_Pin PD_SEL_PIC_Pin */
-  GPIO_InitStruct.Pin = BIAS_DRIVE_EN_Pin|PD_SEL_PIC_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : SOA_EN_CH1_Pin TIA_EN_CH2_Pin SOA_EN_CH3_Pin LED_GREEN_Pin
-                           TIA_EN_CH3_Pin SOA_EN_CH2_Pin TIA_EN_CH1_Pin SOA_EN_CH0_Pin */
-  GPIO_InitStruct.Pin = SOA_EN_CH1_Pin|TIA_EN_CH2_Pin|SOA_EN_CH3_Pin|LED_GREEN_Pin
-                          |TIA_EN_CH3_Pin|SOA_EN_CH2_Pin|TIA_EN_CH1_Pin|SOA_EN_CH0_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOJ, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : EXT_PWR_PGOOD_Pin PRES_INTLK_Pin */
-  GPIO_InitStruct.Pin = EXT_PWR_PGOOD_Pin|PRES_INTLK_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(GPIOH, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : TIA_EN_CH0_Pin EXT_LED_YELLOW_Pin */
-  GPIO_InitStruct.Pin = TIA_EN_CH0_Pin|EXT_LED_YELLOW_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOK, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : PD_SEL_AUX_Pin LED_BLUE_Pin */
-  GPIO_InitStruct.Pin = PD_SEL_AUX_Pin|LED_BLUE_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : SYNC_NODE_RDY_Pin LED_RED_Pin BIAS_DAC_RESET_Pin */
-  GPIO_InitStruct.Pin = SYNC_NODE_RDY_Pin|LED_RED_Pin|BIAS_DAC_RESET_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOI, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : SYNC_ALL_RDY_Pin */
-  GPIO_InitStruct.Pin = SYNC_ALL_RDY_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(SYNC_ALL_RDY_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : PGOOD_Pin */
-  GPIO_InitStruct.Pin = PGOOD_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(PGOOD_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : SYNC_NID1_Pin */
-  GPIO_InitStruct.Pin = SYNC_NID1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(SYNC_NID1_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : EXT_PWR_REG_EN_Pin */
-  GPIO_InitStruct.Pin = EXT_PWR_REG_EN_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(EXT_PWR_REG_EN_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : SYNC_NID2_Pin SYNC_NID0_Pin */
-  GPIO_InitStruct.Pin = SYNC_NID2_Pin|SYNC_NID0_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : EXT_LED_GREEN_Pin */
-  GPIO_InitStruct.Pin = EXT_LED_GREEN_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(EXT_LED_GREEN_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : SYNC_NID3_Pin */
-  GPIO_InitStruct.Pin = SYNC_NID3_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(SYNC_NID3_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : REG_EN_Pin */
-  GPIO_InitStruct.Pin = REG_EN_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(REG_EN_GPIO_Port, &GPIO_InitStruct);
+  __HAL_RCC_GPIOK_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
 
 }
 

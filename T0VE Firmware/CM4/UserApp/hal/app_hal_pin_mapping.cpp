@@ -1,0 +1,350 @@
+/*
+ * app_hal_pin_mapping.cpp
+ *
+ *  Created on: Jun 9, 2025
+ *      Author: govis
+ */
+
+#include "app_hal_pin_mapping.hpp"
+#include "main.h" //for pin mappings
+
+//================================= LED PIN MAP DETAILS==================================
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::LED_RED = {
+	._GPIO_PORT = LED_RED_GPIO_Port,
+	._GPIO_PIN = LED_RED_Pin,
+	._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+	._GPIO_PULL = GPIO_NOPULL,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::LED_GREEN = {
+	._GPIO_PORT = LED_GREEN_GPIO_Port,
+	._GPIO_PIN = LED_GREEN_Pin,
+	._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+	._GPIO_PULL = GPIO_NOPULL,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::LED_BLUE = {
+	._GPIO_PORT = LED_BLUE_GPIO_Port,
+	._GPIO_PIN = LED_BLUE_Pin,
+	._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+	._GPIO_PULL = GPIO_NOPULL,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::EXT_LED_GREEN = {
+	._GPIO_PORT = EXT_LED_GREEN_GPIO_Port,
+	._GPIO_PIN = EXT_LED_GREEN_Pin,
+	._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+	._GPIO_PULL = GPIO_NOPULL,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::EXT_LED_YELLOW = {
+	._GPIO_PORT = EXT_LED_YELLOW_GPIO_Port,
+	._GPIO_PIN = EXT_LED_YELLOW_Pin,
+	._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+	._GPIO_PULL = GPIO_NOPULL,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+//================================= SOA + TIA PIN MAP DETAILS ==================================
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::SOA_EN_CH0 = {
+	._GPIO_PORT = SOA_EN_CH0_GPIO_Port,
+	._GPIO_PIN = SOA_EN_CH0_Pin,
+	._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+	._GPIO_PULL = GPIO_NOPULL,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::SOA_EN_CH1 = {
+	._GPIO_PORT = SOA_EN_CH1_GPIO_Port,
+	._GPIO_PIN = SOA_EN_CH1_Pin,
+	._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+	._GPIO_PULL = GPIO_NOPULL,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::SOA_EN_CH2 = {
+	._GPIO_PORT = SOA_EN_CH2_GPIO_Port,
+	._GPIO_PIN = SOA_EN_CH2_Pin,
+	._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+	._GPIO_PULL = GPIO_NOPULL,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::SOA_EN_CH3 = {
+	._GPIO_PORT = SOA_EN_CH3_GPIO_Port,
+	._GPIO_PIN = SOA_EN_CH3_Pin,
+	._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+	._GPIO_PULL = GPIO_NOPULL,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::TIA_EN_CH0 = {
+	._GPIO_PORT = TIA_EN_CH0_GPIO_Port,
+	._GPIO_PIN = TIA_EN_CH0_Pin,
+	._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+	._GPIO_PULL = GPIO_NOPULL,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::TIA_EN_CH1 = {
+	._GPIO_PORT = TIA_EN_CH1_GPIO_Port,
+	._GPIO_PIN = TIA_EN_CH1_Pin,
+	._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+	._GPIO_PULL = GPIO_NOPULL,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::TIA_EN_CH2 = {
+	._GPIO_PORT = TIA_EN_CH2_GPIO_Port,
+	._GPIO_PIN = TIA_EN_CH2_Pin,
+	._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+	._GPIO_PULL = GPIO_NOPULL,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::TIA_EN_CH3 = {
+	._GPIO_PORT = TIA_EN_CH3_GPIO_Port,
+	._GPIO_PIN = TIA_EN_CH3_Pin,
+	._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+	._GPIO_PULL = GPIO_NOPULL,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+//================================= HIGH SPEED SPI PIN MAP DETAILS ==================================
+
+const GPIO_Alternate::GPIO_Alternate_Hardware_Pin Pin_Mapping::SPI_CS_DAC_CH0 = {
+	._GPIO_INFO = {
+		._GPIO_PORT = CS_DAC_CH0_GPIO_Port,
+		._GPIO_PIN = CS_DAC_CH0_Pin,
+		._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+		._GPIO_PULL = GPIO_NOPULL,	
+		._GPIO_SPEED = GPIO_SPEED_FREQ_MEDIUM,
+	},
+	._ALTERNATE_MODE = GPIO_MODE_AF_PP,
+	._ALTERNATE_INDEX = GPIO_AF1_TIM2
+};
+
+const GPIO_Alternate::GPIO_Alternate_Hardware_Pin Pin_Mapping::SPI_CS_ADC_CH0 = {
+	._GPIO_INFO = {
+		._GPIO_PORT = CS_ADC_CH0_GPIO_Port,
+		._GPIO_PIN = CS_ADC_CH0_Pin,
+		._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+		._GPIO_PULL = GPIO_NOPULL,
+		._GPIO_SPEED = GPIO_SPEED_FREQ_MEDIUM,
+	},
+	._ALTERNATE_MODE = GPIO_MODE_AF_PP,
+	._ALTERNATE_INDEX = GPIO_AF2_TIM3
+};
+
+const GPIO_Alternate::GPIO_Alternate_Hardware_Pin Pin_Mapping::SPI_CS_DAC_CH1 = {
+	._GPIO_INFO = {
+		._GPIO_PORT = CS_DAC_CH1_GPIO_Port,
+		._GPIO_PIN = CS_DAC_CH1_Pin,
+		._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+		._GPIO_PULL = GPIO_NOPULL,
+		._GPIO_SPEED = GPIO_SPEED_FREQ_VERY_HIGH, //has to go through the analog mux, adds series resistance
+	},
+	._ALTERNATE_MODE = GPIO_MODE_AF_PP,
+	._ALTERNATE_INDEX = GPIO_AF1_TIM2
+};
+
+const GPIO_Alternate::GPIO_Alternate_Hardware_Pin Pin_Mapping::SPI_CS_ADC_CH1 = {
+	._GPIO_INFO = {
+		._GPIO_PORT = CS_ADC_CH1_GPIO_Port,
+		._GPIO_PIN = CS_ADC_CH1_Pin,
+		._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+		._GPIO_PULL = GPIO_NOPULL,
+		._GPIO_SPEED = GPIO_SPEED_FREQ_MEDIUM,
+	},
+	._ALTERNATE_MODE = GPIO_MODE_AF_PP,
+	._ALTERNATE_INDEX = GPIO_AF2_TIM3
+};
+
+const GPIO_Alternate::GPIO_Alternate_Hardware_Pin Pin_Mapping::SPI_CS_DAC_CH2 = {
+	._GPIO_INFO = {
+		._GPIO_PORT = CS_DAC_CH2_GPIO_Port,
+		._GPIO_PIN = CS_DAC_CH2_Pin,
+		._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+		._GPIO_PULL = GPIO_NOPULL,
+		._GPIO_SPEED = GPIO_SPEED_FREQ_MEDIUM,
+	},
+	._ALTERNATE_MODE = GPIO_MODE_AF_PP,
+	._ALTERNATE_INDEX = GPIO_AF1_TIM2
+};
+
+const GPIO_Alternate::GPIO_Alternate_Hardware_Pin Pin_Mapping::SPI_CS_ADC_CH2 = {
+	._GPIO_INFO = {
+		._GPIO_PORT = CS_ADC_CH2_GPIO_Port,
+		._GPIO_PIN = CS_ADC_CH2_Pin,
+		._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+		._GPIO_PULL = GPIO_NOPULL,
+		._GPIO_SPEED = GPIO_SPEED_FREQ_MEDIUM,
+	},
+	._ALTERNATE_MODE = GPIO_MODE_AF_PP,
+	._ALTERNATE_INDEX = GPIO_AF2_TIM3
+};
+
+const GPIO_Alternate::GPIO_Alternate_Hardware_Pin Pin_Mapping::SPI_CS_DAC_CH3 = {
+	._GPIO_INFO = {
+		._GPIO_PORT = CS_DAC_CH3_GPIO_Port,
+		._GPIO_PIN = CS_DAC_CH3_Pin,
+		._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+		._GPIO_PULL = GPIO_NOPULL,
+		._GPIO_SPEED = GPIO_SPEED_FREQ_MEDIUM,
+	},
+	._ALTERNATE_MODE = GPIO_MODE_AF_PP,
+	._ALTERNATE_INDEX = GPIO_AF1_TIM2
+};
+
+const GPIO_Alternate::GPIO_Alternate_Hardware_Pin Pin_Mapping::SPI_CS_ADC_CH3 = {
+	._GPIO_INFO = {
+		._GPIO_PORT = CS_ADC_CH3_GPIO_Port,
+		._GPIO_PIN = CS_ADC_CH3_Pin,
+		._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+		._GPIO_PULL = GPIO_NOPULL,
+		._GPIO_SPEED = GPIO_SPEED_FREQ_MEDIUM,
+	},
+	._ALTERNATE_MODE = GPIO_MODE_AF_PP,
+	._ALTERNATE_INDEX = GPIO_AF2_TIM3
+};
+
+//================================= PWR CONTROL PIN MAP DETAILS ==================================
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::PWR_REG_EN = {
+	._GPIO_PORT = REG_EN_GPIO_Port,
+	._GPIO_PIN = REG_EN_Pin,
+	._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+	._GPIO_PULL = GPIO_NOPULL,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::PWR_PGOOD = {
+	._GPIO_PORT = PGOOD_GPIO_Port,
+	._GPIO_PIN = PGOOD_Pin,
+	._GPIO_MODE = GPIO_MODE_INPUT,
+	._GPIO_PULL = GPIO_PULLUP,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::EXT_PWR_REG_EN = {
+	._GPIO_PORT = EXT_PWR_REG_EN_GPIO_Port,
+	._GPIO_PIN = EXT_PWR_REG_EN_Pin,
+	._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+	._GPIO_PULL = GPIO_NOPULL,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::EXT_PWR_PGOOD = {
+	._GPIO_PORT = EXT_PWR_PGOOD_GPIO_Port,
+	._GPIO_PIN = EXT_PWR_PGOOD_Pin,
+	._GPIO_MODE = GPIO_MODE_INPUT,
+	._GPIO_PULL = GPIO_PULLUP,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+//================================= SYNC INTERFACE PIN MAP DETAILS ==================================
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::SYNC_NODE_READY = {
+	._GPIO_PORT = SYNC_NODE_RDY_GPIO_Port,
+	._GPIO_PIN = SYNC_NODE_RDY_Pin,
+	._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+	._GPIO_PULL = GPIO_NOPULL,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::SYNC_ALL_READY = {
+	._GPIO_PORT = SYNC_ALL_RDY_GPIO_Port,
+	._GPIO_PIN = SYNC_ALL_RDY_Pin,
+	._GPIO_MODE = GPIO_MODE_INPUT,
+	._GPIO_PULL = GPIO_PULLUP,			//strengthen the external pullup on this line; good for testing too
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::SYNC_NID_0 = {
+	._GPIO_PORT = SYNC_NID0_GPIO_Port,
+	._GPIO_PIN = SYNC_NID0_Pin,
+	._GPIO_MODE = GPIO_MODE_INPUT,
+	._GPIO_PULL = GPIO_PULLUP,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::SYNC_NID_1 = {
+	._GPIO_PORT = SYNC_NID1_GPIO_Port,
+	._GPIO_PIN = SYNC_NID1_Pin,
+	._GPIO_MODE = GPIO_MODE_INPUT,
+	._GPIO_PULL = GPIO_PULLUP,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::SYNC_NID_2 = {
+	._GPIO_PORT = SYNC_NID2_GPIO_Port,
+	._GPIO_PIN = SYNC_NID2_Pin,
+	._GPIO_MODE = GPIO_MODE_INPUT,
+	._GPIO_PULL = GPIO_PULLUP,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::SYNC_NID_3 = {
+	._GPIO_PORT = SYNC_NID3_GPIO_Port,
+	._GPIO_PIN = SYNC_NID3_Pin,
+	._GPIO_MODE = GPIO_MODE_INPUT,
+	._GPIO_PULL = GPIO_PULLUP,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+//================================= WAVEGUIDE BIAS DAC PIN MAP DETAILS ==================================
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::BIAS_DRIVE_EN = {
+	._GPIO_PORT = BIAS_DRIVE_EN_GPIO_Port,
+	._GPIO_PIN = BIAS_DRIVE_EN_Pin,
+	._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+	._GPIO_PULL = GPIO_NOPULL,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::BIAS_DAC_RESET = {
+	._GPIO_PORT = BIAS_DAC_RESET_GPIO_Port,
+	._GPIO_PIN = BIAS_DAC_RESET_Pin,
+	._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+	._GPIO_PULL = GPIO_NOPULL,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+//================================= MISCELLANEOUS PIN MAP DETAILS ==================================	
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::PRES_INTLK = {
+	._GPIO_PORT = PRES_INTLK_GPIO_Port,
+	._GPIO_PIN = PRES_INTLK_Pin,
+	._GPIO_MODE = GPIO_MODE_INPUT,
+	._GPIO_PULL = GPIO_PULLUP,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::PD_SEL_PIC = {
+	._GPIO_PORT = PD_SEL_PIC_GPIO_Port,
+	._GPIO_PIN = PD_SEL_PIC_Pin,
+	._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+	._GPIO_PULL = GPIO_NOPULL,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+	
+const GPIO::GPIO_Hardware_Pin Pin_Mapping::PD_SEL_AUX = {
+	._GPIO_PORT = PD_SEL_AUX_GPIO_Port,
+	._GPIO_PIN = PD_SEL_AUX_Pin,
+	._GPIO_MODE = GPIO_MODE_OUTPUT_PP,
+	._GPIO_PULL = GPIO_NOPULL,
+	._GPIO_SPEED = GPIO_SPEED_FREQ_LOW
+};
+
+
+
+
+
+
+

@@ -31,13 +31,10 @@
 **
 *****************************************************************************
 */
-
 /* Entry Point */
 ENTRY(Reset_Handler)
-
 /* Highest address of the user mode stack */
 _estack = ORIGIN(RAM) + LENGTH(RAM); /* end of "RAM_D1" Ram type memory */
-
 _Min_Heap_Size = 0x200; /* required amount of heap  */
 _Min_Stack_Size = 0x400; /* required amount of stack */
 /* Start user variables */
@@ -48,18 +45,17 @@ _Min_Stack_Size = 0x400; /* required amount of stack */
 MEMORY
 {
 /* Start MX regions */
+  SHARED_RAM	(xrw)	: ORIGIN = 0x38000000, LENGTH = 32K
   FLASH	(rx)	: ORIGIN = 0x08000000, LENGTH = 1024K
-  MEM_DMA	(xrw)	: ORIGIN = 0x38000000, LENGTH = 64K
+  MEM_DMA	(xrw)	: ORIGIN = 0x38008000, LENGTH = 16K
   ITCMRAM	(xrw)	: ORIGIN = 0x00000000, LENGTH = 64K
   RAM	(xrw)	: ORIGIN = 0x20000000, LENGTH = 128K
-  FAST_SRAM	(xrw)	: ORIGIN = 0x24000000, LENGTH = 512K
   EXTMEM	(xrw)	: ORIGIN = 0xc0000000, LENGTH = 8192K
 /* End MX regions */
 /*removed by MX default:   DTCMRAM	(xrw)	: ORIGIN = 0x20000000, LENGTH = 128K */
 /*removed by MX default:   RAM_D3	(xrw)	: ORIGIN = 0x38000000, LENGTH = 64K */
 /*removed by MX default:   RAM_D2	(xrw)	: ORIGIN = 0x30000000, LENGTH = 288K */
 }
-
 /* Sections */
 SECTIONS
 {
@@ -70,7 +66,6 @@ SECTIONS
     KEEP(*(.isr_vector)) /* Startup code */
     . = ALIGN(4);
   } >FLASH
-
   /* The program code and other data into "FLASH" Rom type memory */
   .text :
   {
@@ -80,14 +75,11 @@ SECTIONS
     *(.glue_7)         /* glue arm to thumb code */
     *(.glue_7t)        /* glue thumb to arm code */
     *(.eh_frame)
-
     KEEP (*(.init))
     KEEP (*(.fini))
-
     . = ALIGN(4);
     _etext = .;        /* define a global symbols at end of code */
   } >FLASH
-
   /* Constant data into "FLASH" Rom type memory */
   .rodata :
   {
@@ -96,7 +88,6 @@ SECTIONS
     *(.rodata*)        /* .rodata* sections (constants, strings, etc.) */
     . = ALIGN(4);
   } >FLASH
-
   .ARM.extab (READONLY) : /* The READONLY keyword is only supported in GCC11 and later, remove it if using GCC10 or earlier. */
   {
     . = ALIGN(4);
@@ -111,7 +102,6 @@ SECTIONS
     __exidx_end = .;
     . = ALIGN(4);
   } >FLASH
-
   .preinit_array (READONLY) : /* The READONLY keyword is only supported in GCC11 and later, remove it if using GCC10 or earlier. */
   {
     . = ALIGN(4);
@@ -120,7 +110,6 @@ SECTIONS
     PROVIDE_HIDDEN (__preinit_array_end = .);
     . = ALIGN(4);
   } >FLASH
-
   .init_array (READONLY) : /* The READONLY keyword is only supported in GCC11 and later, remove it if using GCC10 or earlier. */
   {
     . = ALIGN(4);
@@ -130,7 +119,6 @@ SECTIONS
     PROVIDE_HIDDEN (__init_array_end = .);
     . = ALIGN(4);
   } >FLASH
-
   .fini_array (READONLY) : /* The READONLY keyword is only supported in GCC11 and later, remove it if using GCC10 or earlier. */
   {
     . = ALIGN(4);
@@ -140,10 +128,8 @@ SECTIONS
     PROVIDE_HIDDEN (__fini_array_end = .);
     . = ALIGN(4);
   } >FLASH
-
   /* Used by the startup to initialize data */
   _sidata = LOADADDR(.data);
-
   /* Initialized data sections into "RAM" Ram type memory */
   .data :
   {
@@ -153,11 +139,9 @@ SECTIONS
     *(.data*)          /* .data* sections */
     *(.RamFunc)        /* .RamFunc sections */
     *(.RamFunc*)       /* .RamFunc* sections */
-
     . = ALIGN(4);
     _edata = .;        /* define a global symbol at data end */
   } >RAM AT> FLASH
-
   /* Uninitialized data section into "RAM" Ram type memory */
   . = ALIGN(4);
   .bss :
@@ -168,12 +152,10 @@ SECTIONS
     *(.bss)
     *(.bss*)
     *(COMMON)
-
     . = ALIGN(4);
     _ebss = .;         /* define a global symbol at bss end */
     __bss_end__ = _ebss;
   } >RAM
-
   /* User_heap_stack section, used to check that there is enough "RAM" Ram  type memory left */
   ._user_heap_stack :
   {
@@ -184,7 +166,6 @@ SECTIONS
     . = . + _Min_Stack_Size;
     . = ALIGN(8);
   } >RAM
-
   /* Remove information from the compiler libraries */
   /DISCARD/ :
   {
@@ -192,18 +173,9 @@ SECTIONS
     libm.a ( * )
     libgcc.a ( * )
   }
-
   .ARM.attributes 0 : { *(.ARM.attributes) }
-
  
- /*  Unitialized MEM_DMA section into "MEM_DMA" MEM_DMA type memory [MMT section] */
- .MEM_DMA_Section :
-  {
-    . = ALIGN(4);
-    KEEP (*(.MEM_DMA_Section))
-    . = ALIGN(4);
-  } >MEM_DMA
-
+ 
  /*  Unitialized ITCMRAM section into "ITCMRAM" ITCMRAM type memory [MMT section] */
  /* IG: MODIFIED WITH HELP FROM CHATGPT - want to place functions in ITCMRAM*/
 .ITCMRAM_Section :
@@ -214,10 +186,8 @@ SECTIONS
   . = ALIGN(4);
   __itcm_end__ = .;
 } >ITCMRAM AT> FLASH
-
 /* Provide load address (FLASH) for startup copy */
 __sitcm = LOADADDR(.ITCMRAM_Section);
-
  /*  Unitialized EXTMEM section into "EXTMEM" EXTMEM type memory [MMT section] - IG: TELL PROGRAMMER NOT TO LOAD */
  .EXTMEM_Section (NOLOAD) :
   {
@@ -226,12 +196,20 @@ __sitcm = LOADADDR(.ITCMRAM_Section);
     . = ALIGN(4);
   } >EXTMEM
  
- /*  Unitialized FAST_SRAM section into "FAST_SRAM" FAST_SRAM type memory [MMT section] */
- .FAST_SRAM_Section :
+ 
+ /*  Unitialized SHARED_RAM section into "SHARED_RAM" SHARED_RAM type memory [MMT section] */
+ .SHARED_RAM_Section :
   {
     . = ALIGN(4);
-    KEEP (*(.FAST_SRAM_Section))
+    KEEP (*(.SHARED_RAM_Section))
     . = ALIGN(4);
-  } >FAST_SRAM
+  } >SHARED_RAM
+ /*  Unitialized MEM_DMA section into "MEM_DMA" MEM_DMA type memory [MMT section] */
+ .MEM_DMA_Section :
+  {
+    . = ALIGN(4);
+    KEEP (*(.MEM_DMA_Section))
+    . = ALIGN(4);
+  } >MEM_DMA
 
 }

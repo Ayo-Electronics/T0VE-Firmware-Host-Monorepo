@@ -18,11 +18,10 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "bdma.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "app_main.hpp"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -76,18 +75,15 @@ int main(void)
   MPU_Config();
 
 /* USER CODE BEGIN Boot_Mode_Sequence_1 */
-  /*HW semaphore Clock enable*/
+
+  //wait for the CM7 to configure all the peripheral clocks
+  //we wait by disabling our clock and going to sleep
+  //and wake up when we're signaled by the CM7
   __HAL_RCC_HSEM_CLK_ENABLE();
-  /* Activate HSEM notification for Cortex-M4*/
-  HAL_HSEM_ActivateNotification(__HAL_HSEM_SEMID_TO_MASK(HSEM_ID_0));
-  /*
-  Domain D2 goes to STOP mode (Cortex-M4 in deep-sleep) waiting for Cortex-M7 to
-  perform system initialization (system clock config, external memory configuration.. )
-  */
-  HAL_PWREx_ClearPendingEvent();
-  HAL_PWREx_EnterSTOPMode(PWR_MAINREGULATOR_ON, PWR_STOPENTRY_WFE, PWR_D2_DOMAIN);
-  /* Clear HSEM flag */
-  __HAL_HSEM_CLEAR_FLAG(__HAL_HSEM_SEMID_TO_MASK(HSEM_ID_0));
+  HAL_HSEM_ActivateNotification(__HAL_HSEM_SEMID_TO_MASK(HSEM_ID_0));	//enable wakeup from semaphore 0
+  HAL_PWREx_ClearPendingEvent();										//reset any pending power notifications
+  HAL_PWREx_EnterSTOPMode(PWR_MAINREGULATOR_ON, PWR_STOPENTRY_WFE, PWR_D2_DOMAIN);	//<<< go to sleep here
+  __HAL_HSEM_CLEAR_FLAG(__HAL_HSEM_SEMID_TO_MASK(HSEM_ID_0));						//<<< wake up and acknowledge wake
 
 /* USER CODE END Boot_Mode_Sequence_1 */
   /* MCU Configuration--------------------------------------------------------*/
@@ -104,15 +100,15 @@ int main(void)
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
-  MX_BDMA_Init();
   /* USER CODE BEGIN 2 */
-
+  app_init();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  app_loop();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -183,6 +179,22 @@ void MPU_Config(void)
   /** Initializes and configures the Region and the memory to be protected
   */
   MPU_InitStruct.Number = MPU_REGION_NUMBER1;
+  MPU_InitStruct.BaseAddress = 0x38000000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_32KB;
+  MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
+  MPU_InitStruct.IsShareable = MPU_ACCESS_SHAREABLE;
+
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+  /** Initializes and configures the Region and the memory to be protected
+  */
+  MPU_InitStruct.Number = MPU_REGION_NUMBER2;
+  MPU_InitStruct.BaseAddress = 0xC0000000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_8MB;
+  MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;
+  MPU_InitStruct.IsCacheable = MPU_ACCESS_CACHEABLE;
+  MPU_InitStruct.IsBufferable = MPU_ACCESS_BUFFERABLE;
+
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
   /* Enables the MPU */
   HAL_MPU_Enable(MPU_PRIVILEGED_DEFAULT);
