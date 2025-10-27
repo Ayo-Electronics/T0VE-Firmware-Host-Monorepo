@@ -68,7 +68,8 @@ public:
 	SUBSCRIBE_FUNC_RC(	command_hispeed_arm_fire_request			);
 	LINK_FUNC(			status_hispeed_armed						);
 	LINK_FUNC_RC(		status_hispeed_arm_flag_err_ready			);
-	LINK_FUNC_RC(		status_hispeed_arm_flag_err_sync_timeout	);
+	LINK_FUNC_RC(		status_hispeed_arm_flag_err_sync			);
+	LINK_FUNC_RC(		status_hispeed_arm_flag_err_core_timeout	);
 	LINK_FUNC_RC(		status_hispeed_arm_flag_err_pwr				);
 	LINK_FUNC_RC(		status_hispeed_arm_flag_complete			);
 	SUBSCRIBE_FUNC_RC(	command_hispeed_sdram_load_test_sequence	);
@@ -143,7 +144,8 @@ private:
 	PERSISTENT((Pub_Var<bool>), command_hispeed_arm_fire_request);
 	Sub_Var<bool>			status_hispeed_armed;
 	Sub_Var_RC<bool>		status_hispeed_arm_flag_err_ready;
-	Sub_Var_RC<bool>		status_hispeed_arm_flag_err_sync_timeout;
+	Sub_Var_RC<bool>		status_hispeed_arm_flag_err_sync;
+	Sub_Var_RC<bool>		status_hispeed_arm_flag_err_core_timeout;
 	Sub_Var_RC<bool>		status_hispeed_arm_flag_err_pwr;
 	Sub_Var_RC<bool>		status_hispeed_arm_flag_complete;
 	PERSISTENT((Pub_Var<bool>), command_hispeed_sdram_load_test_sequence);

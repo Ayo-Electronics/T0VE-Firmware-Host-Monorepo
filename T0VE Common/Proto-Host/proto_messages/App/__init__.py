@@ -136,9 +136,10 @@ class HispeedStatus(betterproto.Message):
     armed: bool = betterproto.bool_field(1)
     done_success: bool = betterproto.bool_field(2)
     done_err_ready: bool = betterproto.bool_field(3)
-    done_err_timeout: bool = betterproto.bool_field(4)
-    done_err_pwr: bool = betterproto.bool_field(5)
-    tia_adc_readback: "_AppUint324__" = betterproto.message_field(6)
+    done_err_sync: bool = betterproto.bool_field(4)
+    done_err_core_to: bool = betterproto.bool_field(5)
+    done_err_pwr: bool = betterproto.bool_field(6)
+    tia_adc_readback: "_AppUint324__" = betterproto.message_field(7)
 
 
 @dataclass(eq=False, repr=False)
@@ -237,6 +238,7 @@ class NodeState(betterproto.Message):
     comms_st: "_AppCommsStatus__" = betterproto.message_field(17)
     comms_cmd: "_AppCommsCommand__" = betterproto.message_field(18)
     magic_number: int = betterproto.uint32_field(19)
+    do_system_reset: Optional[bool] = betterproto.bool_field(20, optional=True)
 
 
 @dataclass(eq=False, repr=False)

@@ -7,10 +7,14 @@
 
 #include "app_main.hpp"
 
+//only thing using this processor is the `hispeed_core` subsystem
+#include "app_hispeed_core.hpp"
 #include "app_scheduler.hpp"
 
+//TODO: instantiate hispeed core
+
 void app_init() {
-	//nothing to initialize for now
+	//TODO: init hispeed core
 }
 
 void app_loop() {

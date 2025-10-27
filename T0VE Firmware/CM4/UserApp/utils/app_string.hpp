@@ -184,6 +184,17 @@ public:
 		return static_cast<char>(string_data[idx]);
 	}
 
+	App_String<STRING_SIZE, PADDING> substring(size_t start, size_t end) {
+		//create an output temporary; initialized to empty
+		App_String<STRING_SIZE, PADDING> ret;
+
+		//concatenate a subsection of the original into the new temporary
+		ret.cat(this->span().subspan(start, end-start));
+
+		//and return the output temporary
+		return ret;
+	}
+
 
 private:
 	//store the string as an array

@@ -84,9 +84,10 @@ message Hispeed_Status {
   bool armed =                1;
   bool done_success =         2;
   bool done_err_ready =       3;
-  bool done_err_timeout =     4;
-  bool done_err_pwr =         5;
-  uint32_4 tia_adc_readback = 6;
+  bool done_err_sync =        4;
+  bool done_err_core_to =     5;
+  bool done_err_pwr =         6;
+  uint32_4 tia_adc_readback = 7;
 }
 
 message Hispeed_Command {
@@ -171,6 +172,7 @@ message Node_State {
   Comms_Status comms_st =                       17;
   Comms_Command comms_cmd =                     18;
   uint32 MAGIC_NUMBER =                         19;
+  optional bool do_system_reset =               20;
 }
 
 //========================== AGGREGATION INTO SINGLE MESSAGE ==========================

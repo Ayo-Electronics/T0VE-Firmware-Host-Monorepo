@@ -23,7 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "app_main.hpp"
-#include "app_hal_board_uid.hpp"	//need to move the UID to shared memory
+#include "app_shared_memory.h"		//for common memory locations - share UID
 #include <string.h>					//for memcpy
 /* USER CODE END Includes */
 
@@ -126,7 +126,7 @@ int main(void)
 /* USER CODE BEGIN Boot_Mode_Sequence_2 */
   //last thing we do is publish the UID to shared memory
   //shared memory is in D3 which should be up while the CM4 is booting (powered down D2)
-  memcpy((void*)PUBLIC_SHARED_UID_ADDRESS, (void*)UID_BASE, 96/8); //move 96 bits
+  memcpy(&SHARED_MEMORY.PUBLIC_SHARED_UID, (void*)UID_BASE, 96/8); //move 96 bits
 
   //take and release the semaphore to wake up the other core
   //make sure semaphore clocks are enabled
@@ -294,17 +294,25 @@ void MPU_Config(void)
   /** Initializes and configures the Region and the memory to be protected
   */
   MPU_InitStruct.Number = MPU_REGION_NUMBER2;
-  MPU_InitStruct.BaseAddress = 0x38000000;
-  MPU_InitStruct.Size = MPU_REGION_SIZE_32KB;
+  MPU_InitStruct.BaseAddress = 0x24000000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_512KB;
   MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
   MPU_InitStruct.IsShareable = MPU_ACCESS_SHAREABLE;
-  MPU_InitStruct.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
 
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
 
   /** Initializes and configures the Region and the memory to be protected
   */
   MPU_InitStruct.Number = MPU_REGION_NUMBER3;
+  MPU_InitStruct.BaseAddress = 0x38000000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_32KB;
+  MPU_InitStruct.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
+
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+  /** Initializes and configures the Region and the memory to be protected
+  */
+  MPU_InitStruct.Number = MPU_REGION_NUMBER4;
   MPU_InitStruct.BaseAddress = 0x38008000;
   MPU_InitStruct.Size = MPU_REGION_SIZE_16KB;
   MPU_InitStruct.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
@@ -313,7 +321,7 @@ void MPU_Config(void)
 
   /** Initializes and configures the Region and the memory to be protected
   */
-  MPU_InitStruct.Number = MPU_REGION_NUMBER4;
+  MPU_InitStruct.Number = MPU_REGION_NUMBER5;
   MPU_InitStruct.BaseAddress = 0xC0000000;
   MPU_InitStruct.Size = MPU_REGION_SIZE_8MB;
   MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;

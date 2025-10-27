@@ -46,6 +46,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/UserApp/usb/msc_helpers}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/UserApp/usb/tinyusb}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/T0VE Common/Proto-Firmware}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Common}&quot;"/>
 								</option>
 								<inputType id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.assembler.input.95167347" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.assembler.input"/>
 							</tool>
@@ -78,6 +79,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/UserApp/usb/msc_helpers}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/UserApp/usb/tinyusb}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/T0VE Common/Proto-Firmware}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Common}&quot;"/>
 								</option>
 								<option id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.option.languagestandard.48119022" name="Language standard" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.option.languagestandard" useByScannerDiscovery="true" value="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.option.languagestandard.value.gnu18" valueType="enumerated"/>
 								<inputType id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.input.c.1843051028" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.input.c"/>
@@ -111,6 +113,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/UserApp/usb/msc_helpers}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/UserApp/usb/tinyusb}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/T0VE Common/Proto-Firmware}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Common}&quot;"/>
 								</option>
 								<option id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.cpp.compiler.option.languagestandard.1409342817" name="Language standard" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.cpp.compiler.option.languagestandard" useByScannerDiscovery="true" value="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.cpp.compiler.option.languagestandard.value.gnupp20" valueType="enumerated"/>
 								<inputType id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.cpp.compiler.input.cpp.872506173" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.cpp.compiler.input.cpp"/>
@@ -186,6 +189,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/UserApp/usb/msc_helpers}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/UserApp/usb/tinyusb}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/T0VE Common/Proto-Firmware}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Common}&quot;"/>
 								</option>
 								<inputType id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.assembler.input.1329090395" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.assembler.input"/>
 							</tool>
@@ -217,6 +221,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/UserApp/usb/msc_helpers}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/UserApp/usb/tinyusb}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/T0VE Common/Proto-Firmware}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Common}&quot;"/>
 								</option>
 								<inputType id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.input.c.2090602003" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.input.c"/>
 							</tool>
@@ -248,6 +253,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/UserApp/usb/msc_helpers}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/UserApp/usb/tinyusb}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/T0VE Common/Proto-Firmware}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Common}&quot;"/>
 								</option>
 								<inputType id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.cpp.compiler.input.cpp.634960341" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.cpp.compiler.input.cpp"/>
 							</tool>

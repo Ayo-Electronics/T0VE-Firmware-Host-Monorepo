@@ -10,10 +10,18 @@
 
 #pragma once
 
+#ifdef __cplusplus
 extern "C" {
+#endif
+
 	#include "stm32h7xx_hal.h" //uintxx_t types
 	#include "stm32h747xx.h" //register definitions
+
+#ifdef __cplusplus
 }
+#endif
+
+#ifdef __cplusplus
 
 #include <stdbool.h>
 
@@ -23,4 +31,6 @@ constexpr bool PROCESSOR_IS_BIG_ENDIAN = false;
 
 //480MHz CPU clock frequency, used for timing calculations
 constexpr float CPU_FREQ_HZ = 480e6;
+
+#endif
 

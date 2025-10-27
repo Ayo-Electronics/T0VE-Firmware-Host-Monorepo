@@ -8,11 +8,11 @@
 #include "app_state_machine_library.hpp"
 #include "app_scheduler.hpp"
 #include "app_hispeed_analog.hpp"
-#include "app_power_monitor.hpp"
-#include "app_hal_dram.hpp"
 #include "app_sync_if.hpp"
 #include "app_hal_pwm.hpp"
 #include "app_threading.hpp"
+#include "app_hal_hsem.hpp"
+#include "app_shared_memory.h"
 
 /*
  * TODO LIST:
@@ -23,91 +23,6 @@
 class Hispeed_Subsystem {
 public:
 	//================================ TYPEDEFS ==================================
-
-	/*
-	 * ADC_Destination_t
-	 *  \--> want to pack information about where to route an ADC conversion result
-	 *  \--> We need to encode:
-	 *  		- Which block address to dump it in
-	 *  		- Which index to dump it in
-	 *  		- If we just wanna throw the ADC value away
-	 *
-	 *  I'm proposing a structure that looks like:
-	 *  	 [0..27] --> block index
-	 *  	[28..29] --> sub index
-	 *  	 	[30] --> throwaway flag	 (`1` if throwaway)
-	 *  	 	[31] --> block valid flag (`1` if valid)
-	 *
-	 *	I'd likely implement this as a struct with methods rather than a union to speed up access
-	 *		\--> methods will just be bit shifts
-	 *
-	 *  For simple fully-connected feed-forward networks, we can run without a sequence control counter
-	 *  Essentially, we'd run the system until we hit an invalid block, where we'd disarm and stop
-	 *  I'd like to be able to quickly check if a block is valid or not, likely going to be just checking if the destination is 0
-	 */
-	struct ADC_Destination_t {
-		//some consts just to make reading/writing more consistent
-		static constexpr uint32_t BLOCK_INDEX_MASK = 0x0FFF'FFFF;
-		static constexpr size_t BLOCK_INDEX_SHIFT = 0;
-		static constexpr uint32_t SUB_INDEX_MASK = 0x03;
-		static constexpr size_t SUB_INDEX_SHIFT = 28;
-		static constexpr uint32_t THROWAWAY_MASK = 0x01;
-		static constexpr size_t THROWAWAY_SHIFT = 30;
-		static constexpr uint32_t BLOCK_VALID_MASK = 0x01;
-		static constexpr size_t BLOCK_VALID_SHFIT = 31;
-
-		//just the data, store as uint32_t
-		uint32_t dest_data;
-
-		//construct with either data or fields, default construct to 0
-		ADC_Destination_t(): dest_data(0) {}
-		ADC_Destination_t(uint32_t _dest_data): dest_data(_dest_data) {}
-		ADC_Destination_t(uint32_t block_index, uint32_t sub_index, uint32_t throwaway):
-			dest_data( 	((block_index & BLOCK_INDEX_MASK) << BLOCK_INDEX_SHIFT) |
-						((sub_index & SUB_INDEX_MASK) << SUB_INDEX_SHIFT) 		|
-						((throwaway & THROWAWAY_MASK) << THROWAWAY_SHIFT)		|
-						( BLOCK_VALID_MASK << BLOCK_VALID_SHFIT)					)
-		{}
-
-		//methods to operate on the data field
-		__attribute__((always_inline)) inline uint32_t block_index() 	{ return ((dest_data >> BLOCK_INDEX_SHIFT) & BLOCK_INDEX_MASK); 	}
-		__attribute__((always_inline)) inline uint32_t sub_index() 		{ return ((dest_data >> SUB_INDEX_SHIFT) & SUB_INDEX_MASK); 		}
-		__attribute__((always_inline)) inline bool throwaway()			{ return ( dest_data & (THROWAWAY_MASK << THROWAWAY_SHIFT));		}
-		__attribute__((always_inline)) inline bool valid()				{ return ( dest_data & (BLOCK_VALID_MASK << BLOCK_VALID_SHFIT));	}
-	};
-
-	/*
-	 * Hispeed_Block_t
-	 * Contains information relevant to execution of a block
-	 * 	\--> `param_vals` contains the values to write to the DACs
-	 * 	\--> `readback_destinations` contains information on where to store the ADC readings
-	 * 	Using C-style arrays to minimize the std::array overhead (very slight performance bump)
-	 */
-	struct Hispeed_Block_t {
-		uint16_t param_vals[4];
-		ADC_Destination_t readback_destinations[4];
-
-		//factory function
-		//direct copy construction of C-arrays can be kinda weird, so just making it step-wise
-		static Hispeed_Block_t mk(std::array<uint16_t, 4> _vals, std::array<ADC_Destination_t, 4> _dest) {
-			Hispeed_Block_t block;
-			std::copy(_vals.begin(), _vals.end(), block.param_vals); //param vals decays into a pointer
-			std::copy(_dest.begin(), _dest.end(), block.readback_destinations);
-			return block;
-		}
-
-		//special factory function that makes a block that throws away ADC value
-		static Hispeed_Block_t mk_throwaway(std::array<uint16_t, 4> _vals) {
-			//explicitly call ADC_Destination_t constructor
-			return mk(_vals, {	ADC_Destination_t(0, 0, 1),
-								ADC_Destination_t(0, 1, 1),
-								ADC_Destination_t(0, 2, 1),
-								ADC_Destination_t(0, 3, 1)	});
-		}
-
-		//special factory function that makes a terminating block
-		static Hispeed_Block_t mk_term() { return mk({0}, {0});	}
-	};
 
 	/*
 	 * Hispeed_Channel_Hardware_t
@@ -134,10 +49,7 @@ public:
 	Hispeed_Subsystem(	Hispeed_Channel_Hardware_t ch0,
 						Hispeed_Channel_Hardware_t ch1,
 						Hispeed_Channel_Hardware_t ch2,
-						Hispeed_Channel_Hardware_t ch3,
-						DRAM::DRAM_Hardware_Channel& _block_memory_hw,
-						Power_Monitor& _onboard_power_monitor,
-						Multicard_Info& _multicard_interface);
+						Hispeed_Channel_Hardware_t ch3	);
 
 	//delete the copy constructor and assignment operator to prevent accidental copies/writes
 	Hispeed_Subsystem(const Hispeed_Subsystem& other) = delete;
@@ -150,56 +62,46 @@ public:
 	LINK_FUNC(command_hispeed_arm_fire_request);
 	SUBSCRIBE_FUNC(status_hispeed_armed);
 	SUBSCRIBE_FUNC_RC(status_hispeed_arm_flag_err_ready);
-	SUBSCRIBE_FUNC_RC(status_hispeed_arm_flag_err_sync_timeout);
+	SUBSCRIBE_FUNC_RC(status_hispeed_arm_flag_err_sync);
 	SUBSCRIBE_FUNC_RC(status_hispeed_arm_flag_err_pwr);
+	SUBSCRIBE_FUNC_RC(status_hispeed_arm_flag_err_core_timeout);
 	SUBSCRIBE_FUNC_RC(status_hispeed_arm_flag_complete);
-	LINK_FUNC_RC(command_hispeed_sdram_load_test_sequence);
 	LINK_FUNC_RC(command_hispeed_SOA_enable);
 	LINK_FUNC_RC(command_hispeed_TIA_enable);
 	LINK_FUNC_RC(command_hispeed_SOA_DAC_drive);
 	SUBSCRIBE_FUNC(status_hispeed_TIA_ADC_readback);
+	LINK_FUNC(status_onboard_immediate_pgood);
+	LINK_FUNC(status_onboard_debounced_pgood);
 
 private:
-	//###################### THE MAIN HIGH-SPEED EXECUTION FUNCTION ###################
-	//this function is designed to run on entry into the ARMED_FIRE state
-	//will return from this function having modified the appropriate state variables upon exit
-	//state machine is configued to automatically return to the correct state
-	#pragma GCC push_options
-	#pragma GCC optimize ("Ofast,inline-functions")
-	__attribute__((section(".ITCMRAM_Section"))) //placing this function in ITCM for performance
-	void do_hispeed_arm_fire();
-	#pragma GCC pop_options
+	//##### HISPEED THREAD FUNCTION #####
+	//before we actually arm + fire, check to see if our peripheral is ready
+	void do_prearm_check();		//clears any pending timeouts, sets up another one
+	void do_prearm_fail();		//called on timeout; posts a timeout status update
+	static const uint32_t PREARM_TIMEOUT_MS = 5000;	//let the core take 5 seconds to be ready again
 
-	//a little enum class that reports how we exited the loop
-	enum class Loop_Exit_Status_t {
-		LOOP_EXIT_OK,
-		LOOP_EXIT_ERR_SYNC_TIMEOUT,	//error waiting for sync signal
-		LOOP_EXIT_ERR_POWER,		//error regarding onboard power supply
-		LOOP_EXIT_ERR_READY,		//error regarding ALL_READY line
-	};
+	//in the low-speed core, this state basically prepares all the peripherals/memory for arming + firing
+	//and communicates with the high-speed core via shared thread signals
+	void do_arm_fire_setup();	//sets up peripherals, detaches the files, moves the inputs, locks memory, clears the signal listener, asserts fire signal
+	void do_arm_fire_run();		//polls the completion flags, asserts signal if done
+	void do_arm_fire_exit();	//grabs the exit codes, deasserts fire signal, unlocks memory, moves the outputs, attaches the files, restores peripherals
+	static const uint32_t FIRING_TIMEOUT_MS = 40000; //large networks may take a while to execute
 
-	//have access to a list of blocks
-	//using pointer notation here--will index through these using array notation
-	//may try to figure out an elegant way to use `std::span<>` here if possible
-	Hispeed_Block_t* block_sequence;
+	//and all the semaphores for inter-core signaling
+	Hard_Semaphore HISPEED_ARM_FIRE_READY = 	{static_cast<Hard_Semaphore::HSem_Channel>(Sem_Mapping::SEM_ARM_FIRE_READY)};
+	Hard_Semaphore HISPEED_ARM_FIRE_SUCCESS = 	{static_cast<Hard_Semaphore::HSem_Channel>(Sem_Mapping::SEM_ARM_FIRE_SUCCESS)};
+	Hard_Semaphore HISPEED_ARM_FIRE_ERR_PWR= 	{static_cast<Hard_Semaphore::HSem_Channel>(Sem_Mapping::SEM_ARM_FIRE_ERR_PWR)};
+	Hard_Semaphore HISPEED_ARM_FIRE_ERR_SYNC = 	{static_cast<Hard_Semaphore::HSem_Channel>(Sem_Mapping::SEM_ARM_FIRE_ERR_SYNC)};
+	Hard_Semaphore HISPEED_ARM_FIRE_ERR_READY = {static_cast<Hard_Semaphore::HSem_Channel>(Sem_Mapping::SEM_ARM_FIRE_ERR_READY)};
+	Hard_Semaphore LOSPEED_DO_ARM_FIRE = 		{static_cast<Hard_Semaphore::HSem_Channel>(Sem_Mapping::SEM_DO_ARM_FIRE)};
+	Hard_Semaphore LOSPEED_IMMEDIATE_PGOOD = 	{static_cast<Hard_Semaphore::HSem_Channel>(Sem_Mapping::SEM_IMMEDIATE_PGOOD)};
 
-	//own a dummy block to dump throwaway ADC readings
-	//owning a complete block results in fewer conditional code branches in the high-speed execution
-	Hispeed_Block_t throwaway_block;
-
-	//a function that loads a test sequence into the SDRAM
-	void do_load_sdram_test_sequence();
-
-	//timeout constants for the high-speed execution loop
-	static constexpr float TIMEOUT_DURATION_MS = 5000;
-	static constexpr uint32_t TIMEOUT_TICKS = (uint32_t)(CPU_FREQ_HZ * TIMEOUT_DURATION_MS / 1000);
-
-	//and some constants for how long we should hold our chip select lines low
-	static constexpr float CS_DAC_LOWTIME = 650e-9; //found somewhat empirically; some delay between writing to TXDR and getting SPI out the door
-	static constexpr float CS_ADC_LOWTIME = 1650e-9;//maximum amount of acquisition time while still respecting conversion time
-	static constexpr float SYNC_FREQUENCY = 500e3; 	//starting with 500kHz update frequency, will increase as timing validated
-	static constexpr float SYNC_DUTY = 0.5;			//operating the SYNC timer at 50% duty cycle
-	//#################################################################################
+	//and signal-listener pairs to indicate when we're done with our arm-fire sequence or if we timed out
+	Scheduler arm_fire_timeout_task;	//sets the timeout flag if it gets triggered
+	PERSISTENT((Thread_Signal), arm_fire_timeout);
+	Thread_Signal_Listener arm_fire_timeout_listener = arm_fire_timeout.listen();
+	PERSISTENT((Thread_Signal), arm_fire_done);
+	Thread_Signal_Listener arm_fire_done_listener = arm_fire_done.listen();
 
 	//##### UTILITY CONFIGURATION FUNCTIONS #####
 	//some functions to run when power becomes good/bad
@@ -216,6 +118,8 @@ private:
 	//this function will sample the highspeed ADC/DAC
 	//calling this "pilot" like a pilot light for a furnace--"gets us ready" to "fire"
 	Scheduler hispeed_pilot_task;
+	PERSISTENT((Thread_Signal), pilot_signal);	//scheduler asserts this signal
+	Thread_Signal_Listener pilot_signal_listener = pilot_signal.listen();
 	static const uint32_t PILOT_TASK_PERIOD_MS = 100; //run pilot task at 10Hz.
 	void do_hispeed_pilot();
 
@@ -289,25 +193,23 @@ private:
 	Hispeed_Channel_t CHANNEL_2;
 	Hispeed_Channel_t CHANNEL_3;
 
-	//Reference a power monitor, own a DRAM subsystem, and reference a sync interface
-	//lets us monitor the power status, access external memory, and control the sync signals respectively
-	DRAM block_memory;
-	Power_Monitor& onboard_power_monitor;
-	Multicard_Info& multicard_interface;
-
 	//##### HISPEED SYSTEM STATE MACHINE #####
 	//own a couple simple states for the hispeed system
 	//hispeed system runs a very basic state machine to manage subsystem control depending on power state
-	ESM_State hispeed_state_INACTIVE; //will transition to ACTIVE if power good
-	ESM_State hispeed_state_ACTIVE; //will transition to INACTIVE if !power good, transition to ARM if request
-	ESM_State hispeed_state_ARM_FIRE;
+	ESM_State hispeed_state_INACTIVE; 	//will transition to ACTIVE if power good
+	ESM_State hispeed_state_ACTIVE; 	//will transition to INACTIVE if !power good, transition to PREARM if request
+	ESM_State hispeed_state_PREARM;		//will move to ARM_FIRE if our core is ready, back to ACTIVE if we timeout
+	ESM_State hispeed_state_ARM_FIRE;	//will move to ACTIVE if we're complete or timed out
 	Extended_State_Machine hispeed_esm; //the actual extended state machine wrapper
 
 	//and some functions to check for state transitions
-	bool hispeed_trans_INACTIVE_to_ACTIVE() { return status_onboard_pgood.read(); }				//check our subscription variable to see if power is good
-	bool hispeed_trans_ACTIVE_to_INACTIVE() { return !status_onboard_pgood.read(); }			//check our subscription variable to see if power is bad
-	bool hispeed_trans_ACTIVE_to_ARM_FIRE() { return command_hispeed_arm_fire_request.check(); }//check the subscription variable to see if we got an arm/fire request
-	bool hispeed_trans_ARM_FIRE_to_ACTIVE() { return true; }
+	bool hispeed_trans_INACTIVE_to_ACTIVE() { return status_onboard_debounced_pgood.read(); }	//check our subscription variable to see if power is good
+	bool hispeed_trans_ACTIVE_to_INACTIVE() { return !status_onboard_debounced_pgood.read(); }	//check our subscription variable to see if power is bad
+	bool hispeed_trans_ACTIVE_to_PREARM() 	{ return command_hispeed_arm_fire_request.read(); }	//check the subscription variable to see if we want to arm/fire
+	bool hispeed_trans_PREARM_to_ARM_FIRE()	{ return HISPEED_ARM_FIRE_READY.READ(); }			//if the second core is ready, move onto ARM state
+	bool hispeed_trans_PREARM_to_ACTIVE()	{ return arm_fire_timeout_listener.check(); }		//if we timed out, move to the active state
+	bool hispeed_trans_ARM_FIRE_to_ACTIVE() { return 	arm_fire_done_listener.check() ||
+														arm_fire_timeout_listener.check(false); }	//move back to active when we're done or we timeout
 	//NOTE: Always return to active state after armed, even in case of power fail
 	//		power monitor state variable will bring us into inactive state in case of actual power fail
 	//		If I returned to inactive state, will likely return right back to active state, then back to inactive state due to delays in state updating
@@ -316,7 +218,9 @@ private:
 	//transitions bound to states in constructor
 	ESM_Transition hispeed_trans_FROM_INACTIVE[1] = {	{&hispeed_state_ACTIVE, {BIND_CALLBACK(this, hispeed_trans_INACTIVE_to_ACTIVE)}		}	};
 	ESM_Transition hispeed_trans_FROM_ACTIVE[2] =   {	{&hispeed_state_INACTIVE, {BIND_CALLBACK(this, hispeed_trans_ACTIVE_to_INACTIVE)}	},
-														{&hispeed_state_ARM_FIRE, {BIND_CALLBACK(this, hispeed_trans_ACTIVE_to_ARM_FIRE)}	}	};
+														{&hispeed_state_ARM_FIRE, {BIND_CALLBACK(this, hispeed_trans_ACTIVE_to_PREARM)}	}	};
+	ESM_Transition hispeed_trans_FROM_PREARM[2] =	{	{&hispeed_state_ACTIVE, {BIND_CALLBACK(this, hispeed_trans_PREARM_to_ACTIVE)}		},
+														{&hispeed_state_ARM_FIRE, {BIND_CALLBACK(this, hispeed_trans_PREARM_to_ARM_FIRE)}	}	};
 	ESM_Transition hispeed_trans_FROM_ARM_FIRE[1] = {	{&hispeed_state_ACTIVE, {BIND_CALLBACK(this, hispeed_trans_ARM_FIRE_to_ACTIVE)}		}	};
 
 	//###### STATE VARIABLES #######
@@ -334,8 +238,9 @@ private:
 	Sub_Var_RC<bool> 	command_hispeed_arm_fire_request;
 	PERSISTENT((Pub_Var<bool>), status_hispeed_armed);
 	PERSISTENT((Pub_Var<bool>), status_hispeed_arm_flag_err_ready);
-	PERSISTENT((Pub_Var<bool>), status_hispeed_arm_flag_err_sync_timeout);
+	PERSISTENT((Pub_Var<bool>), status_hispeed_arm_flag_err_sync);
 	PERSISTENT((Pub_Var<bool>), status_hispeed_arm_flag_err_pwr);
+	PERSISTENT((Pub_Var<bool>), status_hispeed_arm_flag_err_core_timeout);
 	PERSISTENT((Pub_Var<bool>), status_hispeed_arm_flag_complete);
 	Sub_Var_RC<bool> 	command_hispeed_sdram_load_test_sequence;
 	Sub_Var_RC<std::array<bool, 4>> 	command_hispeed_SOA_enable;
@@ -345,5 +250,6 @@ private:
 
 	//and let's subscribe to the state of the onboard power monitor
 	//to get whether the power rails are good or not (so we can activate/deactivate the subsystem)
-	Sub_Var<bool> status_onboard_pgood;
+	Sub_Var<bool> status_onboard_immediate_pgood;
+	Sub_Var<bool> status_onboard_debounced_pgood;
 };

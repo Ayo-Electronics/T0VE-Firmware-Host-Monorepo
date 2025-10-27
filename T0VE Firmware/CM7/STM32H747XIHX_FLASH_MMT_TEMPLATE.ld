@@ -45,6 +45,7 @@ _Min_Stack_Size = 0x400; /* required amount of stack */
 MEMORY
 {
 /* Start MX regions */
+  FAST_SHARED_RAM	(xrw)	: ORIGIN = 0x24000000, LENGTH = 512K
   SHARED_RAM	(xrw)	: ORIGIN = 0x38000000, LENGTH = 32K
   FLASH	(rx)	: ORIGIN = 0x08000000, LENGTH = 1024K
   MEM_DMA	(xrw)	: ORIGIN = 0x38008000, LENGTH = 16K
@@ -211,5 +212,12 @@ __sitcm = LOADADDR(.ITCMRAM_Section);
     KEEP (*(.MEM_DMA_Section))
     . = ALIGN(4);
   } >MEM_DMA
+ /*  Unitialized FAST_SHARED_RAM section into "FAST_SHARED_RAM" FAST_SHARED_RAM type memory [MMT section] */
+ .FAST_SHARED_RAM_Section :
+  {
+    . = ALIGN(4);
+    KEEP (*(.FAST_SHARED_RAM_Section))
+    . = ALIGN(4);
+  } >FAST_SHARED_RAM
 
 }

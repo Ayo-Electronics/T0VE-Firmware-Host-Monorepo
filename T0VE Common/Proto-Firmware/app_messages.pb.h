@@ -92,7 +92,8 @@ typedef struct _App_Hispeed_Status {
     bool armed;
     bool done_success;
     bool done_err_ready;
-    bool done_err_timeout;
+    bool done_err_sync;
+    bool done_err_core_to;
     bool done_err_pwr;
     App_uint32_4 tia_adc_readback;
 } App_Hispeed_Status;
@@ -187,6 +188,8 @@ typedef struct _App_Node_State {
     App_Comms_Status comms_st;
     App_Comms_Command comms_cmd;
     uint32_t MAGIC_NUMBER;
+    bool has_do_system_reset;
+    bool do_system_reset;
 } App_Node_State;
 
 typedef struct _App_Communication {
@@ -246,7 +249,7 @@ extern "C" {
 #define App_PM_Command_init_default              {false, 0}
 #define App_Offset_Ctrl_Status_init_default      {0, 0, App_uint32_4_init_default}
 #define App_Offset_Ctrl_Command_init_default     {false, 0, false, App_uint32_4_init_default}
-#define App_Hispeed_Status_init_default          {0, 0, 0, 0, 0, App_uint32_4_init_default}
+#define App_Hispeed_Status_init_default          {0, 0, 0, 0, 0, 0, App_uint32_4_init_default}
 #define App_Hispeed_Command_init_default         {false, 0, false, 0, false, App_bool_4_init_default, false, App_bool_4_init_default, false, App_uint32_4_init_default}
 #define App_CoB_Temp_Status_init_default         {0, 0, 0, 0}
 #define App_CoB_EEPROM_Status_init_default       {0, 0, 0, ""}
@@ -256,7 +259,7 @@ extern "C" {
 #define App_WG_Bias_Command_init_default         {false, App_WG_Bias_Setpoints_init_default, false, 0, false, 0}
 #define App_Comms_Status_init_default            {0}
 #define App_Comms_Command_init_default           {false, 0}
-#define App_Node_State_init_default              {App_State_Supervisor_Status_init_default, App_Multicard_Status_init_default, App_Multicard_Command_init_default, App_PM_Status_init_default, App_PM_Command_init_default, App_PM_Status_init_default, App_PM_Command_init_default, App_Offset_Ctrl_Status_init_default, App_Offset_Ctrl_Command_init_default, App_Hispeed_Status_init_default, App_Hispeed_Command_init_default, App_CoB_Temp_Status_init_default, App_CoB_EEPROM_Status_init_default, App_CoB_EEPROM_Command_init_default, App_WG_Bias_Status_init_default, App_WG_Bias_Command_init_default, App_Comms_Status_init_default, App_Comms_Command_init_default, 0}
+#define App_Node_State_init_default              {App_State_Supervisor_Status_init_default, App_Multicard_Status_init_default, App_Multicard_Command_init_default, App_PM_Status_init_default, App_PM_Command_init_default, App_PM_Status_init_default, App_PM_Command_init_default, App_Offset_Ctrl_Status_init_default, App_Offset_Ctrl_Command_init_default, App_Hispeed_Status_init_default, App_Hispeed_Command_init_default, App_CoB_Temp_Status_init_default, App_CoB_EEPROM_Status_init_default, App_CoB_EEPROM_Command_init_default, App_WG_Bias_Status_init_default, App_WG_Bias_Command_init_default, App_Comms_Status_init_default, App_Comms_Command_init_default, 0, false, 0}
 #define App_Communication_init_default           {0, {App_Node_State_init_default}}
 #define App_uint32_2_init_zero                   {{0, 0}}
 #define App_uint32_4_init_zero                   {{0, 0, 0, 0}}
@@ -270,7 +273,7 @@ extern "C" {
 #define App_PM_Command_init_zero                 {false, 0}
 #define App_Offset_Ctrl_Status_init_zero         {0, 0, App_uint32_4_init_zero}
 #define App_Offset_Ctrl_Command_init_zero        {false, 0, false, App_uint32_4_init_zero}
-#define App_Hispeed_Status_init_zero             {0, 0, 0, 0, 0, App_uint32_4_init_zero}
+#define App_Hispeed_Status_init_zero             {0, 0, 0, 0, 0, 0, App_uint32_4_init_zero}
 #define App_Hispeed_Command_init_zero            {false, 0, false, 0, false, App_bool_4_init_zero, false, App_bool_4_init_zero, false, App_uint32_4_init_zero}
 #define App_CoB_Temp_Status_init_zero            {0, 0, 0, 0}
 #define App_CoB_EEPROM_Status_init_zero          {0, 0, 0, ""}
@@ -280,7 +283,7 @@ extern "C" {
 #define App_WG_Bias_Command_init_zero            {false, App_WG_Bias_Setpoints_init_zero, false, 0, false, 0}
 #define App_Comms_Status_init_zero               {0}
 #define App_Comms_Command_init_zero              {false, 0}
-#define App_Node_State_init_zero                 {App_State_Supervisor_Status_init_zero, App_Multicard_Status_init_zero, App_Multicard_Command_init_zero, App_PM_Status_init_zero, App_PM_Command_init_zero, App_PM_Status_init_zero, App_PM_Command_init_zero, App_Offset_Ctrl_Status_init_zero, App_Offset_Ctrl_Command_init_zero, App_Hispeed_Status_init_zero, App_Hispeed_Command_init_zero, App_CoB_Temp_Status_init_zero, App_CoB_EEPROM_Status_init_zero, App_CoB_EEPROM_Command_init_zero, App_WG_Bias_Status_init_zero, App_WG_Bias_Command_init_zero, App_Comms_Status_init_zero, App_Comms_Command_init_zero, 0}
+#define App_Node_State_init_zero                 {App_State_Supervisor_Status_init_zero, App_Multicard_Status_init_zero, App_Multicard_Command_init_zero, App_PM_Status_init_zero, App_PM_Command_init_zero, App_PM_Status_init_zero, App_PM_Command_init_zero, App_Offset_Ctrl_Status_init_zero, App_Offset_Ctrl_Command_init_zero, App_Hispeed_Status_init_zero, App_Hispeed_Command_init_zero, App_CoB_Temp_Status_init_zero, App_CoB_EEPROM_Status_init_zero, App_CoB_EEPROM_Command_init_zero, App_WG_Bias_Status_init_zero, App_WG_Bias_Command_init_zero, App_Comms_Status_init_zero, App_Comms_Command_init_zero, 0, false, 0}
 #define App_Communication_init_zero              {0, {App_Node_State_init_zero}}
 
 /* Field tags (for use in manual encoding/decoding) */
@@ -310,9 +313,10 @@ extern "C" {
 #define App_Hispeed_Status_armed_tag             1
 #define App_Hispeed_Status_done_success_tag      2
 #define App_Hispeed_Status_done_err_ready_tag    3
-#define App_Hispeed_Status_done_err_timeout_tag  4
-#define App_Hispeed_Status_done_err_pwr_tag      5
-#define App_Hispeed_Status_tia_adc_readback_tag  6
+#define App_Hispeed_Status_done_err_sync_tag     4
+#define App_Hispeed_Status_done_err_core_to_tag  5
+#define App_Hispeed_Status_done_err_pwr_tag      6
+#define App_Hispeed_Status_tia_adc_readback_tag  7
 #define App_Hispeed_Command_arm_request_tag      1
 #define App_Hispeed_Command_load_test_sequence_tag 2
 #define App_Hispeed_Command_SOA_enable_tag       3
@@ -359,6 +363,7 @@ extern "C" {
 #define App_Node_State_comms_st_tag              17
 #define App_Node_State_comms_cmd_tag             18
 #define App_Node_State_MAGIC_NUMBER_tag          19
+#define App_Node_State_do_system_reset_tag       20
 #define App_Communication_node_state_tag         1
 #define App_Communication_debug_message_tag      2
 
@@ -440,9 +445,10 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  offset_set,        2)
 X(a, STATIC,   SINGULAR, BOOL,     armed,             1) \
 X(a, STATIC,   SINGULAR, BOOL,     done_success,      2) \
 X(a, STATIC,   SINGULAR, BOOL,     done_err_ready,    3) \
-X(a, STATIC,   SINGULAR, BOOL,     done_err_timeout,   4) \
-X(a, STATIC,   SINGULAR, BOOL,     done_err_pwr,      5) \
-X(a, STATIC,   REQUIRED, MESSAGE,  tia_adc_readback,   6)
+X(a, STATIC,   SINGULAR, BOOL,     done_err_sync,     4) \
+X(a, STATIC,   SINGULAR, BOOL,     done_err_core_to,   5) \
+X(a, STATIC,   SINGULAR, BOOL,     done_err_pwr,      6) \
+X(a, STATIC,   REQUIRED, MESSAGE,  tia_adc_readback,   7)
 #define App_Hispeed_Status_CALLBACK NULL
 #define App_Hispeed_Status_DEFAULT NULL
 #define App_Hispeed_Status_tia_adc_readback_MSGTYPE App_uint32_4
@@ -537,7 +543,8 @@ X(a, STATIC,   REQUIRED, MESSAGE,  wg_bias_st,       15) \
 X(a, STATIC,   REQUIRED, MESSAGE,  wg_bias_cmd,      16) \
 X(a, STATIC,   REQUIRED, MESSAGE,  comms_st,         17) \
 X(a, STATIC,   REQUIRED, MESSAGE,  comms_cmd,        18) \
-X(a, STATIC,   SINGULAR, UINT32,   MAGIC_NUMBER,     19)
+X(a, STATIC,   SINGULAR, UINT32,   MAGIC_NUMBER,     19) \
+X(a, STATIC,   OPTIONAL, BOOL,     do_system_reset,  20)
 #define App_Node_State_CALLBACK NULL
 #define App_Node_State_DEFAULT NULL
 #define App_Node_State_state_supervisor_st_MSGTYPE App_State_Supervisor_Status
@@ -625,13 +632,13 @@ extern const pb_msgdesc_t App_Communication_msg;
 #define App_CoB_Temp_Status_size                 15
 #define App_Comms_Command_size                   2
 #define App_Comms_Status_size                    2
-#define App_Communication_size                   758
+#define App_Communication_size                   763
 #define App_Debug_size                           260
 #define App_Hispeed_Command_size                 50
-#define App_Hispeed_Status_size                  36
+#define App_Hispeed_Status_size                  38
 #define App_Multicard_Command_size               2
 #define App_Multicard_Status_size                8
-#define App_Node_State_size                      755
+#define App_Node_State_size                      760
 #define App_Offset_Ctrl_Command_size             28
 #define App_Offset_Ctrl_Status_size              30
 #define App_PM_Command_size                      2

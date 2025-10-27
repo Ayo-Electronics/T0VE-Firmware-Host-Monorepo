@@ -7,14 +7,9 @@
 
 #pragma once
 
-//note the destination address of the UID,
-//expose in a C-compatible header way
-#define PUBLIC_SHARED_UID_ADDRESS 0x38000000
-
-#ifdef __cplusplus
-
 #include "app_proctypes.hpp"
 #include "app_string.hpp"
+#include "app_shared_memory.h"
 
 class Board_UID {
 public:
@@ -48,11 +43,9 @@ public:
 
 		//for CM4, don't have access to the UID registers
 		//rely on the CM7 publishing the UID information
-		memcpy(out.data(), reinterpret_cast<void*>(PUBLIC_SHARED_UID_ADDRESS), 96/8);
+		memcpy(out.data(), &SHARED_MEMORY.PUBLIC_SHARED_UID, 96/8);
 		return out;
 	}
 
 private:
 };
-
-#endif

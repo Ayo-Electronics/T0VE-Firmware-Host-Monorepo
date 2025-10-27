@@ -13,6 +13,9 @@
 #include "pb_encode.h"
 #include "pb_decode.h"
 
+//and HAL include to reset the system inline
+#include "app_hal_reset.hpp"
+
 //static helper for array copy
 //have to copy element-wise since types might not match (i.e. uint16 --> uint32)
 template<typename T_dest, typename T_src, size_t N>
@@ -105,7 +108,8 @@ std::span<uint8_t, std::dynamic_extent> State_Supervisor::serialize() {
 	copy_arrays(state.hispeed_cmd.SOA_DAC_drive.values, command_hispeed_SOA_DAC_drive.read());
 	state.hispeed_st.armed = status_hispeed_armed.read();
 	state.hispeed_st.done_err_ready = status_hispeed_arm_flag_err_ready.read();
-	state.hispeed_st.done_err_timeout = status_hispeed_arm_flag_err_sync_timeout.read();
+	state.hispeed_st.done_err_sync = status_hispeed_arm_flag_err_sync.read();
+	state.hispeed_st.done_err_core_to = status_hispeed_arm_flag_err_core_timeout.read();
 	state.hispeed_st.done_err_pwr = status_hispeed_arm_flag_err_pwr.read();
 	state.hispeed_st.done_success = status_hispeed_arm_flag_complete.read();
 	copy_arrays(state.hispeed_st.tia_adc_readback.values, status_hispeed_TIA_ADC_readback.read());
@@ -113,7 +117,8 @@ std::span<uint8_t, std::dynamic_extent> State_Supervisor::serialize() {
 	status_hispeed_arm_flag_complete.acknowledge_reset();
 	status_hispeed_arm_flag_err_pwr.acknowledge_reset();
 	status_hispeed_arm_flag_err_ready.acknowledge_reset();
-	status_hispeed_arm_flag_err_sync_timeout.acknowledge_reset();
+	status_hispeed_arm_flag_err_sync.acknowledge_reset();
+	status_hispeed_arm_flag_err_core_timeout.acknowledge_reset();
 
 	//#### CoB TEMPERATURE MONITOR ####
 	state.cob_temp_st.device_present = status_cobtemp_device_present.read();
@@ -207,6 +212,12 @@ void State_Supervisor::deserialize(std::span<uint8_t, std::dynamic_extent> encod
 	}
 
 	//everything checks out; update state
+	//#### SYSTEM_RESET ####
+	//just perform the reset here and now; no need to defer it
+	if(new_state.has_do_system_reset) {
+		if(new_state.do_system_reset) Reset::do_reset();
+	}
+
 	//#### MULTICARD STATUS ####
 	if(new_state.multicard_cmd.has_sel_pd_input_aux_npic) {
 		multicard_info_sel_input_aux_npic_command.publish(new_state.multicard_cmd.sel_pd_input_aux_npic);

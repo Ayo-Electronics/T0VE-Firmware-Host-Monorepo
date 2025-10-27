@@ -8,5 +8,3 @@
 #include "app_hal_board_uid.hpp"
 
 //header only file, source empty
-
-

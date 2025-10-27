@@ -20,6 +20,8 @@
 #include "app_hal_pwm.hpp"
 #include "app_hal_tick.hpp"
 #include "app_hal_board_uid.hpp"
+#include "app_hal_hsem.hpp"
+#include "app_hal_reset.hpp"
 
 //========== USB INCLUDES ==========
 #include "app_usb_if.hpp"
@@ -108,10 +110,7 @@ Waveguide_Bias_Drive wgbias_subsys(i2c_bus, Pin_Mapping::BIAS_DRIVE_EN, Pin_Mapp
 Hispeed_Subsystem hispeed_subsys(	CHANNEL_0_HW,
 									CHANNEL_1_HW,
 									CHANNEL_2_HW,
-									CHANNEL_3_HW,
-									DRAM::DRAM_INTERFACE,
-									pm_onboard_subsys,
-									multicard_info_subsys);
+									CHANNEL_3_HW );
 
 LED_Indicators indicators_subsys(	Pin_Mapping::LED_RED,
 									Pin_Mapping::LED_GREEN,
@@ -164,8 +163,11 @@ void LINK_SYSTEM_STATE_VARIABLES() {
 	state_supervisor.link_RC_status_hispeed_arm_flag_complete(			hispeed_subsys.subscribe_RC_status_hispeed_arm_flag_complete()			);
 	state_supervisor.link_RC_status_hispeed_arm_flag_err_pwr(			hispeed_subsys.subscribe_RC_status_hispeed_arm_flag_err_pwr()			);
 	state_supervisor.link_RC_status_hispeed_arm_flag_err_ready(			hispeed_subsys.subscribe_RC_status_hispeed_arm_flag_err_ready()			);
-	state_supervisor.link_RC_status_hispeed_arm_flag_err_sync_timeout(	hispeed_subsys.subscribe_RC_status_hispeed_arm_flag_err_sync_timeout()	);
-	hispeed_subsys.link_RC_command_hispeed_sdram_load_test_sequence(	state_supervisor.subscribe_RC_command_hispeed_sdram_load_test_sequence());
+	state_supervisor.link_RC_status_hispeed_arm_flag_err_sync(			hispeed_subsys.subscribe_RC_status_hispeed_arm_flag_err_sync()			);
+	state_supervisor.link_RC_status_hispeed_arm_flag_err_core_timeout(	hispeed_subsys.subscribe_RC_status_hispeed_arm_flag_err_core_timeout()	);
+	hispeed_subsys.link_status_onboard_debounced_pgood(					pm_onboard_subsys.subscribe_status_debounced_power()					);
+	hispeed_subsys.link_status_onboard_immediate_pgood(					pm_onboard_subsys.subscribe_status_immedate_power()						);
+
 
 	//##### CoB TEMP MONITOR #####
 	state_supervisor.link_RC_status_cobtemp_temp_sensor_error(			cob_temp_monitor.subscribe_RC_status_temp_sensor_error()				);
@@ -209,7 +211,7 @@ void LINK_SYSTEM_STATE_VARIABLES() {
 	indicators_subsys.link_status_hispeed_armed(		hispeed_subsys.subscribe_status_hispeed_armed()				);
 	indicators_subsys.link_status_hispeed_arm_flag_err_pwr(				hispeed_subsys.subscribe_RC_status_hispeed_arm_flag_err_pwr()			);
 	indicators_subsys.link_status_hispeed_arm_flag_err_ready(			hispeed_subsys.subscribe_RC_status_hispeed_arm_flag_err_ready()			);
-	indicators_subsys.link_status_hispeed_arm_flag_err_sync_timeout(	hispeed_subsys.subscribe_RC_status_hispeed_arm_flag_err_sync_timeout()	);
+	indicators_subsys.link_status_hispeed_arm_flag_err_sync_timeout(	hispeed_subsys.subscribe_RC_status_hispeed_arm_flag_err_sync()			);
 }
 
 void INIT_SUBSYSTEMS() {
@@ -239,12 +241,12 @@ void ident_node_usb() {
 	auto str_uid = uid_reader.uid_string();
 
 	//and now make a string wrapper for our serial number
-	std::array<uint8_t, 32> node_serial_array;
-	std::copy(str_uid.span().begin(), str_uid.span().begin() + 24, node_serial_array.begin());
-	std::copy(str_node.span().begin(), str_node.span().end(), node_serial_array.begin() + 24);
+	App_String<32> new_serial;
+	new_serial.cat(str_uid.substring(0, 24));
+	new_serial.cat(str_node);
 
 	//set our USB serial number accordingly
-	usb.set_serial(node_serial_array);
+	usb.set_serial(new_serial);
 
 	//and initialize our MSC volume name according to the NODE_ID too
 	App_String<11, ' '> new_volname("MEM");
@@ -267,8 +269,8 @@ void app_init() {
 	Debug::PRINT("SUBSYSTEMS INITIALIZED!\r\n");
 
 	//TESTING, TODO: REMOVE
-	print_test_task.schedule_interval_ms([](){Debug::PRINT("Printing Test!\r\n");}, 1000);
-	//nothing to initialize for now
+	print_test_task.schedule_interval_ms([](){ Debug::PRINT("Printing Test!\r\n");}, 1000);
+
 }
 
 void app_loop() {
