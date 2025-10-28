@@ -13,10 +13,6 @@
 #include "app_threading.hpp"
 #include "app_string.hpp"	//for filename
 
-//forward declaring MSC_Interface class for friending
-class MSC_Interface;
-
-
 /*
  * MSC_File
  *

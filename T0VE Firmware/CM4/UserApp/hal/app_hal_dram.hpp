@@ -13,7 +13,6 @@
 
 //helper macro to place data we want in external memory in the right place
 #define EXTMEM 	__attribute__((section(".EXTMEM_Section"), aligned(32)))
-#define FASTRAM __attribute__((section(".FAST_SRAM_Section"), aligned(32)))
 
 class DRAM {
 public:
@@ -84,5 +83,5 @@ private:
 
 	//also own a large buffer (64k) for RAM testing
 	//place this in AXI SRAM such that it's still pretty fast
-	static FASTRAM std::array<uint8_t, 65536> test_buffer;
+	static std::array<uint8_t, 16384> test_buffer;
 };

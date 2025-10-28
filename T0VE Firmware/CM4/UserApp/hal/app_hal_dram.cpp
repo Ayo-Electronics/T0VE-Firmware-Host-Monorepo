@@ -31,8 +31,6 @@ DRAM::DRAM_Hardware_Channel DRAM::DRAM_INTERFACE = {
 	.DRAM_FULL_REFRESH_TIME_S = 64e-3, //spec says at least 64ms, but we can be safe with 48ms
 };
 
-FASTRAM std::array<uint8_t, 65536> DRAM::test_buffer = {0};
-
 //================================================= CONSTRUCTOR ====================================================
 
 //constructor will just save the hardware channel to its local instance

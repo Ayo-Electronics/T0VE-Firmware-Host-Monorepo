@@ -11,6 +11,8 @@
 #include "app_hispeed_core.hpp"
 #include "app_scheduler.hpp"
 
+Hispeed_Core hispeed_core;
+
 //TODO: instantiate hispeed core
 
 void app_init() {

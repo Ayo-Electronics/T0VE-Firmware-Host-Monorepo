@@ -11,13 +11,17 @@
 #ifndef APP_SHARED_MEMORY_H_
 #define APP_SHARED_MEMORY_H_
 
-#include "app_proctypes.hpp"
+#include "stm32h7xx_hal.h" 	//uintxx_t types
+#include "stm32h747xx.h" 	//register definitions
 
 /* NOTE: Many linker scripts expect section names to start with a dot. */
-#define SHARED_RAM_VAR    __attribute__((section(".SHARED_RAM_Section"), aligned(4)))
-#define SHARED_EXTMEM_VAR __attribute__((section(".EXTMEM_Section"), aligned(4)))
+#define SHARED_RAM_VAR    	__attribute__((section(".SHARED_RAM_Section"), aligned(4)))
+#define SHARED_EXTMEM_VAR 	__attribute__((section(".EXTMEM_Section"), aligned(4)))
+#define SHARED_FASTRAM_VAR 	__attribute__((section(".FAST_SHARED_RAM_Section"), aligned(4)))
 
-#define NETWORK_SIZE  (8 * 1024 * 1024)
+#define NETWORK_SIZE  	(8 * 1024 * 1024)
+#define INPUTS_SIZE 	32768
+#define OUTPUTS_SIZE	32768
 
 struct Shared_RAM_t {
     uint8_t PUBLIC_SHARED_UID[16];
@@ -27,9 +31,17 @@ struct Shared_EXTMEM_t {
     uint8_t NETWORK[NETWORK_SIZE];
 };
 
+struct Shared_FASTRAM_t {
+	uint16_t INPUTS[INPUTS_SIZE];
+	uint32_t INPUT_MAPPING[INPUTS_SIZE];
+	uint16_t OUTPUTS[OUTPUTS_SIZE];
+	uint32_t OUTPUT_MAPPING[OUTPUTS_SIZE];
+};
+
 /* Declarations only; definitions live in the .c file */
-extern struct Shared_RAM_t    SHARED_MEMORY;
-extern struct Shared_EXTMEM_t SHARED_EXTMEM;
+extern struct Shared_RAM_t    	SHARED_MEMORY;
+extern struct Shared_EXTMEM_t 	SHARED_EXTMEM;
+extern struct Shared_FASTRAM_t	SHARED_FASTMEM;
 
 //=================== SEMAPHORE CHANNELS =================
 /*

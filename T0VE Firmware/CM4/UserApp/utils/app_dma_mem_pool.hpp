@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <app_proctypes.hpp> //for uint8_t
+#include "app_proctypes.hpp" //for uint8_t
 #include <type_traits>
 #include <new>
 #include <array>

@@ -12,7 +12,13 @@
 Hispeed_Subsystem::Hispeed_Subsystem(	Hispeed_Channel_Hardware_t ch0,
 										Hispeed_Channel_Hardware_t ch1,
 										Hispeed_Channel_Hardware_t ch2,
-										Hispeed_Channel_Hardware_t ch3	):
+										Hispeed_Channel_Hardware_t ch3,
+										MSC_Interface& _msc_if):
+	//construct DRAM, save the MSC interface and construct the memory helper
+	dram(DRAM::DRAM_INTERFACE),
+	msc_if(_msc_if),
+	mem_helper(&dram, &msc_if),
+
 	//initialize each channel with the hardware provided
 	CHANNEL_0(ch0), CHANNEL_1(ch1),	CHANNEL_2(ch2),	CHANNEL_3(ch3),
 
@@ -36,6 +42,9 @@ Hispeed_Subsystem::Hispeed_Subsystem(	Hispeed_Channel_Hardware_t ch0,
 
 //===================== INITIALIZATION FUNCTIONS ====================
 void Hispeed_Subsystem::init() {
+	//initialize the memory helper
+	mem_helper.init();
+
 	//initialize all of our high-speed channels with the helper functions
 	CHANNEL_0.init();
 	CHANNEL_1.init();
@@ -235,11 +244,10 @@ void Hispeed_Subsystem::do_arm_fire_setup() {
 	hispeed_pilot_task.deschedule();
 	pilot_signal_listener.refresh();
 
-	//TODO: ask network memory I/O controller to detach files
-
-	//TODO: ask network memory I/O controller to move the inputs to the network
-
-	//TODO: ask network memory I/O controller to "lock" memory, if applicable
+	//prevent the files from being accessed over USB
+	//and move the inputs into the block memory
+	mem_helper.detach_files();
+	mem_helper.transfer_inputs();
 
 	//arm the channels
 	//i.e. puts the chip select lines under timer control
@@ -294,15 +302,10 @@ void Hispeed_Subsystem::do_arm_fire_exit() {
 	//now that we've grabbed the exit codes, we can deassert our fire signal
 	LOSPEED_DO_ARM_FIRE.UNLOCK();
 
-	//TODO: ask network memory I/O controller to "unlock" memory, if applicable
-
-	if(success) {
-		//TODO: ask network memory I/O controller to move the outputs from the network
-	} else {
-		//TODO: ask network memory I/O controller to zero-out all outptus
-	}
-
-	//TODO: ask network memory I/O controller to attach files
+	//if we got a valid network output, fetch outputs from the block memory
+	//and expose all the files for editing again
+	if(success) mem_helper.transfer_outputs();
+	mem_helper.attach_files();
 
 	//finally acknowledge the fire request command and indicate that we're no longer armed
 	status_hispeed_armed.publish(false);

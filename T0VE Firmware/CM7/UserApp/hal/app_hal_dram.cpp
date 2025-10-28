@@ -31,8 +31,6 @@ DRAM::DRAM_Hardware_Channel DRAM::DRAM_INTERFACE = {
 	.DRAM_FULL_REFRESH_TIME_S = 64e-3, //spec says at least 64ms, but we can be safe with 48ms
 };
 
-FASTRAM std::array<uint8_t, 65536> DRAM::test_buffer = {0};
-
 //================================================= CONSTRUCTOR ====================================================
 
 //constructor will just save the hardware channel to its local instance
@@ -180,7 +178,7 @@ float DRAM::test_seq_write() {
 	//write a bunch of bytes to DRAM
 	uint32_t start_cycles = dwt_get_cycles();
 	memcpy(hardware.DRAM_BASE_ADDRESS, test_buffer.begin(), test_buffer.size()); // memcpy from our test buffer
-#if defined (__DCACHE_PRESENT) && (__DCACHE_PRESENT == 1U)
+#if CORE_HAS_CACHE
 	SCB_CleanDCache_by_Addr(reinterpret_cast<uint32_t*>(hardware.DRAM_BASE_ADDRESS), test_buffer.size()); //actually write the data to the DRAM if the data is cached
 #endif
 	uint32_t end_cycles = dwt_get_cycles();
@@ -191,7 +189,7 @@ float DRAM::test_seq_write() {
 
 float DRAM::test_seq_read() {
 	//invalidate the cache for the data we're about to read
-#if defined (__DCACHE_PRESENT) && (__DCACHE_PRESENT == 1U)
+#if CORE_HAS_CACHE
 	SCB_InvalidateDCache_by_Addr(hardware.DRAM_BASE_ADDRESS, test_buffer.size());
 #endif
 
@@ -217,7 +215,7 @@ float DRAM::test_random_write() {
 		dram_words[idx] = 0xDEDEDEDEU;
 	}
 	//flush the cache and grab the number of cycles
-#if defined (__DCACHE_PRESENT) && (__DCACHE_PRESENT == 1U)
+#if CORE_HAS_CACHE
 	SCB_CleanDCache_by_Addr(reinterpret_cast<uint32_t*>(hardware.DRAM_BASE_ADDRESS), hardware.DRAM_SIZE_BYTES);
 #endif
 	uint32_t end_cycles = dwt_get_cycles();
@@ -234,7 +232,7 @@ float DRAM::test_random_read() {
 	const uint32_t stride_words = 8191U;
 
 	// Invalidate before measuring to force fetches from external memory
-#if defined (__DCACHE_PRESENT) && (__DCACHE_PRESENT == 1U)
+#if CORE_HAS_CACHE
 	SCB_InvalidateDCache_by_Addr(hardware.DRAM_BASE_ADDRESS, hardware.DRAM_SIZE_BYTES);
 #endif
 

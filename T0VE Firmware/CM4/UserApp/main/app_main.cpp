@@ -110,7 +110,8 @@ Waveguide_Bias_Drive wgbias_subsys(i2c_bus, Pin_Mapping::BIAS_DRIVE_EN, Pin_Mapp
 Hispeed_Subsystem hispeed_subsys(	CHANNEL_0_HW,
 									CHANNEL_1_HW,
 									CHANNEL_2_HW,
-									CHANNEL_3_HW );
+									CHANNEL_3_HW,
+									msc);
 
 LED_Indicators indicators_subsys(	Pin_Mapping::LED_RED,
 									Pin_Mapping::LED_GREEN,

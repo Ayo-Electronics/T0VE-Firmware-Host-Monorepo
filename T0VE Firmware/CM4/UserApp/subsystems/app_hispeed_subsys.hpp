@@ -10,9 +10,12 @@
 #include "app_hispeed_analog.hpp"
 #include "app_sync_if.hpp"
 #include "app_hal_pwm.hpp"
+#include "app_hal_dram.hpp"
 #include "app_threading.hpp"
 #include "app_hal_hsem.hpp"
 #include "app_shared_memory.h"
+#include "app_msc_if.hpp"
+#include "app_mem_helper.hpp"
 
 /*
  * TODO LIST:
@@ -49,7 +52,8 @@ public:
 	Hispeed_Subsystem(	Hispeed_Channel_Hardware_t ch0,
 						Hispeed_Channel_Hardware_t ch1,
 						Hispeed_Channel_Hardware_t ch2,
-						Hispeed_Channel_Hardware_t ch3	);
+						Hispeed_Channel_Hardware_t ch3,
+						MSC_Interface& _msc_if);
 
 	//delete the copy constructor and assignment operator to prevent accidental copies/writes
 	Hispeed_Subsystem(const Hispeed_Subsystem& other) = delete;
@@ -102,6 +106,12 @@ private:
 	Thread_Signal_Listener arm_fire_timeout_listener = arm_fire_timeout.listen();
 	PERSISTENT((Thread_Signal), arm_fire_done);
 	Thread_Signal_Listener arm_fire_done_listener = arm_fire_done.listen();
+
+	//own a DRAM interface and reference an MSC interface
+	//use these to own a memory helper interface
+	DRAM dram;
+	MSC_Interface& msc_if;
+	Mem_Helper mem_helper;
 
 	//##### UTILITY CONFIGURATION FUNCTIONS #####
 	//some functions to run when power becomes good/bad

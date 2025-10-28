@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include <app_proctypes.hpp>
+#include "app_proctypes.hpp"
 #include "app_utils.hpp" //for callback function
 #include "app_regmap_helpers.hpp"
 #include "app_hal_i2c.hpp"

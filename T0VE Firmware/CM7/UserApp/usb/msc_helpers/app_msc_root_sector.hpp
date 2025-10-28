@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <app_msc_constants.hpp>
+#include "app_msc_constants.hpp"
 #include "app_proctypes.hpp"
 #include "app_utils.hpp"
 #include "app_regmap_helpers.hpp"

@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <app_proctypes.hpp>
+#include "app_proctypes.hpp"
 #include <array> //for array, span
 
 #include "app_utils.hpp" //for callback function

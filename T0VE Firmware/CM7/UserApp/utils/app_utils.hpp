@@ -1,6 +1,6 @@
 #pragma once
 
-#include <app_proctypes.hpp>
+#include "app_proctypes.hpp"
 #include <span>
 #include <array>
 #include <string>
@@ -50,7 +50,7 @@ T clip(T input, T in_min, T in_max) {
 
 template<typename T>
 T map(T in_min, T in_max, T out_min, T out_max, T input) {
-	input = clip<T>(input);
+	input = clip<T>(input, in_min, in_max);
 	return map_unbounded<T>(in_min, in_max, out_min, out_max, input);
 }
 
