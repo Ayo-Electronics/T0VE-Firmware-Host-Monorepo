@@ -11,6 +11,7 @@
 
 
 #include "tusb.h" //tinyusb
+#include "usb_otg.h"
 #include "tinyusb/bsp/board_api.h" //tinyusb HAL
 
 #include "app_scheduler.hpp"
@@ -134,6 +135,7 @@ public:
 
 	//and aggregate all these descriptors into a USB channel
 	struct USB_Channel_t {
+		Callback_Function<> init_func;
 		Device_Descriptor_t	DEVICE_DESCRIPTORS;
 		Config_Descriptor_t	CONFIG_DESCRIPTORS;
 		String_Descriptor_t	STRING_DESCRIPTORS;

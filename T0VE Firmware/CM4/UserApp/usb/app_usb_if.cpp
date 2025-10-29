@@ -43,6 +43,7 @@ enum {
 //================== STATIC MEMBER DEFS ================
 
 USB_Interface::USB_Channel_t USB_Interface::USB_CHANNEL = {
+		.init_func = Callback_Function<>(MX_USB_OTG_FS_PCD_Init),
 		.DEVICE_DESCRIPTORS = USB_Interface::Device_Descriptor_t::mk({
 			    .bLength            = sizeof(tusb_desc_device_t),
 			    .bDescriptorType    = TUSB_DESC_DEVICE,
@@ -95,9 +96,9 @@ void USB_Interface::init() {
 	//early exit if we're already initialized
 	if(is_init) return;
 
-	//not strictly necessary to call the TinyUSB version of `board_init()`
-	//this just calls the HAL usb init
-	board_init();
+	//call the HAL init function via the callback wrapper
+	usb_channel.init_func();
+	//board_init();
 
 	//initialize TinyUSB
 	tusb_rhport_init_t dev_init = {

@@ -37,7 +37,7 @@
 #endif
 
 //for USB peripheral init
-#include "usb_otg.h"
+//#include "usb_otg.h"
 
 // VBUS Sense detection
 #define OTG_FS_VBUS_SENSE     0
@@ -53,7 +53,7 @@ void board_vbus_set(uint8_t rhport, bool state) {
 //IG: call CubeMX function for board init--clocking configured on startup
 void board_init() {
 	//call the MX usb device init
-	MX_USB_OTG_FS_PCD_Init();
+	//MX_USB_OTG_FS_PCD_Init();
 }
 
 //IG: kinda hokey--can't use the C++ Tick API I put together, so just redirecting to HAL

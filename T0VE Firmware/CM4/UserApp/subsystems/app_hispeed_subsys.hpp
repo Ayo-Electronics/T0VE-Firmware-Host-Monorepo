@@ -15,13 +15,7 @@
 #include "app_hal_hsem.hpp"
 #include "app_shared_memory.h"
 #include "app_msc_if.hpp"
-#include "app_mem_helper.hpp"
-
-/*
- * TODO LIST:
- *  - figure out how to time out in high-speed loop (DWT CYCLE COUNTER)
- *  - figure out how to link SDRAM to comms subsystem to load memory
- */
+#include "app_neural_memory_broker.hpp"
 
 class Hispeed_Subsystem {
 public:
@@ -53,6 +47,7 @@ public:
 						Hispeed_Channel_Hardware_t ch1,
 						Hispeed_Channel_Hardware_t ch2,
 						Hispeed_Channel_Hardware_t ch3,
+						DRAM& _dram,
 						MSC_Interface& _msc_if);
 
 	//delete the copy constructor and assignment operator to prevent accidental copies/writes
@@ -109,9 +104,7 @@ private:
 
 	//own a DRAM interface and reference an MSC interface
 	//use these to own a memory helper interface
-	DRAM dram;
-	MSC_Interface& msc_if;
-	Mem_Helper mem_helper;
+	Neural_Memory_Broker neural_mem_broker;
 
 	//##### UTILITY CONFIGURATION FUNCTIONS #####
 	//some functions to run when power becomes good/bad

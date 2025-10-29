@@ -45,6 +45,7 @@
 
 //============= INSTANTIATION OF HARDWARE ============
 Aux_I2C i2c_bus(Aux_I2C::AUX_I2C_HARDWARE);
+DRAM dram(DRAM::DRAM_INTERFACE);
 USB_Interface usb = USB_Interface(USB_Interface::USB_CHANNEL);
 MSC_Interface msc(usb, MSC_Interface::MSC_CHANNEL);
 
@@ -111,6 +112,7 @@ Hispeed_Subsystem hispeed_subsys(	CHANNEL_0_HW,
 									CHANNEL_1_HW,
 									CHANNEL_2_HW,
 									CHANNEL_3_HW,
+									dram,
 									msc);
 
 LED_Indicators indicators_subsys(	Pin_Mapping::LED_RED,

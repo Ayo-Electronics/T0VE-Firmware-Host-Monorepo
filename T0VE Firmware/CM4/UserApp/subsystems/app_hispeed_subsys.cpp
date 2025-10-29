@@ -13,11 +13,10 @@ Hispeed_Subsystem::Hispeed_Subsystem(	Hispeed_Channel_Hardware_t ch0,
 										Hispeed_Channel_Hardware_t ch1,
 										Hispeed_Channel_Hardware_t ch2,
 										Hispeed_Channel_Hardware_t ch3,
+										DRAM& _dram,
 										MSC_Interface& _msc_if):
-	//construct DRAM, save the MSC interface and construct the memory helper
-	dram(DRAM::DRAM_INTERFACE),
-	msc_if(_msc_if),
-	mem_helper(&dram, &msc_if),
+	//construct the memory manager using the references to the MSC interface and DRAM
+	neural_mem_broker(_dram, _msc_if),
 
 	//initialize each channel with the hardware provided
 	CHANNEL_0(ch0), CHANNEL_1(ch1),	CHANNEL_2(ch2),	CHANNEL_3(ch3),
@@ -42,8 +41,8 @@ Hispeed_Subsystem::Hispeed_Subsystem(	Hispeed_Channel_Hardware_t ch0,
 
 //===================== INITIALIZATION FUNCTIONS ====================
 void Hispeed_Subsystem::init() {
-	//initialize the memory helper
-	mem_helper.init();
+	//initialize our neural memory manager
+	neural_mem_broker.init();
 
 	//initialize all of our high-speed channels with the helper functions
 	CHANNEL_0.init();
@@ -245,9 +244,7 @@ void Hispeed_Subsystem::do_arm_fire_setup() {
 	pilot_signal_listener.refresh();
 
 	//prevent the files from being accessed over USB
-	//and move the inputs into the block memory
-	mem_helper.detach_files();
-	mem_helper.transfer_inputs();
+	neural_mem_broker.detach_memory();
 
 	//arm the channels
 	//i.e. puts the chip select lines under timer control
@@ -289,23 +286,17 @@ void Hispeed_Subsystem::do_arm_fire_exit() {
 
 	//grabs the exit codes, propagate exit signals to state variables
 	//deasserts fire signal, unlocks memory, moves the outputs, attaches the files, restores peripherals
-	bool success = false;
 	if		(HISPEED_ARM_FIRE_ERR_PWR.READ()) 	status_hispeed_arm_flag_err_pwr.publish(true);
 	else if (HISPEED_ARM_FIRE_ERR_READY.READ())	status_hispeed_arm_flag_err_ready.publish(true);
 	else if (HISPEED_ARM_FIRE_ERR_SYNC.READ())	status_hispeed_arm_flag_err_sync.publish(true);
-	else if (HISPEED_ARM_FIRE_SUCCESS.READ()) {
-		success = true;
-		status_hispeed_arm_flag_complete.publish(true);
-	}
+	else if (HISPEED_ARM_FIRE_SUCCESS.READ())	status_hispeed_arm_flag_complete.publish(true);
 	else /* exit without flags means timeout */	status_hispeed_arm_flag_err_core_timeout.publish(true);
 
 	//now that we've grabbed the exit codes, we can deassert our fire signal
 	LOSPEED_DO_ARM_FIRE.UNLOCK();
 
-	//if we got a valid network output, fetch outputs from the block memory
 	//and expose all the files for editing again
-	if(success) mem_helper.transfer_outputs();
-	mem_helper.attach_files();
+	neural_mem_broker.attach_memory();
 
 	//finally acknowledge the fire request command and indicate that we're no longer armed
 	status_hispeed_armed.publish(false);

@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "app_main.hpp"
+#include "app_shared_memory.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -31,10 +32,6 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
-#ifndef HSEM_ID_0
-#define HSEM_ID_0 (0U) /* HW semaphore 0*/
-#endif
 
 /* USER CODE END PD */
 
@@ -80,10 +77,10 @@ int main(void)
   //we wait by disabling our clock and going to sleep
   //and wake up when we're signaled by the CM7
   __HAL_RCC_HSEM_CLK_ENABLE();
-  HAL_HSEM_ActivateNotification(__HAL_HSEM_SEMID_TO_MASK(HSEM_ID_0));	//enable wakeup from semaphore 0
-  HAL_PWREx_ClearPendingEvent();										//reset any pending power notifications
+  HAL_HSEM_ActivateNotification(__HAL_HSEM_SEMID_TO_MASK(SEM_BOOT_SIGNAL));			//enable wakeup from semaphore 0
+  HAL_PWREx_ClearPendingEvent();													//reset any pending power notifications
   HAL_PWREx_EnterSTOPMode(PWR_MAINREGULATOR_ON, PWR_STOPENTRY_WFE, PWR_D2_DOMAIN);	//<<< go to sleep here
-  __HAL_HSEM_CLEAR_FLAG(__HAL_HSEM_SEMID_TO_MASK(HSEM_ID_0));						//<<< wake up and acknowledge wake
+  __HAL_HSEM_CLEAR_FLAG(__HAL_HSEM_SEMID_TO_MASK(SEM_BOOT_SIGNAL));					//<<< wake up and acknowledge wake
 
 /* USER CODE END Boot_Mode_Sequence_1 */
   /* MCU Configuration--------------------------------------------------------*/

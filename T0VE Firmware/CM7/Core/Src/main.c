@@ -35,10 +35,6 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-#ifndef HSEM_ID_0
-#define HSEM_ID_0 (0U) /* HW semaphore 0*/
-#endif
-
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -105,9 +101,7 @@ int main(void)
 /* USER CODE BEGIN Boot_Mode_Sequence_1 */
 	//wait for the CM4 to go to sleep
 	//safest to wait for the D2 clock to suspend before modifying any clock-related registers
-	size_t timeout = 0xFFFF;
-	while((__HAL_RCC_GET_FLAG(RCC_FLAG_D2CKRDY) != RESET) && (timeout-- > 0));
-	if ( timeout == 0 ) Error_Handler();
+	while((__HAL_RCC_GET_FLAG(RCC_FLAG_D2CKRDY) != RESET));
 /* USER CODE END Boot_Mode_Sequence_1 */
   /* MCU Configuration--------------------------------------------------------*/
 
@@ -132,8 +126,8 @@ int main(void)
   //make sure semaphore clocks are enabled
   __HAL_RCC_HSEM_CLK_ENABLE();
   /*Take HSEM */
-  HAL_HSEM_FastTake(HSEM_ID_0);
-  HAL_HSEM_Release(HSEM_ID_0,0);
+  HAL_HSEM_FastTake(SEM_BOOT_SIGNAL);
+  HAL_HSEM_Release(SEM_BOOT_SIGNAL,0);
 
 /* USER CODE END Boot_Mode_Sequence_2 */
 

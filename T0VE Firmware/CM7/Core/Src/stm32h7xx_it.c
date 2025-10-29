@@ -23,9 +23,6 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
-//IG: adding tinyusb
-#include "tusb.h"
-
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
