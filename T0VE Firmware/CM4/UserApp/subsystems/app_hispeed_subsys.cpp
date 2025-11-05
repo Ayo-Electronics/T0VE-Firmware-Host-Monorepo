@@ -12,12 +12,7 @@
 Hispeed_Subsystem::Hispeed_Subsystem(	Hispeed_Channel_Hardware_t ch0,
 										Hispeed_Channel_Hardware_t ch1,
 										Hispeed_Channel_Hardware_t ch2,
-										Hispeed_Channel_Hardware_t ch3,
-										DRAM& _dram,
-										MSC_Interface& _msc_if):
-	//construct the memory manager using the references to the MSC interface and DRAM
-	neural_mem_broker(_dram, _msc_if),
-
+										Hispeed_Channel_Hardware_t ch3	):
 	//initialize each channel with the hardware provided
 	CHANNEL_0(ch0), CHANNEL_1(ch1),	CHANNEL_2(ch2),	CHANNEL_3(ch3),
 
@@ -41,9 +36,6 @@ Hispeed_Subsystem::Hispeed_Subsystem(	Hispeed_Channel_Hardware_t ch0,
 
 //===================== INITIALIZATION FUNCTIONS ====================
 void Hispeed_Subsystem::init() {
-	//initialize our neural memory manager
-	neural_mem_broker.init();
-
 	//initialize all of our high-speed channels with the helper functions
 	CHANNEL_0.init();
 	CHANNEL_1.init();
@@ -52,10 +44,7 @@ void Hispeed_Subsystem::init() {
 
 	//initialize all our semaphores
 	LOSPEED_DO_ARM_FIRE.init();
-	LOSPEED_IMMEDIATE_PGOOD.init();
-	HISPEED_ARM_FIRE_ERR_PWR.init();
 	HISPEED_ARM_FIRE_ERR_READY.init();
-	HISPEED_ARM_FIRE_ERR_SYNC.init();
 	HISPEED_ARM_FIRE_READY.init();
 	HISPEED_ARM_FIRE_SUCCESS.init();
 
@@ -125,12 +114,6 @@ void Hispeed_Subsystem::deactivate() {
 
 //===================== THREAD FUNCTIONS ======================
 void Hispeed_Subsystem::check_state_update_run_esm() {
-	//set the semaphore status based on the PGOOD status
-	if(status_onboard_immediate_pgood.read()) {
-		LOSPEED_IMMEDIATE_PGOOD.TRY_LOCK();	//should always work, but non-blocking in case
-	}
-	else LOSPEED_IMMEDIATE_PGOOD.UNLOCK();
-
 	//and if we're signaled, run the pilot
 	if(pilot_signal_listener.check()) {
 		do_hispeed_pilot();
@@ -228,7 +211,7 @@ void Hispeed_Subsystem::do_prearm_fail() {
 
 	//also acknowledge the ARM flag, and propagate a timeout error upstream
 	command_hispeed_arm_fire_request.acknowledge_reset();
-	status_hispeed_arm_flag_err_core_timeout.publish(true);
+	status_hispeed_arm_flag_err_timeout.publish(true);
 }
 
 //the hispeed network execution function now runs on the other core (CM7)
@@ -244,7 +227,7 @@ void Hispeed_Subsystem::do_arm_fire_setup() {
 	pilot_signal_listener.refresh();
 
 	//prevent the files from being accessed over USB
-	neural_mem_broker.detach_memory();
+	command_attach_mem.publish(false);
 
 	//arm the channels
 	//i.e. puts the chip select lines under timer control
@@ -266,12 +249,16 @@ void Hispeed_Subsystem::do_arm_fire_setup() {
 }
 
 void Hispeed_Subsystem::do_arm_fire_run() {
-	//while we're running, just poll the completion flags
+	//poll the power status, signal power failure if we need
+	if(!status_onboard_immediate_pgood.read()) arm_fire_brownout.signal();
+
+	//poll the arm signal, see if it hasn't been cleared
+	if(!command_hispeed_arm_fire_request.read()) arm_fire_cancelled.signal();
+
+	//poll the completion flags too
 	//the scheduler will trigger the timeout independently of this function
 	if		(HISPEED_ARM_FIRE_SUCCESS.READ()) 	arm_fire_done.signal();
-	else if	(HISPEED_ARM_FIRE_ERR_PWR.READ()) 	arm_fire_done.signal();
 	else if (HISPEED_ARM_FIRE_ERR_READY.READ())	arm_fire_done.signal();
-	else if (HISPEED_ARM_FIRE_ERR_SYNC.READ())	arm_fire_done.signal();
 }
 
 void Hispeed_Subsystem::do_arm_fire_exit() {
@@ -286,17 +273,19 @@ void Hispeed_Subsystem::do_arm_fire_exit() {
 
 	//grabs the exit codes, propagate exit signals to state variables
 	//deasserts fire signal, unlocks memory, moves the outputs, attaches the files, restores peripherals
-	if		(HISPEED_ARM_FIRE_ERR_PWR.READ()) 	status_hispeed_arm_flag_err_pwr.publish(true);
-	else if (HISPEED_ARM_FIRE_ERR_READY.READ())	status_hispeed_arm_flag_err_ready.publish(true);
-	else if (HISPEED_ARM_FIRE_ERR_SYNC.READ())	status_hispeed_arm_flag_err_sync.publish(true);
-	else if (HISPEED_ARM_FIRE_SUCCESS.READ())	status_hispeed_arm_flag_complete.publish(true);
-	else /* exit without flags means timeout */	status_hispeed_arm_flag_err_core_timeout.publish(true);
+	if		(arm_fire_timeout_listener.check()) 	status_hispeed_arm_flag_err_timeout.publish(true);
+	else if	(arm_fire_cancelled_listener.check()) 	status_hispeed_arm_flag_err_cancelled.publish(true);
+	else if (arm_fire_brownout_listener.check())	status_hispeed_arm_flag_err_pwr.publish(true);
+	else if (HISPEED_ARM_FIRE_ERR_READY.READ())		status_hispeed_arm_flag_err_ready.publish(true);
+	else if (HISPEED_ARM_FIRE_SUCCESS.READ())		status_hispeed_arm_flag_complete.publish(true);
+	else	Debug::WARN("Hispeed neural operation finished execution with no return code!");
 
 	//now that we've grabbed the exit codes, we can deassert our fire signal
+	//signals the hispeed core to halt execution + return to idle
 	LOSPEED_DO_ARM_FIRE.UNLOCK();
 
 	//and expose all the files for editing again
-	neural_mem_broker.attach_memory();
+	command_attach_mem.publish(true);
 
 	//finally acknowledge the fire request command and indicate that we're no longer armed
 	status_hispeed_armed.publish(false);

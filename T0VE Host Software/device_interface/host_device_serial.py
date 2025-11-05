@@ -117,6 +117,18 @@ class Host_Serial:
     def port_connected(self) -> bool:
         return self._port_connected
 
+    @property
+    def port_name(self) -> Optional[str]:
+        return self._connected_port_name
+
+    @property
+    def serial_regex(self) -> Optional[str]:
+        return self._serial_regex_str
+
+    @property
+    def serial_number(self) -> Optional[str]:
+        return self._connected_serial_number
+
     #### TX ####
     def write_frame(self, payload: bytes) -> None:
         """

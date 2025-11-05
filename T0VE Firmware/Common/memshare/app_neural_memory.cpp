@@ -12,16 +12,14 @@
 
 //empty constructor
 Neural_Memory::Neural_Memory()
-{
-	//initialize the input and output mapping to zeros (invalid)
-	for(auto& in : NETWORK_INPUTS) 	in = 0;
-	for(auto& out: NETWORK_OUTPUTS) out = 0;
-}
+{}
 
 //return a view into the external memory, where the blocks are at
-std::span<Neural_Memory::Hispeed_Block_t, std::dynamic_extent> Neural_Memory::block_mem() {
-	return BLOCK_MEMORY;
-}
+std::span<Neural_Memory::Hispeed_Block_t, std::dynamic_extent> Neural_Memory::block_mem() 			{ return BLOCK_MEMORY; }
+std::span<uint16_t, std::dynamic_extent> Neural_Memory::inputs() 									{ return NETWORK_INPUTS; }
+std::span<uint16_t, std::dynamic_extent> Neural_Memory::outputs()									{ return NETWORK_OUTPUTS; }
+std::span<Neural_Memory::ADC_Destination_t, std::dynamic_extent> Neural_Memory::input_mapping()		{ return NETWORK_INPUT_MAPPING; }
+std::span<Neural_Memory::ADC_Destination_t, std::dynamic_extent> Neural_Memory::output_mapping()	{ return NETWORK_OUTPUT_MAPPING; }
 
 //use these functions to retrieve the chunk of memory associated with the particular variable
 //useful for constructing files that can be exposed over USB
@@ -30,6 +28,15 @@ std::span<uint8_t, std::dynamic_extent> Neural_Memory::inputs_as_bytes()		{	retu
 std::span<uint8_t, std::dynamic_extent> Neural_Memory::input_map_as_bytes()		{	return AS_BYTES(NETWORK_INPUT_MAPPING);		}
 std::span<uint8_t, std::dynamic_extent> Neural_Memory::outputs_as_bytes()		{	return AS_BYTES(NETWORK_OUTPUTS);			}
 std::span<uint8_t, std::dynamic_extent> Neural_Memory::output_map_as_bytes()	{	return AS_BYTES(NETWORK_OUTPUT_MAPPING);	}
+
+//reset all arrays to their zero values
+void Neural_Memory::clean() {
+	for(auto& v : BLOCK_MEMORY) v = Hispeed_Block_t::mk_term();
+	for(auto& v : NETWORK_INPUTS) v = 0;
+	for(auto& v : NETWORK_OUTPUTS) v = 0;
+	for(auto& v : NETWORK_INPUT_MAPPING) v = 0;
+	for(auto& v : NETWORK_OUTPUT_MAPPING) v = 0;
+}
 
 //for the inputs/outputs, move based on the mapping information
 void Neural_Memory::transfer_inputs() {

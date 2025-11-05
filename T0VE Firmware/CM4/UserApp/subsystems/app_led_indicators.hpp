@@ -55,8 +55,9 @@ public:
 	LINK_FUNC(status_motherboard_pgood);
 	LINK_FUNC(status_hispeed_armed);
 	LINK_FUNC(status_hispeed_arm_flag_err_pwr);
-	LINK_FUNC(status_hispeed_arm_flag_err_sync_timeout);
+	LINK_FUNC(status_hispeed_arm_flag_err_timeout);
 	LINK_FUNC(status_hispeed_arm_flag_err_ready);
+	LINK_FUNC(status_hispeed_arm_flag_err_cancelled);
 	LINK_FUNC(status_comms_connected);
 	LINK_FUNC_RC(status_comms_activity);
 
@@ -116,6 +117,7 @@ private:
 	Sub_Var_RC<bool> 	status_comms_activity;		//comms, activity
 	Sub_Var<bool> 		status_hispeed_armed;		//armed
 	Sub_Var<bool>		status_hispeed_arm_flag_err_ready;			//armed error (code 1)
-	Sub_Var<bool>		status_hispeed_arm_flag_err_sync_timeout;	//armed error (code 2)
+	Sub_Var<bool>		status_hispeed_arm_flag_err_timeout;		//armed error (code 2)
 	Sub_Var<bool>		status_hispeed_arm_flag_err_pwr;			//armed error (code 3)
+	Sub_Var<bool>		status_hispeed_arm_flag_err_cancelled;		//armed error (code 4)
 };

@@ -50,13 +50,14 @@ void LED_Indicators::check_state_update() {
     bool do_update_leds = false;
 
     //check for any state updates using `available()`
-    if(status_hispeed_armed.check()) do_update_leds = true;
-    if(status_hispeed_arm_flag_err_ready.check()) do_update_leds = true;
-    if(status_hispeed_arm_flag_err_sync_timeout.check()) do_update_leds = true;
-    if(status_hispeed_arm_flag_err_pwr.check()) do_update_leds = true;
-    if(status_onboard_pgood.check()) do_update_leds = true;
-    if(status_motherboard_pgood.check()) do_update_leds = true;
-    if(status_comms_connected.check()) do_update_leds = true;
+    if(status_hispeed_armed.check()) 					do_update_leds = true;
+    if(status_hispeed_arm_flag_err_ready.check()) 		do_update_leds = true;
+    if(status_hispeed_arm_flag_err_timeout.check()) 	do_update_leds = true;
+    if(status_hispeed_arm_flag_err_cancelled.check()) 	do_update_leds = true;
+    if(status_hispeed_arm_flag_err_pwr.check()) 		do_update_leds = true;
+    if(status_onboard_pgood.check()) 					do_update_leds = true;
+    if(status_motherboard_pgood.check()) 				do_update_leds = true;
+    if(status_comms_connected.check()) 					do_update_leds = true;
     if(status_comms_activity.check()) {
         //update the LEDs now
         do_update_leds = true;
@@ -88,8 +89,9 @@ void LED_Indicators::update_onboard_LEDs() {
     if(status_hispeed_armed.read())                            	ONBOARD_LED_MAGENTA();
     else if(status_comms_activity.read())                      	ONBOARD_LED_WHITE();
     else if(status_hispeed_arm_flag_err_ready.read())          	ONBOARD_LED_RED();
-    else if(status_hispeed_arm_flag_err_sync_timeout.read())   	ONBOARD_LED_RED();
+    else if(status_hispeed_arm_flag_err_timeout.read())   		ONBOARD_LED_RED();
     else if(status_hispeed_arm_flag_err_pwr.read())            	ONBOARD_LED_RED();
+    else if(status_hispeed_arm_flag_err_cancelled.read())		ONBOARD_LED_RED();
     else if(status_onboard_pgood.read())                       	ONBOARD_LED_GREEN();
     else if(status_comms_connected.read())                     	ONBOARD_LED_YELLOW();
     else                                                		ONBOARD_LED_BLUE();

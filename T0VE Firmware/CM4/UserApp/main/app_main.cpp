@@ -38,6 +38,7 @@
 #include "app_cob_eeprom.hpp"
 #include "app_bias_drives.hpp"
 #include "app_comms_subsys.hpp"
+#include "app_mem_manager.hpp"
 
 //========= UTILITY INCLUDES =========
 #include "app_scheduler.hpp"
@@ -111,9 +112,7 @@ Waveguide_Bias_Drive wgbias_subsys(i2c_bus, Pin_Mapping::BIAS_DRIVE_EN, Pin_Mapp
 Hispeed_Subsystem hispeed_subsys(	CHANNEL_0_HW,
 									CHANNEL_1_HW,
 									CHANNEL_2_HW,
-									CHANNEL_3_HW,
-									dram,
-									msc);
+									CHANNEL_3_HW	);
 
 LED_Indicators indicators_subsys(	Pin_Mapping::LED_RED,
 									Pin_Mapping::LED_GREEN,
@@ -122,6 +121,7 @@ LED_Indicators indicators_subsys(	Pin_Mapping::LED_RED,
 									Pin_Mapping::EXT_LED_YELLOW	);
 
 Comms_Subsys comms_subsys(usb, state_supervisor);
+Neural_Mem_Manager mem_manager(dram, msc);
 
 //============== DEBUG UTILITY SETUP ============
 Debug_Protobuf dbp(comms_subsys);
@@ -166,11 +166,10 @@ void LINK_SYSTEM_STATE_VARIABLES() {
 	state_supervisor.link_RC_status_hispeed_arm_flag_complete(			hispeed_subsys.subscribe_RC_status_hispeed_arm_flag_complete()			);
 	state_supervisor.link_RC_status_hispeed_arm_flag_err_pwr(			hispeed_subsys.subscribe_RC_status_hispeed_arm_flag_err_pwr()			);
 	state_supervisor.link_RC_status_hispeed_arm_flag_err_ready(			hispeed_subsys.subscribe_RC_status_hispeed_arm_flag_err_ready()			);
-	state_supervisor.link_RC_status_hispeed_arm_flag_err_sync(			hispeed_subsys.subscribe_RC_status_hispeed_arm_flag_err_sync()			);
-	state_supervisor.link_RC_status_hispeed_arm_flag_err_core_timeout(	hispeed_subsys.subscribe_RC_status_hispeed_arm_flag_err_core_timeout()	);
+	state_supervisor.link_RC_status_hispeed_arm_flag_err_timeout(		hispeed_subsys.subscribe_RC_status_hispeed_arm_flag_err_timeout()		);
+	state_supervisor.link_RC_status_hispeed_arm_flag_err_cancelled(		hispeed_subsys.subscribe_RC_status_hispeed_arm_flag_err_cancelled()		);
 	hispeed_subsys.link_status_onboard_debounced_pgood(					pm_onboard_subsys.subscribe_status_debounced_power()					);
 	hispeed_subsys.link_status_onboard_immediate_pgood(					pm_onboard_subsys.subscribe_status_immedate_power()						);
-
 
 	//##### CoB TEMP MONITOR #####
 	state_supervisor.link_RC_status_cobtemp_temp_sensor_error(			cob_temp_monitor.subscribe_RC_status_temp_sensor_error()				);
@@ -206,6 +205,15 @@ void LINK_SYSTEM_STATE_VARIABLES() {
 	state_supervisor.link_status_comms_connected(					comms_subsys.subscribe_status_comms_connected()						);
 	comms_subsys.link_command_comms_allow_connections(				state_supervisor.subscribe_command_comms_allow_connections()		);
 
+	//##### MEM MANAGER #####
+	state_supervisor.link_status_nmemmanager_detected_input_size(	mem_manager.subscribe_status_nmemmanager_detected_input_size()			);
+	state_supervisor.link_status_nmemmanager_detected_output_size(	mem_manager.subscribe_status_nmemmanager_detected_output_size()			);
+	state_supervisor.link_status_nmemmanager_mem_attached(			mem_manager.subscribe_status_nmemmanager_mem_attached()					);
+	mem_manager.link_RC_command_nmemmanager_check_io_size(			state_supervisor.subscribe_RC_command_nmemmanager_check_io_size()		);
+	mem_manager.link_RC_command_nmemmanager_load_test_pattern(		state_supervisor.subscribe_RC_command_nmemmanager_load_test_pattern()	);
+	mem_manager.link_command_nmemmanager_attach_memory(				hispeed_subsys.subscribe_command_attach_mem()							);
+	hispeed_subsys.link_status_mem_attached(						mem_manager.subscribe_status_nmemmanager_mem_attached()					);
+
 	//##### LED INDICATORS ######
 	indicators_subsys.link_status_onboard_pgood(		pm_onboard_subsys.subscribe_status_debounced_power()		);
 	indicators_subsys.link_status_motherboard_pgood(	pm_motherboard_subsys.subscribe_status_debounced_power()	);
@@ -214,7 +222,8 @@ void LINK_SYSTEM_STATE_VARIABLES() {
 	indicators_subsys.link_status_hispeed_armed(		hispeed_subsys.subscribe_status_hispeed_armed()				);
 	indicators_subsys.link_status_hispeed_arm_flag_err_pwr(				hispeed_subsys.subscribe_RC_status_hispeed_arm_flag_err_pwr()			);
 	indicators_subsys.link_status_hispeed_arm_flag_err_ready(			hispeed_subsys.subscribe_RC_status_hispeed_arm_flag_err_ready()			);
-	indicators_subsys.link_status_hispeed_arm_flag_err_sync_timeout(	hispeed_subsys.subscribe_RC_status_hispeed_arm_flag_err_sync()			);
+	indicators_subsys.link_status_hispeed_arm_flag_err_timeout(			hispeed_subsys.subscribe_RC_status_hispeed_arm_flag_err_timeout()		);
+	indicators_subsys.link_status_hispeed_arm_flag_err_cancelled(		hispeed_subsys.subscribe_RC_status_hispeed_arm_flag_err_cancelled()		);
 }
 
 void INIT_SUBSYSTEMS() {
@@ -229,6 +238,7 @@ void INIT_SUBSYSTEMS() {
 	cob_eeprom.init();
 	wgbias_subsys.init();
 	comms_subsys.init();
+	mem_manager.init();
 }
 
 void ident_node_usb() {

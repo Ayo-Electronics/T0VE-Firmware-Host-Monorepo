@@ -6,76 +6,112 @@
 #error Regenerate this file with the current version of nanopb generator.
 #endif
 
-PB_BIND(App_uint32_2, App_uint32_2, AUTO)
+PB_BIND(app_uint32_2, app_uint32_2, AUTO)
 
 
-PB_BIND(App_uint32_4, App_uint32_4, AUTO)
+PB_BIND(app_uint32_4, app_uint32_4, AUTO)
 
 
-PB_BIND(App_uint32_10, App_uint32_10, AUTO)
+PB_BIND(app_uint32_10, app_uint32_10, AUTO)
 
 
-PB_BIND(App_bool_4, App_bool_4, AUTO)
+PB_BIND(app_bool_4, app_bool_4, AUTO)
 
 
-PB_BIND(App_Debug, App_Debug, 2)
+PB_BIND(app_Debug, app_Debug, 2)
 
 
-PB_BIND(App_State_Supervisor_Status, App_State_Supervisor_Status, AUTO)
+PB_BIND(app_State_Supervisor_Status, app_State_Supervisor_Status, AUTO)
 
 
-PB_BIND(App_Multicard_Status, App_Multicard_Status, AUTO)
+PB_BIND(app_State_Supervisor, app_State_Supervisor, AUTO)
 
 
-PB_BIND(App_Multicard_Command, App_Multicard_Command, AUTO)
+PB_BIND(app_Multicard_Status, app_Multicard_Status, AUTO)
 
 
-PB_BIND(App_PM_Status, App_PM_Status, AUTO)
+PB_BIND(app_Multicard_Command, app_Multicard_Command, AUTO)
 
 
-PB_BIND(App_PM_Command, App_PM_Command, AUTO)
+PB_BIND(app_Multicard, app_Multicard, AUTO)
 
 
-PB_BIND(App_Offset_Ctrl_Status, App_Offset_Ctrl_Status, AUTO)
+PB_BIND(app_PM_Status, app_PM_Status, AUTO)
 
 
-PB_BIND(App_Offset_Ctrl_Command, App_Offset_Ctrl_Command, AUTO)
+PB_BIND(app_PM_Command, app_PM_Command, AUTO)
 
 
-PB_BIND(App_Hispeed_Status, App_Hispeed_Status, AUTO)
+PB_BIND(app_PM, app_PM, AUTO)
 
 
-PB_BIND(App_Hispeed_Command, App_Hispeed_Command, AUTO)
+PB_BIND(app_Offset_Ctrl_Status, app_Offset_Ctrl_Status, AUTO)
 
 
-PB_BIND(App_CoB_Temp_Status, App_CoB_Temp_Status, AUTO)
+PB_BIND(app_Offset_Ctrl_Command, app_Offset_Ctrl_Command, AUTO)
 
 
-PB_BIND(App_CoB_EEPROM_Status, App_CoB_EEPROM_Status, AUTO)
+PB_BIND(app_Offset_Ctrl, app_Offset_Ctrl, AUTO)
 
 
-PB_BIND(App_CoB_EEPROM_Command, App_CoB_EEPROM_Command, AUTO)
+PB_BIND(app_Hispeed_Status, app_Hispeed_Status, AUTO)
 
 
-PB_BIND(App_WG_Bias_Setpoints, App_WG_Bias_Setpoints, AUTO)
+PB_BIND(app_Hispeed_Command, app_Hispeed_Command, AUTO)
 
 
-PB_BIND(App_WG_Bias_Status, App_WG_Bias_Status, AUTO)
+PB_BIND(app_Hispeed, app_Hispeed, AUTO)
 
 
-PB_BIND(App_WG_Bias_Command, App_WG_Bias_Command, AUTO)
+PB_BIND(app_CoB_Temp_Status, app_CoB_Temp_Status, AUTO)
 
 
-PB_BIND(App_Comms_Status, App_Comms_Status, AUTO)
+PB_BIND(app_CoB_Temp, app_CoB_Temp, AUTO)
 
 
-PB_BIND(App_Comms_Command, App_Comms_Command, AUTO)
+PB_BIND(app_CoB_EEPROM_Status, app_CoB_EEPROM_Status, AUTO)
 
 
-PB_BIND(App_Node_State, App_Node_State, 2)
+PB_BIND(app_CoB_EEPROM_Command, app_CoB_EEPROM_Command, AUTO)
 
 
-PB_BIND(App_Communication, App_Communication, 2)
+PB_BIND(app_CoB_EEPROM, app_CoB_EEPROM, 2)
+
+
+PB_BIND(app_WG_Bias_Setpoints, app_WG_Bias_Setpoints, AUTO)
+
+
+PB_BIND(app_WG_Bias_Status, app_WG_Bias_Status, AUTO)
+
+
+PB_BIND(app_WG_Bias_Command, app_WG_Bias_Command, AUTO)
+
+
+PB_BIND(app_WG_Bias, app_WG_Bias, AUTO)
+
+
+PB_BIND(app_Neural_Mem_Status, app_Neural_Mem_Status, AUTO)
+
+
+PB_BIND(app_Neural_Mem_Command, app_Neural_Mem_Command, AUTO)
+
+
+PB_BIND(app_Neural_Mem, app_Neural_Mem, AUTO)
+
+
+PB_BIND(app_Comms_Status, app_Comms_Status, AUTO)
+
+
+PB_BIND(app_Comms_Command, app_Comms_Command, AUTO)
+
+
+PB_BIND(app_Comms, app_Comms, AUTO)
+
+
+PB_BIND(app_Node_State, app_Node_State, 2)
+
+
+PB_BIND(app_Communication, app_Communication, 2)
 
 
 

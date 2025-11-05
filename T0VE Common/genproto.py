@@ -31,7 +31,6 @@ REQS = [
     "grpcio-tools>=1.56",
     "nanopb>=0.4",
 ]
-PY_PKG_NAME = "proto_messages"
 # ----------------------------
 
 ROOT = Path(__file__).resolve().parent
@@ -75,10 +74,9 @@ def _pip_show(pkg: str) -> dict:
     return out
 
 def ensure_layout():
-    (DIR_HOST / PY_PKG_NAME).mkdir(parents=True, exist_ok=True)
+    DIR_HOST.mkdir(parents=True, exist_ok=True)
     DIR_FW.mkdir(parents=True, exist_ok=True)
     DIR_NEED.mkdir(parents=True, exist_ok=True)
-    (DIR_HOST / PY_PKG_NAME / "__init__.py").write_text("# Generated BetterProto Python package\n")
     (DIR_NEED / "requirements.txt").write_text("\n".join(REQS) + "\n")
 
 def find_nanopb_plugin_and_version() -> Tuple[Path, str, Path]:
@@ -191,19 +189,17 @@ def pushd(path: Path):
     finally:
         os.chdir(prev)
 
+#IG: clean ALL files from directories
 def clean():
     removed = 0
-    for f in (DIR_HOST / PY_PKG_NAME).glob("*.py"):
-        if f.name != "__init__.py":
-            try:
-                f.unlink(); removed += 1
-            except Exception:
-                pass
-    (DIR_HOST / PY_PKG_NAME / "__init__.py").write_text("# Generated BetterProto Python package\n")
+    for f in DIR_HOST.glob("*"):
+        try:
+            f.unlink(); removed += 1
+        except Exception:
+            pass
     for f in DIR_FW.glob("*"):
         try:
-            if f.suffix in (".c", ".h"):
-                f.unlink(); removed += 1
+            f.unlink(); removed += 1
         except Exception:
             pass
     print(f">> Cleaned {removed} generated files.")
@@ -237,7 +233,7 @@ def generate_for(protos: List[Path], diagnose: bool = False):
 
     # Use POSIX relative paths to avoid Windows colon issues and to tolerate spaces.
     inc_dir_rel = _posix_rel(DIR_DEFS, ROOT)
-    out_py_rel  = _posix_rel(DIR_HOST / PY_PKG_NAME, ROOT)
+    out_py_rel  = _posix_rel(DIR_HOST, ROOT)
     out_c_rel   = _posix_rel(DIR_FW, ROOT)
 
     # Build proto file list relative to Proto-Defs (so includes are clean)
@@ -326,7 +322,7 @@ def main(argv: List[str]):
 
     generate_for(protos, diagnose=args.diagnose)
     print("\n✅ Done.")
-    print(f" - Python (BetterProto): {(DIR_HOST / PY_PKG_NAME).resolve()}")
+    print(f" - Python (BetterProto): {DIR_HOST.resolve()}")
     print(f" - Firmware (NanoPB):   {DIR_FW.resolve()} (runtime + generated .c/.h)")
     print(f" - Utilities:           {DIR_NEED.resolve()}")
 

@@ -68,9 +68,9 @@ public:
 	SUBSCRIBE_FUNC_RC(	command_hispeed_arm_fire_request			);
 	LINK_FUNC(			status_hispeed_armed						);
 	LINK_FUNC_RC(		status_hispeed_arm_flag_err_ready			);
-	LINK_FUNC_RC(		status_hispeed_arm_flag_err_sync			);
-	LINK_FUNC_RC(		status_hispeed_arm_flag_err_core_timeout	);
+	LINK_FUNC_RC(		status_hispeed_arm_flag_err_timeout			);
 	LINK_FUNC_RC(		status_hispeed_arm_flag_err_pwr				);
+	LINK_FUNC_RC(		status_hispeed_arm_flag_err_cancelled		);
 	LINK_FUNC_RC(		status_hispeed_arm_flag_complete			);
 	SUBSCRIBE_FUNC_RC(	command_hispeed_sdram_load_test_sequence	);
 	SUBSCRIBE_FUNC_RC(	command_hispeed_SOA_enable					);
@@ -101,6 +101,13 @@ public:
 	SUBSCRIBE_FUNC_RC(	command_wgbias_reg_enable					);
 	SUBSCRIBE_FUNC_RC(	command_wgbias_dac_read_update				);
 
+	//#### NEURAL MEMORY MANAGER ####
+	LINK_FUNC(status_nmemmanager_detected_input_size);
+	LINK_FUNC(status_nmemmanager_detected_output_size);
+	SUBSCRIBE_FUNC_RC(command_nmemmanager_check_io_size);
+	SUBSCRIBE_FUNC_RC(command_nmemmanager_load_test_pattern);
+	LINK_FUNC(status_nmemmanager_mem_attached);
+
 	//#### COMMS INTERFACE ####
 	LINK_FUNC(			status_comms_connected						);
 	SUBSCRIBE_FUNC(		command_comms_allow_connections				);
@@ -126,12 +133,12 @@ private:
 	//#### ONBOARD POWER MONITOR STATES ####
 	Sub_Var<bool> pm_onboard_immediate_power_status;
 	Sub_Var<bool> pm_onboard_debounced_power_status;
-	PERSISTENT((Pub_Var<bool>), pm_onboard_regulator_enable_command);
+	PERSISTENT((Pub_Var<bool>), pm_onboard_regulator_enable_command, true);	//enables local regulators if power present
 
 	//#### MOTHERBOARD POWER MONITOR STATES ####
 	Sub_Var<bool> pm_motherboard_immediate_power_status;
 	Sub_Var<bool> pm_motherboard_debounced_power_status;
-	PERSISTENT((Pub_Var<bool>), pm_motherboard_regulator_enable_command); //TODO: REVERT TO FALSE AFTER TESTING
+	PERSISTENT((Pub_Var<bool>), pm_motherboard_regulator_enable_command, true); //TODO: REVERT TO FALSE AFTER TESTING
 
 	//#### ADC OFFSET CONTROL STATES ####
 	Sub_Var<bool> adc_offset_ctrl_device_present_status; 						//report whether we detected the device during initialization
@@ -144,9 +151,9 @@ private:
 	PERSISTENT((Pub_Var<bool>), command_hispeed_arm_fire_request);
 	Sub_Var<bool>			status_hispeed_armed;
 	Sub_Var_RC<bool>		status_hispeed_arm_flag_err_ready;
-	Sub_Var_RC<bool>		status_hispeed_arm_flag_err_sync;
-	Sub_Var_RC<bool>		status_hispeed_arm_flag_err_core_timeout;
+	Sub_Var_RC<bool>		status_hispeed_arm_flag_err_timeout;
 	Sub_Var_RC<bool>		status_hispeed_arm_flag_err_pwr;
+	Sub_Var_RC<bool>		status_hispeed_arm_flag_err_cancelled;
 	Sub_Var_RC<bool>		status_hispeed_arm_flag_complete;
 	PERSISTENT((Pub_Var<bool>), command_hispeed_sdram_load_test_sequence);
 	PERSISTENT((Pub_Var<std::array<bool, 4>>), command_hispeed_SOA_enable);
@@ -176,6 +183,13 @@ private:
 	PERSISTENT((Pub_Var<Waveguide_Bias_Drive::Waveguide_Bias_Setpoints_t>), command_wgbias_dac_values);			//values we'd like to write to the DAC
 	PERSISTENT((Pub_Var<bool>), command_wgbias_reg_enable);			//enable the actual voltage regulators for the waveguide bias system
 	PERSISTENT((Pub_Var<bool>), command_wgbias_dac_read_update);		//asserted when we want to perform a DAC read, cleared after read
+
+	//#### NEURAL MEMORY MANAGER ####
+	Sub_Var<uint32_t> status_nmemmanager_detected_input_size;				//reports how many valid network inputs we've detected
+	Sub_Var<uint32_t> status_nmemmanager_detected_output_size;				//report how many valid network outputs we've detected
+	PERSISTENT((Pub_Var<bool>), command_nmemmanager_check_io_size);			//ask the memory manager to try detecting the input/output size
+	PERSISTENT((Pub_Var<uint32_t>), command_nmemmanager_load_test_pattern); //set this to a non-zero value to load a test pattern into DRAM
+	Sub_Var<bool> status_nmemmanager_mem_attached;							//reports whether the memory is being exposed over the MSC interface
 
 	//#### COMMS INTERFACE ####
 	Sub_Var<bool> status_comms_connected;					//report whether we're connected to a host

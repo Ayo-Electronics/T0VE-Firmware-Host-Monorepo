@@ -131,10 +131,20 @@ public:
 	void transfer_outputs();
 
 	/*
+	 * Use this function to reset all arrays
+	 */
+	void clean();
+
+	/*
 	 * Get access to the underlying DRAM
 	 * Useful for the high-speed subsystem to perform direct memory access to the DRAM without any code overhead
+	 * Also expose underlying arrays for the inputs/outputs
 	 */
 	std::span<Hispeed_Block_t, std::dynamic_extent> block_mem();
+	std::span<uint16_t, std::dynamic_extent> inputs();
+	std::span<uint16_t, std::dynamic_extent> outputs();
+	std::span<ADC_Destination_t, std::dynamic_extent> input_mapping();
+	std::span<ADC_Destination_t, std::dynamic_extent> output_mapping();
 
 	//don't allow copy construction or assignment operation - almost always accidental
 	Neural_Memory(const Neural_Memory& other) = delete;
@@ -146,34 +156,28 @@ private:
 	static constexpr size_t NUM_BLOCKS = NETWORK_SIZE/sizeof(Hispeed_Block_t);	//assumes padding of Hispeed_Block_t
 	Hispeed_Block_t* const BLOCK_MEMORY_START = reinterpret_cast<Hispeed_Block_t*>(&SHARED_EXTMEM.NETWORK);
 	std::span<Hispeed_Block_t> BLOCK_MEMORY = {BLOCK_MEMORY_START, NUM_BLOCKS};
-	//MSC_File BLOCK_MEM_FILE = MSC_FILE_INIT(BLOCK_MEMORY, "NEURAL_NETWORK_MEMORY.bin");
-
 
 	//own a view into the shared AXI SRAM where network inputs will live
 	//sanity check our inputs array sizing
 	static_assert(sizeof(SHARED_FASTMEM.INPUTS[0]) == sizeof(uint16_t), "size mismatch between network inputs definition!");
 	uint16_t* const NETWORK_INPUTS_START = reinterpret_cast<uint16_t*>(&SHARED_FASTMEM.INPUTS);
 	std::span<uint16_t> NETWORK_INPUTS = {NETWORK_INPUTS_START, INPUTS_SIZE};
-	//MSC_File NETWORK_INPUTS_FILE = MSC_FILE_INIT(NETWORK_INPUTS, "NETWORK_INPUTS.bin");
 
 	//and a view into shared AXI SRAM where input mappings will live
 	//sanity check our input mapping sizing
 	static_assert(sizeof(SHARED_FASTMEM.INPUT_MAPPING[0]) == sizeof(ADC_Destination_t), "size mismatch between network input mapping definition!");
 	ADC_Destination_t* const NETWORK_INPUT_MAPPING_START = reinterpret_cast<ADC_Destination_t*>(&SHARED_FASTMEM.INPUT_MAPPING);
 	std::span<ADC_Destination_t> NETWORK_INPUT_MAPPING = {NETWORK_INPUT_MAPPING_START, INPUTS_SIZE};
-	//MSC_File NETWORK_INPUT_MAPPING_FILE = MSC_FILE_INIT(NETWORK_INPUT_MAPPING, "NETWORK_INPUT_MAPPING.bin");
 
 	//a view into the shared AXI SRAM where network outputs will live
 	//sanity check our outputs array sizing
 	static_assert(sizeof(SHARED_FASTMEM.OUTPUTS[0]) == sizeof(uint16_t), "size mismatch between network output definition!");
 	uint16_t* const NETWORK_OUTPUTS_START = reinterpret_cast<uint16_t*>(&SHARED_FASTMEM.OUTPUTS);
 	std::span<uint16_t> NETWORK_OUTPUTS = {NETWORK_OUTPUTS_START, OUTPUTS_SIZE};
-	//MSC_File NETWORK_OUTPUTS_FILE = MSC_FILE_INIT(NETWORK_OUTPUTS, "NETWORK_OUTPUTS.bin");
 
 	//and a view into shared AXI SRAM where output mappings will live
 	//sanity check our output mapping sizing
 	static_assert(sizeof(SHARED_FASTMEM.OUTPUT_MAPPING[0]) == sizeof(ADC_Destination_t), "size mismatch between network output mapping definition!");
 	ADC_Destination_t* const NETWORK_OUTPUT_MAPPING_START = reinterpret_cast<ADC_Destination_t*>(&SHARED_FASTMEM.OUTPUT_MAPPING);
 	std::span<ADC_Destination_t> NETWORK_OUTPUT_MAPPING = {NETWORK_OUTPUT_MAPPING_START, INPUTS_SIZE};
-	//MSC_File NETWORK_OUTPUT_MAPPING_FILE = MSC_FILE_INIT(NETWORK_OUTPUT_MAPPING, "NETWORK_OUTPUT_MAPPING.bin");
 };

@@ -15,7 +15,6 @@
 #include "app_hal_hsem.hpp"
 #include "app_shared_memory.h"
 #include "app_msc_if.hpp"
-#include "app_neural_memory_broker.hpp"
 
 class Hispeed_Subsystem {
 public:
@@ -46,9 +45,7 @@ public:
 	Hispeed_Subsystem(	Hispeed_Channel_Hardware_t ch0,
 						Hispeed_Channel_Hardware_t ch1,
 						Hispeed_Channel_Hardware_t ch2,
-						Hispeed_Channel_Hardware_t ch3,
-						DRAM& _dram,
-						MSC_Interface& _msc_if);
+						Hispeed_Channel_Hardware_t ch3	);
 
 	//delete the copy constructor and assignment operator to prevent accidental copies/writes
 	Hispeed_Subsystem(const Hispeed_Subsystem& other) = delete;
@@ -61,9 +58,9 @@ public:
 	LINK_FUNC(command_hispeed_arm_fire_request);
 	SUBSCRIBE_FUNC(status_hispeed_armed);
 	SUBSCRIBE_FUNC_RC(status_hispeed_arm_flag_err_ready);
-	SUBSCRIBE_FUNC_RC(status_hispeed_arm_flag_err_sync);
 	SUBSCRIBE_FUNC_RC(status_hispeed_arm_flag_err_pwr);
-	SUBSCRIBE_FUNC_RC(status_hispeed_arm_flag_err_core_timeout);
+	SUBSCRIBE_FUNC_RC(status_hispeed_arm_flag_err_timeout);
+	SUBSCRIBE_FUNC_RC(status_hispeed_arm_flag_err_cancelled);
 	SUBSCRIBE_FUNC_RC(status_hispeed_arm_flag_complete);
 	LINK_FUNC_RC(command_hispeed_SOA_enable);
 	LINK_FUNC_RC(command_hispeed_TIA_enable);
@@ -71,6 +68,8 @@ public:
 	SUBSCRIBE_FUNC(status_hispeed_TIA_ADC_readback);
 	LINK_FUNC(status_onboard_immediate_pgood);
 	LINK_FUNC(status_onboard_debounced_pgood);
+	SUBSCRIBE_FUNC(command_attach_mem);
+	LINK_FUNC(status_mem_attached);
 
 private:
 	//##### HISPEED THREAD FUNCTION #####
@@ -84,27 +83,26 @@ private:
 	void do_arm_fire_setup();	//sets up peripherals, detaches the files, moves the inputs, locks memory, clears the signal listener, asserts fire signal
 	void do_arm_fire_run();		//polls the completion flags, asserts signal if done
 	void do_arm_fire_exit();	//grabs the exit codes, deasserts fire signal, unlocks memory, moves the outputs, attaches the files, restores peripherals
-	static const uint32_t FIRING_TIMEOUT_MS = 40000; //large networks may take a while to execute
+	static const uint32_t FIRING_TIMEOUT_MS = 15000; //large networks may take a while to execute
 
 	//and all the semaphores for inter-core signaling
 	Hard_Semaphore HISPEED_ARM_FIRE_READY = 	{static_cast<Hard_Semaphore::HSem_Channel>(Sem_Mapping::SEM_ARM_FIRE_READY)};
 	Hard_Semaphore HISPEED_ARM_FIRE_SUCCESS = 	{static_cast<Hard_Semaphore::HSem_Channel>(Sem_Mapping::SEM_ARM_FIRE_SUCCESS)};
-	Hard_Semaphore HISPEED_ARM_FIRE_ERR_PWR= 	{static_cast<Hard_Semaphore::HSem_Channel>(Sem_Mapping::SEM_ARM_FIRE_ERR_PWR)};
-	Hard_Semaphore HISPEED_ARM_FIRE_ERR_SYNC = 	{static_cast<Hard_Semaphore::HSem_Channel>(Sem_Mapping::SEM_ARM_FIRE_ERR_SYNC)};
 	Hard_Semaphore HISPEED_ARM_FIRE_ERR_READY = {static_cast<Hard_Semaphore::HSem_Channel>(Sem_Mapping::SEM_ARM_FIRE_ERR_READY)};
 	Hard_Semaphore LOSPEED_DO_ARM_FIRE = 		{static_cast<Hard_Semaphore::HSem_Channel>(Sem_Mapping::SEM_DO_ARM_FIRE)};
-	Hard_Semaphore LOSPEED_IMMEDIATE_PGOOD = 	{static_cast<Hard_Semaphore::HSem_Channel>(Sem_Mapping::SEM_IMMEDIATE_PGOOD)};
 
-	//and signal-listener pairs to indicate when we're done with our arm-fire sequence or if we timed out
+	//and signal-listener pairs to indicate when we're done with our arm-fire sequence or if we timed out/lost power
 	Scheduler arm_fire_timeout_task;	//sets the timeout flag if it gets triggered
 	PERSISTENT((Thread_Signal), arm_fire_timeout);
 	Thread_Signal_Listener arm_fire_timeout_listener = arm_fire_timeout.listen();
 	PERSISTENT((Thread_Signal), arm_fire_done);
 	Thread_Signal_Listener arm_fire_done_listener = arm_fire_done.listen();
+	PERSISTENT((Thread_Signal), arm_fire_brownout);
+	Thread_Signal_Listener arm_fire_brownout_listener = arm_fire_brownout.listen();
+	PERSISTENT((Thread_Signal), arm_fire_cancelled);
+	Thread_Signal_Listener arm_fire_cancelled_listener = arm_fire_cancelled.listen();
 
-	//own a DRAM interface and reference an MSC interface
-	//use these to own a memory helper interface
-	Neural_Memory_Broker neural_mem_broker;
+	//TODO: state listeners to neural memory manager
 
 	//##### UTILITY CONFIGURATION FUNCTIONS #####
 	//some functions to run when power becomes good/bad
@@ -209,10 +207,13 @@ private:
 	bool hispeed_trans_INACTIVE_to_ACTIVE() { return status_onboard_debounced_pgood.read(); }	//check our subscription variable to see if power is good
 	bool hispeed_trans_ACTIVE_to_INACTIVE() { return !status_onboard_debounced_pgood.read(); }	//check our subscription variable to see if power is bad
 	bool hispeed_trans_ACTIVE_to_PREARM() 	{ return command_hispeed_arm_fire_request.read(); }	//check the subscription variable to see if we want to arm/fire
-	bool hispeed_trans_PREARM_to_ARM_FIRE()	{ return HISPEED_ARM_FIRE_READY.READ(); }			//if the second core is ready, move onto ARM state
+	bool hispeed_trans_PREARM_to_ARM_FIRE()	{ return 	HISPEED_ARM_FIRE_READY.READ() &&
+														!status_mem_attached.read(); }			//if the second core is ready and memory is detached, move onto ARM state
 	bool hispeed_trans_PREARM_to_ACTIVE()	{ return arm_fire_timeout_listener.check(); }		//if we timed out, move to the active state
-	bool hispeed_trans_ARM_FIRE_to_ACTIVE() { return 	arm_fire_done_listener.check() ||
-														arm_fire_timeout_listener.check(false); }	//move back to active when we're done or we timeout
+	bool hispeed_trans_ARM_FIRE_to_ACTIVE() { return 	arm_fire_done_listener.check() ||		//move back to active when we're done or we timeout, leave errors signaled
+														arm_fire_timeout_listener.check(false) 	||
+														arm_fire_brownout_listener.check(false)	||
+														arm_fire_cancelled_listener.check(false);	}
 	//NOTE: Always return to active state after armed, even in case of power fail
 	//		power monitor state variable will bring us into inactive state in case of actual power fail
 	//		If I returned to inactive state, will likely return right back to active state, then back to inactive state due to delays in state updating
@@ -241,9 +242,9 @@ private:
 	Sub_Var_RC<bool> 	command_hispeed_arm_fire_request;
 	PERSISTENT((Pub_Var<bool>), status_hispeed_armed);
 	PERSISTENT((Pub_Var<bool>), status_hispeed_arm_flag_err_ready);
-	PERSISTENT((Pub_Var<bool>), status_hispeed_arm_flag_err_sync);
 	PERSISTENT((Pub_Var<bool>), status_hispeed_arm_flag_err_pwr);
-	PERSISTENT((Pub_Var<bool>), status_hispeed_arm_flag_err_core_timeout);
+	PERSISTENT((Pub_Var<bool>), status_hispeed_arm_flag_err_timeout);
+	PERSISTENT((Pub_Var<bool>), status_hispeed_arm_flag_err_cancelled);
 	PERSISTENT((Pub_Var<bool>), status_hispeed_arm_flag_complete);
 	Sub_Var_RC<bool> 	command_hispeed_sdram_load_test_sequence;
 	Sub_Var_RC<std::array<bool, 4>> 	command_hispeed_SOA_enable;
@@ -255,4 +256,9 @@ private:
 	//to get whether the power rails are good or not (so we can activate/deactivate the subsystem)
 	Sub_Var<bool> status_onboard_immediate_pgood;
 	Sub_Var<bool> status_onboard_debounced_pgood;
+
+	//also have some state variable interfaces to the memory manager
+	//lets us attach/detach the block memory, and read attachment status
+	Sub_Var<bool> status_mem_attached;
+	PERSISTENT((Pub_Var<bool>), command_attach_mem);
 };

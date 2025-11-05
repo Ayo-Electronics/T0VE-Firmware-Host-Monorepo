@@ -1,5 +1,10 @@
 syntax = "proto3";
-package App;
+
+//some BULLSHIT here
+//Apparently any uppercase letters in the package name cause code generation to fail????
+//https://github.com/danielgtaylor/python-betterproto/issues/562
+//https://github.com/danielgtaylor/python-betterproto/issues/437
+package app;  
 
 //========================== SHARED "TYPES" ==========================
 //the most standards-compliant way to define fixed-sized arrays, but also define them as optional
@@ -46,6 +51,11 @@ message State_Supervisor_Status {
   uint32 encode_err_serz =      6;
 }
 
+message State_Supervisor {
+  State_Supervisor_Status status =    1;
+  //no commands
+}
+
 //### MULTICARD INFORMATION ###
 message Multicard_Status {
   bool all_present =       1;
@@ -56,6 +66,11 @@ message Multicard_Command {
   optional bool sel_pd_input_aux_npic = 1;
 }
 
+message Multicard {
+  Multicard_Status status = 1;
+  Multicard_Command command = 2;
+}
+
 //### POWER MONITOR ###
 message PM_Status {
   bool immediate_power_status = 1;
@@ -64,6 +79,11 @@ message PM_Status {
 
 message PM_Command {
   optional bool regulator_enable = 1;
+}
+
+message PM {
+  PM_Status status =    1;
+  PM_Command command =  2;
 }
 
 //### ADC OFFSET CONTROL ###
@@ -79,14 +99,19 @@ message Offset_Ctrl_Command {
   optional uint32_4 offset_set =  2;
 }
 
+message Offset_Ctrl {
+  Offset_Ctrl_Status status =    1;
+  Offset_Ctrl_Command command =  2;
+}
+
 //### HISPEED SUBSYSTEM ###
 message Hispeed_Status {
   bool armed =                1;
   bool done_success =         2;
   bool done_err_ready =       3;
-  bool done_err_sync =        4;
-  bool done_err_core_to =     5;
-  bool done_err_pwr =         6;
+  bool done_err_timeout =     4;
+  bool done_err_pwr =         5;
+  bool done_err_cancelled =   6;
   uint32_4 tia_adc_readback = 7;
 }
 
@@ -98,6 +123,11 @@ message Hispeed_Command {
   optional uint32_4 SOA_DAC_drive =   5;
 }
 
+message Hispeed {
+  Hispeed_Status status =    1;
+  Hispeed_Command command =  2;
+}
+
 //### CoB TEMPERATURE ###
 message CoB_Temp_Status {
   bool device_present =        1;
@@ -107,6 +137,11 @@ message CoB_Temp_Status {
 }
 
 //no commands for the CoB temperature sensor
+
+message CoB_Temp {
+  CoB_Temp_Status status =    1;
+  //no commands
+}
 
 //### CoB EEPROM ###
 message CoB_EEPROM_Status {
@@ -120,6 +155,11 @@ message CoB_EEPROM_Command {
   optional bool do_cob_write_desc = 1;
   optional string cob_desc_set =    2; //max length set in .options file, 128
   optional uint32 cob_write_key =   3;
+}
+
+message CoB_EEPROM {
+  CoB_EEPROM_Status status =    1;
+  CoB_EEPROM_Command command =  2;
 }
 
 //### WAVEGUIDE BIAS DRIVES ###
@@ -141,6 +181,28 @@ message WG_Bias_Command {
   optional bool do_readback =             3;
 }
 
+message WG_Bias {
+  WG_Bias_Status status =    1;
+  WG_Bias_Command command =  2;
+}
+
+//### NEURAL MEMORY INTERFACE ###
+message Neural_Mem_Status {
+  uint32 detected_input_size =  1;
+  uint32 detected_output_size = 2;
+  bool mem_attached =           3;
+}
+
+message Neural_Mem_Command {
+  optional bool check_io_size          = 1;
+  optional uint32 load_test_pattern    = 2;
+}
+
+message Neural_Mem {
+  Neural_Mem_Status status =    1;
+  Neural_Mem_Command command =  2;
+}
+
 //### COMMS INTERFACE ###
 message Comms_Status {
   bool comms_connected = 1;
@@ -150,29 +212,27 @@ message Comms_Command {
   optional bool allow_connection = 1;
 }
 
+message Comms {
+  Comms_Status status =    1;
+  Comms_Command command =  2;
+}
+
 //########### STATE AGGREGATION ###########
 
 message Node_State {
-  State_Supervisor_Status state_supervisor_st =  1;
-  Multicard_Status multicard_st =                2;
-  Multicard_Command multicard_cmd =              3;
-  PM_Status pm_onboard_st =                      4;
-  PM_Command pm_onboard_cmd =                    5;
-  PM_Status pm_motherboard_st =                  6;
-  PM_Command pm_motherboard_cmd =                7;
-  Offset_Ctrl_Status offset_ctrl_st =            8;
-  Offset_Ctrl_Command offset_ctrl_cmd =          9;
-  Hispeed_Status hispeed_st =                   10;
-  Hispeed_Command hispeed_cmd =                 11;
-  CoB_Temp_Status cob_temp_st =                 12;
-  CoB_EEPROM_Status cob_eeprom_st =             13;
-  CoB_EEPROM_Command cob_eeprom_cmd =           14;
-  WG_Bias_Status wg_bias_st =                   15;
-  WG_Bias_Command wg_bias_cmd =                 16;
-  Comms_Status comms_st =                       17;
-  Comms_Command comms_cmd =                     18;
-  uint32 MAGIC_NUMBER =                         19;
-  optional bool do_system_reset =               20;
+  State_Supervisor state_supervisor = 1;
+  Multicard multicard =               2;
+  PM pm_onboard =                     3;
+  PM pm_motherboard =                 4;
+  Offset_Ctrl offset_ctrl =           5;
+  Hispeed hispeed =                   6;
+  CoB_Temp cob_temp =                 7;
+  CoB_EEPROM cob_eeprom =             8;
+  WG_Bias waveguide_bias =            9;
+  Neural_Mem neural_mem_manager =     10;
+  Comms comms =                       11;
+  uint32 MAGIC_NUMBER =               12;
+  optional bool do_system_reset =     13;
 }
 
 //========================== AGGREGATION INTO SINGLE MESSAGE ==========================

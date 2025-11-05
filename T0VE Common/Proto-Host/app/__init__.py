@@ -11,33 +11,6 @@ from typing import (
 
 import betterproto
 
-from .. import (
-    AppBool4 as _AppBool4__,
-    AppCoBEepromCommand as _AppCoBEepromCommand__,
-    AppCoBEepromStatus as _AppCoBEepromStatus__,
-    AppCoBTempStatus as _AppCoBTempStatus__,
-    AppCommsCommand as _AppCommsCommand__,
-    AppCommsStatus as _AppCommsStatus__,
-    AppDebug as _AppDebug__,
-    AppDebugLevel as _AppDebugLevel__,
-    AppHispeedCommand as _AppHispeedCommand__,
-    AppHispeedStatus as _AppHispeedStatus__,
-    AppMulticardCommand as _AppMulticardCommand__,
-    AppMulticardStatus as _AppMulticardStatus__,
-    AppNodeState as _AppNodeState__,
-    AppOffsetCtrlCommand as _AppOffsetCtrlCommand__,
-    AppOffsetCtrlStatus as _AppOffsetCtrlStatus__,
-    AppPmCommand as _AppPmCommand__,
-    AppPmStatus as _AppPmStatus__,
-    AppStateSupervisorStatus as _AppStateSupervisorStatus__,
-    AppUint322 as _AppUint322__,
-    AppUint324 as _AppUint324__,
-    AppUint3210 as _AppUint3210__,
-    AppWgBiasCommand as _AppWgBiasCommand__,
-    AppWgBiasSetpoints as _AppWgBiasSetpoints__,
-    AppWgBiasStatus as _AppWgBiasStatus__,
-)
-
 
 class DebugLevel(betterproto.Enum):
     INFO = 0
@@ -74,7 +47,7 @@ class Bool4(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class Debug(betterproto.Message):
-    level: "_AppDebugLevel__" = betterproto.enum_field(1)
+    level: "DebugLevel" = betterproto.enum_field(1)
     msg: str = betterproto.string_field(2)
 
 
@@ -91,6 +64,11 @@ class StateSupervisorStatus(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class StateSupervisor(betterproto.Message):
+    status: "StateSupervisorStatus" = betterproto.message_field(1)
+
+
+@dataclass(eq=False, repr=False)
 class MulticardStatus(betterproto.Message):
     """### MULTICARD INFORMATION ###"""
 
@@ -101,6 +79,12 @@ class MulticardStatus(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class MulticardCommand(betterproto.Message):
     sel_pd_input_aux_npic: Optional[bool] = betterproto.bool_field(1, optional=True)
+
+
+@dataclass(eq=False, repr=False)
+class Multicard(betterproto.Message):
+    status: "MulticardStatus" = betterproto.message_field(1)
+    command: "MulticardCommand" = betterproto.message_field(2)
 
 
 @dataclass(eq=False, repr=False)
@@ -117,16 +101,28 @@ class PmCommand(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class Pm(betterproto.Message):
+    status: "PmStatus" = betterproto.message_field(1)
+    command: "PmCommand" = betterproto.message_field(2)
+
+
+@dataclass(eq=False, repr=False)
 class OffsetCtrlStatus(betterproto.Message):
     device_present: bool = betterproto.bool_field(1)
     device_error: bool = betterproto.bool_field(2)
-    offset_readback: "_AppUint324__" = betterproto.message_field(3)
+    offset_readback: "Uint324" = betterproto.message_field(3)
 
 
 @dataclass(eq=False, repr=False)
 class OffsetCtrlCommand(betterproto.Message):
     do_readback: Optional[bool] = betterproto.bool_field(1, optional=True)
-    offset_set: Optional["_AppUint324__"] = betterproto.message_field(2, optional=True)
+    offset_set: Optional["Uint324"] = betterproto.message_field(2, optional=True)
+
+
+@dataclass(eq=False, repr=False)
+class OffsetCtrl(betterproto.Message):
+    status: "OffsetCtrlStatus" = betterproto.message_field(1)
+    command: "OffsetCtrlCommand" = betterproto.message_field(2)
 
 
 @dataclass(eq=False, repr=False)
@@ -136,21 +132,25 @@ class HispeedStatus(betterproto.Message):
     armed: bool = betterproto.bool_field(1)
     done_success: bool = betterproto.bool_field(2)
     done_err_ready: bool = betterproto.bool_field(3)
-    done_err_sync: bool = betterproto.bool_field(4)
-    done_err_core_to: bool = betterproto.bool_field(5)
-    done_err_pwr: bool = betterproto.bool_field(6)
-    tia_adc_readback: "_AppUint324__" = betterproto.message_field(7)
+    done_err_timeout: bool = betterproto.bool_field(4)
+    done_err_pwr: bool = betterproto.bool_field(5)
+    done_err_cancelled: bool = betterproto.bool_field(6)
+    tia_adc_readback: "Uint324" = betterproto.message_field(7)
 
 
 @dataclass(eq=False, repr=False)
 class HispeedCommand(betterproto.Message):
     arm_request: Optional[bool] = betterproto.bool_field(1, optional=True)
     load_test_sequence: Optional[bool] = betterproto.bool_field(2, optional=True)
-    soa_enable: Optional["_AppBool4__"] = betterproto.message_field(3, optional=True)
-    tia_enable: Optional["_AppBool4__"] = betterproto.message_field(4, optional=True)
-    soa_dac_drive: Optional["_AppUint324__"] = betterproto.message_field(
-        5, optional=True
-    )
+    soa_enable: Optional["Bool4"] = betterproto.message_field(3, optional=True)
+    tia_enable: Optional["Bool4"] = betterproto.message_field(4, optional=True)
+    soa_dac_drive: Optional["Uint324"] = betterproto.message_field(5, optional=True)
+
+
+@dataclass(eq=False, repr=False)
+class Hispeed(betterproto.Message):
+    status: "HispeedStatus" = betterproto.message_field(1)
+    command: "HispeedCommand" = betterproto.message_field(2)
 
 
 @dataclass(eq=False, repr=False)
@@ -161,6 +161,11 @@ class CoBTempStatus(betterproto.Message):
     device_error: bool = betterproto.bool_field(2)
     device_id: int = betterproto.uint32_field(3)
     temperature_celsius: float = betterproto.float_field(4)
+
+
+@dataclass(eq=False, repr=False)
+class CoBTemp(betterproto.Message):
+    status: "CoBTempStatus" = betterproto.message_field(1)
 
 
 @dataclass(eq=False, repr=False)
@@ -181,28 +186,59 @@ class CoBEepromCommand(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class CoBEeprom(betterproto.Message):
+    status: "CoBEepromStatus" = betterproto.message_field(1)
+    command: "CoBEepromCommand" = betterproto.message_field(2)
+
+
+@dataclass(eq=False, repr=False)
 class WgBiasSetpoints(betterproto.Message):
     """### WAVEGUIDE BIAS DRIVES ###"""
 
-    stub_setpoint: "_AppUint3210__" = betterproto.message_field(1)
-    mid_setpoint: "_AppUint324__" = betterproto.message_field(2)
-    bulk_setpoint: "_AppUint322__" = betterproto.message_field(3)
+    stub_setpoint: "Uint3210" = betterproto.message_field(1)
+    mid_setpoint: "Uint324" = betterproto.message_field(2)
+    bulk_setpoint: "Uint322" = betterproto.message_field(3)
 
 
 @dataclass(eq=False, repr=False)
 class WgBiasStatus(betterproto.Message):
     device_present: bool = betterproto.bool_field(1)
     device_error: bool = betterproto.bool_field(2)
-    setpoints_readback: "_AppWgBiasSetpoints__" = betterproto.message_field(3)
+    setpoints_readback: "WgBiasSetpoints" = betterproto.message_field(3)
 
 
 @dataclass(eq=False, repr=False)
 class WgBiasCommand(betterproto.Message):
-    setpoints: Optional["_AppWgBiasSetpoints__"] = betterproto.message_field(
-        1, optional=True
-    )
+    setpoints: Optional["WgBiasSetpoints"] = betterproto.message_field(1, optional=True)
     regulator_enable: Optional[bool] = betterproto.bool_field(2, optional=True)
     do_readback: Optional[bool] = betterproto.bool_field(3, optional=True)
+
+
+@dataclass(eq=False, repr=False)
+class WgBias(betterproto.Message):
+    status: "WgBiasStatus" = betterproto.message_field(1)
+    command: "WgBiasCommand" = betterproto.message_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class NeuralMemStatus(betterproto.Message):
+    """### NEURAL MEMORY INTERFACE ###"""
+
+    detected_input_size: int = betterproto.uint32_field(1)
+    detected_output_size: int = betterproto.uint32_field(2)
+    mem_attached: bool = betterproto.bool_field(3)
+
+
+@dataclass(eq=False, repr=False)
+class NeuralMemCommand(betterproto.Message):
+    check_io_size: Optional[bool] = betterproto.bool_field(1, optional=True)
+    load_test_pattern: Optional[int] = betterproto.uint32_field(2, optional=True)
+
+
+@dataclass(eq=False, repr=False)
+class NeuralMem(betterproto.Message):
+    status: "NeuralMemStatus" = betterproto.message_field(1)
+    command: "NeuralMemCommand" = betterproto.message_field(2)
 
 
 @dataclass(eq=False, repr=False)
@@ -218,30 +254,29 @@ class CommsCommand(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class Comms(betterproto.Message):
+    status: "CommsStatus" = betterproto.message_field(1)
+    command: "CommsCommand" = betterproto.message_field(2)
+
+
+@dataclass(eq=False, repr=False)
 class NodeState(betterproto.Message):
-    state_supervisor_st: "_AppStateSupervisorStatus__" = betterproto.message_field(1)
-    multicard_st: "_AppMulticardStatus__" = betterproto.message_field(2)
-    multicard_cmd: "_AppMulticardCommand__" = betterproto.message_field(3)
-    pm_onboard_st: "_AppPmStatus__" = betterproto.message_field(4)
-    pm_onboard_cmd: "_AppPmCommand__" = betterproto.message_field(5)
-    pm_motherboard_st: "_AppPmStatus__" = betterproto.message_field(6)
-    pm_motherboard_cmd: "_AppPmCommand__" = betterproto.message_field(7)
-    offset_ctrl_st: "_AppOffsetCtrlStatus__" = betterproto.message_field(8)
-    offset_ctrl_cmd: "_AppOffsetCtrlCommand__" = betterproto.message_field(9)
-    hispeed_st: "_AppHispeedStatus__" = betterproto.message_field(10)
-    hispeed_cmd: "_AppHispeedCommand__" = betterproto.message_field(11)
-    cob_temp_st: "_AppCoBTempStatus__" = betterproto.message_field(12)
-    cob_eeprom_st: "_AppCoBEepromStatus__" = betterproto.message_field(13)
-    cob_eeprom_cmd: "_AppCoBEepromCommand__" = betterproto.message_field(14)
-    wg_bias_st: "_AppWgBiasStatus__" = betterproto.message_field(15)
-    wg_bias_cmd: "_AppWgBiasCommand__" = betterproto.message_field(16)
-    comms_st: "_AppCommsStatus__" = betterproto.message_field(17)
-    comms_cmd: "_AppCommsCommand__" = betterproto.message_field(18)
-    magic_number: int = betterproto.uint32_field(19)
-    do_system_reset: Optional[bool] = betterproto.bool_field(20, optional=True)
+    state_supervisor: "StateSupervisor" = betterproto.message_field(1)
+    multicard: "Multicard" = betterproto.message_field(2)
+    pm_onboard: "Pm" = betterproto.message_field(3)
+    pm_motherboard: "Pm" = betterproto.message_field(4)
+    offset_ctrl: "OffsetCtrl" = betterproto.message_field(5)
+    hispeed: "Hispeed" = betterproto.message_field(6)
+    cob_temp: "CoBTemp" = betterproto.message_field(7)
+    cob_eeprom: "CoBEeprom" = betterproto.message_field(8)
+    waveguide_bias: "WgBias" = betterproto.message_field(9)
+    neural_mem_manager: "NeuralMem" = betterproto.message_field(10)
+    comms: "Comms" = betterproto.message_field(11)
+    magic_number: int = betterproto.uint32_field(12)
+    do_system_reset: Optional[bool] = betterproto.bool_field(13, optional=True)
 
 
 @dataclass(eq=False, repr=False)
 class Communication(betterproto.Message):
-    node_state: "_AppNodeState__" = betterproto.message_field(1, group="payload")
-    debug_message: "_AppDebug__" = betterproto.message_field(2, group="payload")
+    node_state: "NodeState" = betterproto.message_field(1, group="payload")
+    debug_message: "Debug" = betterproto.message_field(2, group="payload")
