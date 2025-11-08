@@ -129,14 +129,13 @@ void EEPROM_24AA02UID::read_UID() {
 
 	//start by clearing the TX buffer, and set the first byte to the device ID register
 	std::array<uint8_t, 1> tx_buffer = {UID_START_ADDRESS};
-	std::array<uint8_t, UID_LENGTH_BYTES> rx_buffer = {};	//place to dump the received bytes
 
 	//set up some listeners for our signals, and run the I2C transfer until it succeeds
 	auto listen_complete = internal_transfer_complete.listen();
 	auto listen_error = internal_transfer_error.listen();
 	Aux_I2C::I2C_STATUS status;
 	do {
-		status = bus.write_read(EEPROM_ADDR_7b, tx_buffer, rx_buffer,
+		status = bus.write_read(EEPROM_ADDR_7b, tx_buffer, UID_bytes,
 								&internal_transfer_complete, &internal_transfer_error);	//signals
 	} while(status == Aux_I2C::I2C_STATUS::I2C_BUSY); //stall until the transmission completes
 
@@ -161,12 +160,9 @@ void EEPROM_24AA02UID::read_UID() {
 			return;
 		}
 
-		//our read is actually complete, break to read UID bytes
-		if(listen_complete.check()) break;
+		//our read is actually complete, return successfully
+		if(listen_complete.check()) return;
 	}
-
-	//and now actually drop the UID bytes into the shared variable
-	UID_bytes = rx_buffer;
 }
 
 void EEPROM_24AA02UID::read_contents() {
@@ -175,14 +171,13 @@ void EEPROM_24AA02UID::read_contents() {
 
 	//start by clearing the TX buffer, and set the first byte to the device ID register
 	std::array<uint8_t, 1> tx_buffer = {MEMORY_START_ADDRESS};
-	std::array<uint8_t, MEMORY_SIZE_BYTES> rx_buffer = {};	//place to dump the received bytes
 
 	//set up some listeners for our signals, and run the I2C transfer until it succeeds
 	auto listen_complete = internal_transfer_complete.listen();
 	auto listen_error = internal_transfer_error.listen();
 	Aux_I2C::I2C_STATUS status;
 	do {
-		status = bus.write_read(EEPROM_ADDR_7b, tx_buffer, rx_buffer,
+		status = bus.write_read(EEPROM_ADDR_7b, tx_buffer, eeprom_contents,
 								&internal_transfer_complete, &internal_transfer_error);	//signals
 	} while(status == Aux_I2C::I2C_STATUS::I2C_BUSY); //stall until the transmission completes
 
@@ -207,10 +202,7 @@ void EEPROM_24AA02UID::read_contents() {
 			return;
 		}
 
-		//our read is actually complete break to read contents
-		if(listen_complete.check()) break;
+		//our read is actually complete, return successfully
+		if(listen_complete.check()) return;
 	}
-
-	//and now actually drop the RX buffer into the contents variable
-	eeprom_contents = rx_buffer;
 }
