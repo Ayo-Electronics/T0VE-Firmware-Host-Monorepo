@@ -55,36 +55,28 @@ Hispeed_Subsystem::Hispeed_Channel_Hardware_t CHANNEL_0_HW = {
 		._cs_dac_pin = Pin_Mapping::SPI_CS_DAC_CH0,
 		._cs_adc_pin = Pin_Mapping::SPI_CS_ADC_CH0,
 		._soa_en_pin = Pin_Mapping::SOA_EN_CH0,
-		._tia_en_pin = Pin_Mapping::TIA_EN_CH0,
-		._cs_dac_timer = PWM::CS_DAC_CH0_CHANNEL,
-		._cs_adc_timer = PWM::CS_ADC_CH0_CHANNEL,
+		._tia_en_pin = Pin_Mapping::TIA_EN_CH0
 };
 Hispeed_Subsystem::Hispeed_Channel_Hardware_t CHANNEL_1_HW = {
 		._spi_channel_hw = HiSpeed_SPI::SPI_CHANNEL_1,
 		._cs_dac_pin = Pin_Mapping::SPI_CS_DAC_CH1,
 		._cs_adc_pin = Pin_Mapping::SPI_CS_ADC_CH1,
 		._soa_en_pin = Pin_Mapping::SOA_EN_CH1,
-		._tia_en_pin = Pin_Mapping::TIA_EN_CH1,
-		._cs_dac_timer = PWM::CS_DAC_CH1_CHANNEL,
-		._cs_adc_timer = PWM::CS_ADC_CH1_CHANNEL,
+		._tia_en_pin = Pin_Mapping::TIA_EN_CH1
 };
 Hispeed_Subsystem::Hispeed_Channel_Hardware_t CHANNEL_2_HW = {
 		._spi_channel_hw = HiSpeed_SPI::SPI_CHANNEL_2,
 		._cs_dac_pin = Pin_Mapping::SPI_CS_DAC_CH2,
 		._cs_adc_pin = Pin_Mapping::SPI_CS_ADC_CH2,
 		._soa_en_pin = Pin_Mapping::SOA_EN_CH2,
-		._tia_en_pin = Pin_Mapping::TIA_EN_CH2,
-		._cs_dac_timer = PWM::CS_DAC_CH2_CHANNEL,
-		._cs_adc_timer = PWM::CS_ADC_CH2_CHANNEL,
+		._tia_en_pin = Pin_Mapping::TIA_EN_CH2
 };
 Hispeed_Subsystem::Hispeed_Channel_Hardware_t CHANNEL_3_HW = {
 		._spi_channel_hw = HiSpeed_SPI::SPI_CHANNEL_3,
 		._cs_dac_pin = Pin_Mapping::SPI_CS_DAC_CH3,
 		._cs_adc_pin = Pin_Mapping::SPI_CS_ADC_CH3,
 		._soa_en_pin = Pin_Mapping::SOA_EN_CH3,
-		._tia_en_pin = Pin_Mapping::TIA_EN_CH3,
-		._cs_dac_timer = PWM::CS_DAC_CH3_CHANNEL,
-		._cs_adc_timer = PWM::CS_ADC_CH3_CHANNEL,
+		._tia_en_pin = Pin_Mapping::TIA_EN_CH3
 };
 
 //=============== CREATING SYSTEM STATE AGGREGATION + LINKING SUBSYSTEM STATE VARIABLES ===============
@@ -97,11 +89,7 @@ Multicard_Info multicard_info_subsys(	Pin_Mapping::SYNC_NID_0,
 										Pin_Mapping::SYNC_NID_3,
 										Pin_Mapping::PRES_INTLK,
 										Pin_Mapping::PD_SEL_PIC,
-										Pin_Mapping::PD_SEL_AUX,
-										Pin_Mapping::SYNC_NODE_READY,
-										Pin_Mapping::SYNC_ALL_READY,
-										PWM::SYNCOUT_TIMER,
-										PWM::SYNCIN_TIMER);
+										Pin_Mapping::PD_SEL_AUX);
 Power_Monitor pm_onboard_subsys(Pin_Mapping::PWR_REG_EN, Pin_Mapping::PWR_PGOOD, 50); //onboard analog regulators
 Power_Monitor pm_motherboard_subsys(Pin_Mapping::EXT_PWR_REG_EN, Pin_Mapping::EXT_PWR_PGOOD, 50); //offboard analog regulators
 ADC_Offset_Control offset_ctrl_subsys(i2c_bus);

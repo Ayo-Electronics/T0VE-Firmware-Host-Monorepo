@@ -38,15 +38,18 @@ private:
 	Neural_Memory neural_mem;
 
 	//functions to load some test sequences into neural memory
-	void load_mem_pattern_1();	//square wave between 0 and full, discard outputs
-	void load_mem_pattern_2();	//sawtooth ramp pattern, discard outputs
-	void load_mem_pattern_3();	//pseudo-random pattern with same-index write-back
-	void load_mem_pattern_4();	//DC value with future channel write-back
+	void check_load_mem_pattern();	//checks if we want to load a memory pattern
+	void load_mem_pattern_1();		//square wave between 0 and full, discard outputs
+	void load_mem_pattern_2();		//sawtooth ramp pattern, discard outputs
+	void load_mem_pattern_3();		//pseudo-random pattern with same-index write-back
+	void load_mem_pattern_4();		//DC value with future channel write-back
+	void load_mem_pattern_5();		//i/o test --> push all inputs somewhere in the network, read from those locations
 
 	//functions to check input/output sizes
 	void check_io_mappings();
 
 	//and functions to expose/hide neural memory files
+	void check_attach_memory();
 	void attach_memory();
 	void detach_memory();
 

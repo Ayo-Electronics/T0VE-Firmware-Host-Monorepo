@@ -14,7 +14,6 @@
 #include "app_threading.hpp"
 #include "app_hal_hsem.hpp"
 #include "app_shared_memory.h"
-#include "app_msc_if.hpp"
 
 class Hispeed_Subsystem {
 public:
@@ -30,8 +29,6 @@ public:
 		GPIO_Alternate::GPIO_Alternate_Hardware_Pin _cs_adc_pin;
 		GPIO::GPIO_Hardware_Pin _soa_en_pin;
 		GPIO::GPIO_Hardware_Pin _tia_en_pin;
-		PWM::PWM_Hardware_Channel& _cs_dac_timer;
-		PWM::PWM_Hardware_Channel& _cs_adc_timer;
 	};
 
 	//============================================================================
@@ -102,8 +99,6 @@ private:
 	PERSISTENT((Thread_Signal), arm_fire_cancelled);
 	Thread_Signal_Listener arm_fire_cancelled_listener = arm_fire_cancelled.listen();
 
-	//TODO: state listeners to neural memory manager
-
 	//##### UTILITY CONFIGURATION FUNCTIONS #####
 	//some functions to run when power becomes good/bad
 	//namely setting up I/O pins, resetting state variables
@@ -136,14 +131,10 @@ private:
 		Hispeed_Analog device_pair;
 		GPIO soa_en;
 		GPIO tia_en;
-		PWM cs_dac_timer;
-		PWM cs_adc_timer;
 		Hispeed_Channel_t(Hispeed_Channel_Hardware_t hw_channel):
 			device_pair(hw_channel._spi_channel_hw, hw_channel._cs_dac_pin, hw_channel._cs_adc_pin),
 			soa_en(hw_channel._soa_en_pin),
-			tia_en(hw_channel._tia_en_pin),
-			cs_dac_timer(hw_channel._cs_dac_timer),
-			cs_adc_timer(hw_channel._cs_adc_timer)
+			tia_en(hw_channel._tia_en_pin)
 		{}
 
 		//======= and a couple helper functions =======
@@ -151,15 +142,6 @@ private:
 			device_pair.init();
 			soa_en.init();
 			tia_en.init();
-			cs_dac_timer.init();
-			cs_adc_timer.init();
-		}
-
-		void configure_timing(float dac_cs_lowtime_s, float adc_cs_lowtime_s) {
-			cs_adc_timer.set_period(100e-6);
-			cs_adc_timer.set_assert_time(adc_cs_lowtime_s);
-			cs_dac_timer.set_period(100e-6);
-			cs_dac_timer.set_assert_time(dac_cs_lowtime_s);
 		}
 
 		void activate() {
@@ -174,17 +156,13 @@ private:
 			device_pair.deactivate();
 		}
 
-		void arm() {
+		void prepare() {
 			device_pair.arm();
-			cs_adc_timer.reset_count(0xFFFF);
-			cs_dac_timer.reset_count(0xFFFF);
-			cs_adc_timer.enable();
-			cs_dac_timer.enable();
+			//moving timer control to second core
 		}
 
-		void disarm() {
-			cs_adc_timer.disable();
-			cs_dac_timer.disable();
+		void restore() {
+			//letting second core release the timers
 			device_pair.disarm();
 		}
 	};
@@ -246,7 +224,6 @@ private:
 	PERSISTENT((Pub_Var<bool>), status_hispeed_arm_flag_err_timeout);
 	PERSISTENT((Pub_Var<bool>), status_hispeed_arm_flag_err_cancelled);
 	PERSISTENT((Pub_Var<bool>), status_hispeed_arm_flag_complete);
-	Sub_Var_RC<bool> 	command_hispeed_sdram_load_test_sequence;
 	Sub_Var_RC<std::array<bool, 4>> 	command_hispeed_SOA_enable;
 	Sub_Var_RC<std::array<bool, 4>> 	command_hispeed_TIA_enable;
 	Sub_Var_RC<std::array<uint16_t, 4>> command_hispeed_SOA_DAC_drive;
@@ -260,5 +237,5 @@ private:
 	//also have some state variable interfaces to the memory manager
 	//lets us attach/detach the block memory, and read attachment status
 	Sub_Var<bool> status_mem_attached;
-	PERSISTENT((Pub_Var<bool>), command_attach_mem);
+	PERSISTENT((Pub_Var<bool>), command_attach_mem, true);
 };

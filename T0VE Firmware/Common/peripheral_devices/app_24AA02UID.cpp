@@ -161,9 +161,12 @@ void EEPROM_24AA02UID::read_UID() {
 			return;
 		}
 
-		//our read is actually complete, just return successfully
-		if(listen_complete.check()) return;
+		//our read is actually complete, break to read UID bytes
+		if(listen_complete.check()) break;
 	}
+
+	//and now actually drop the UID bytes into the shared variable
+	UID_bytes = rx_buffer;
 }
 
 void EEPROM_24AA02UID::read_contents() {
@@ -204,7 +207,10 @@ void EEPROM_24AA02UID::read_contents() {
 			return;
 		}
 
-		//our read is actually complete, just return
-		if(listen_complete.check()) return;
+		//our read is actually complete break to read contents
+		if(listen_complete.check()) break;
 	}
+
+	//and now actually drop the RX buffer into the contents variable
+	eeprom_contents = rx_buffer;
 }

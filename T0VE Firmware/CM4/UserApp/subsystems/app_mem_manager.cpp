@@ -6,7 +6,7 @@
  */
 
 #include "app_mem_manager.hpp"
-
+#include "app_shared_memory.h" //network size
 
 Neural_Mem_Manager::Neural_Mem_Manager(DRAM& _dram, MSC_Interface& _msc_if):
 		dram(_dram), msc_if(_msc_if)
@@ -21,6 +21,11 @@ void Neural_Mem_Manager::init() {
 	//along with attaching the memory for editing
 	msc_if.connect_request();
 
+	//attach memory, check the IO mappings, and load a pattern if we want at startup
+	check_attach_memory();
+	check_io_mappings();
+	check_load_mem_pattern();
+
 	//and start our state update task
 	check_state_update_task.schedule_interval_ms(	BIND_CALLBACK(this, check_state_update),
 													Scheduler::INTERVAL_EVERY_ITERATION);
@@ -30,8 +35,7 @@ void Neural_Mem_Manager::init() {
 void Neural_Mem_Manager::check_state_update() {
 	//check if we want to attach/detach our memory
 	if(command_nmemmanager_attach_memory.check()) {
-		if(command_nmemmanager_attach_memory.read()) 	attach_memory();
-		else 											detach_memory();
+		check_attach_memory();
 	}
 
 	//check if we wanna analyze our discovered input/output size
@@ -41,15 +45,7 @@ void Neural_Mem_Manager::check_state_update() {
 
 	//and if we want to load some test patterns
 	if(command_nmemmanager_load_test_pattern.check()) {
-		//load the test pattern accordingly
-		auto test_pattern = command_nmemmanager_load_test_pattern.read();
-		if(test_pattern == 1) load_mem_pattern_1();
-		if(test_pattern == 2) load_mem_pattern_2();
-		if(test_pattern == 3) load_mem_pattern_3();
-		if(test_pattern == 4) load_mem_pattern_4();
-
-		//and acknowledge the test pattern load flag
-		command_nmemmanager_load_test_pattern.acknowledge_reset();
+		check_load_mem_pattern();
 	}
 }
 
@@ -62,13 +58,12 @@ void Neural_Mem_Manager::check_io_mappings() {
 
 	//go through these inputs, and find the first invalid index
 	//this is where the input transfer will stop; corresponds with the input size
-	for(size_t i = 0; i < imap.size(); i++) {
-		auto& dest = imap[i];
-		if(!dest.valid()) {
-			status_nmemmanager_detected_input_size.publish(i);
-			break;
-		}
+	size_t detect_size;
+	for(detect_size = 0; detect_size < imap.size(); detect_size++) {
+		auto& dest = imap[detect_size];
+		if(!dest.valid()) break;
 	}
+	status_nmemmanager_detected_input_size.publish(detect_size);
 
 	//do the exact same thing with the output mappings
 	//grab the output mapping
@@ -76,16 +71,20 @@ void Neural_Mem_Manager::check_io_mappings() {
 
 	//go through these inputs, and find the first invalid index
 	//this is where the input transfer will stop; corresponds with the input size
-	for(size_t i = 0; i < omap.size(); i++) {
-		auto& dest = omap[i];
-		if(!dest.valid()) {
-			status_nmemmanager_detected_output_size.publish(i);
-			break;
-		}
+	for(detect_size = 0; detect_size < omap.size(); detect_size++) {
+		auto& dest = omap[detect_size];
+		if(!dest.valid()) break;
 	}
+	status_nmemmanager_detected_output_size.publish(detect_size);
 
 	//and acknowledge our command flag
 	command_nmemmanager_check_io_size.acknowledge_reset();
+}
+
+//checks the command variable, attaches/detaches memory accordingly
+void Neural_Mem_Manager::check_attach_memory() {
+	if(command_nmemmanager_attach_memory.read()) 	attach_memory();
+	else 											detach_memory();
 }
 
 //and functions to expose/hide neural memory files
@@ -112,6 +111,20 @@ void Neural_Mem_Manager::detach_memory() {
 }
 
 //=============== MEMORY TEST PATTERN LOADING ===============
+//check to see if we need to load a memory test pattern
+void Neural_Mem_Manager::check_load_mem_pattern() {
+	//load the test pattern accordingly
+	auto test_pattern = command_nmemmanager_load_test_pattern.read();
+	if(test_pattern == 1) load_mem_pattern_1();
+	if(test_pattern == 2) load_mem_pattern_2();
+	if(test_pattern == 3) load_mem_pattern_3();
+	if(test_pattern == 4) load_mem_pattern_4();
+	if(test_pattern == 5) load_mem_pattern_5();
+
+	//and acknowledge the test pattern load flag
+	command_nmemmanager_load_test_pattern.acknowledge_reset();
+}
+
 //square wave between 0 and full, discard outputs
 void Neural_Mem_Manager::load_mem_pattern_1() {
 	detach_memory(); 						//prevent editing while we're loading our test pattern
@@ -122,7 +135,7 @@ void Neural_Mem_Manager::load_mem_pattern_1() {
 	for(size_t i = 0; i < sequence.size() - 1; i++) {
 		//set the parameter values of the particular block to either
 		//full scale or zero
-		uint16_t param_val = (i % 2 == 0) ? UINT16_MAX : 0;
+		uint16_t param_val = (i % 2 == 0) ? 16000 : 0; //corresponds to 1.25mA; 2.5V with nominal TIA loopback
 
 		//and make a throwaway block with the particular param vals
 		sequence[i] = Neural_Memory::Hispeed_Block_t::mk_throwaway({param_val, param_val, param_val, param_val});
@@ -202,6 +215,38 @@ void Neural_Mem_Manager::load_mem_pattern_4() {
 	//and the last block should be a terminator
 	sequence.back() = Neural_Memory::Hispeed_Block_t::mk_term();
 	attach_memory(); //allow editing after loading our test pattern
+}
+
+void Neural_Mem_Manager::load_mem_pattern_5() {
+	detach_memory();	//prevent editing while we're loading our test pattern
+	neural_mem.clean();	//start fresh with the arrays
+
+	//start going through the inputs, assign them according to their index
+	auto memsize = neural_mem.block_mem().size(); //used later
+	auto outputs = neural_mem.outputs(); //used later
+	auto inputs = neural_mem.inputs();
+	for(size_t i = 0; i < inputs.size(); i++) inputs[i] = i & 0xFFFF;
+
+	//the sequence will be just a single terminator block
+	//basically skips network execution entirely
+	auto sequence = neural_mem.block_mem();
+	sequence[0] = Neural_Memory::Hispeed_Block_t::mk_term();
+
+	//now make the mapping, the core of the test
+	//place the blocks in basically pseudorandom spots
+	//but ensuring no overlap - just gonna use a constant stride that is coprime with our wrap-around
+	static const size_t STRIDE = 8191;	//unlikely we'll have a common multiple
+	static const size_t STRIDE_MOD = (memsize % STRIDE) == 0 ? memsize - 1 : memsize; //but just in case
+	auto in_mapping = neural_mem.input_mapping();
+	auto out_mapping = neural_mem.output_mapping();
+	size_t num_io = min(in_mapping.size(), out_mapping.size());
+	for(size_t i = 0; i < num_io; i++) {
+		size_t dest_addr = (i * STRIDE) % STRIDE_MOD; //constant stride destination
+		auto dest = Neural_Memory::ADC_Destination_t(dest_addr, i%4, 0); //rotating sub-index
+		in_mapping[i] = dest;
+		out_mapping[i] = dest;
+	}
+
 }
 
 

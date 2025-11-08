@@ -7,7 +7,6 @@
 
 #include "app_hispeed_subsys.hpp"
 
-
 //==================== CONSTRUCTOR =====================
 Hispeed_Subsystem::Hispeed_Subsystem(	Hispeed_Channel_Hardware_t ch0,
 										Hispeed_Channel_Hardware_t ch1,
@@ -48,16 +47,7 @@ void Hispeed_Subsystem::init() {
 	HISPEED_ARM_FIRE_READY.init();
 	HISPEED_ARM_FIRE_SUCCESS.init();
 
-	//TODO: figure out how to push the timing configurations--will likely do this in the high-speed side
-
-	//configure the chip select timing for all the channels
-//	CHANNEL_0.configure_timing(CS_DAC_LOWTIME, CS_ADC_LOWTIME);
-//	CHANNEL_1.configure_timing(CS_DAC_LOWTIME, CS_ADC_LOWTIME);
-//	CHANNEL_2.configure_timing(CS_DAC_LOWTIME, CS_ADC_LOWTIME);
-//	CHANNEL_3.configure_timing(CS_DAC_LOWTIME, CS_ADC_LOWTIME);
-
-	//and configure the SYNCOUT timer with our desired frequency and duty cycle
-//	multicard_interface.configure_sync_timer(SYNC_FREQUENCY, SYNC_DUTY);
+	//letting the hispeed core do the timer configurations
 
 	//NOT going to update the other hardware with any of our default states
 	//we want to enter the system in a safe configuration--enter with defaults from `deactivate`
@@ -229,12 +219,12 @@ void Hispeed_Subsystem::do_arm_fire_setup() {
 	//prevent the files from being accessed over USB
 	command_attach_mem.publish(false);
 
-	//arm the channels
+	//prepare the channels
 	//i.e. puts the chip select lines under timer control
-	CHANNEL_0.arm();
-	CHANNEL_1.arm();
-	CHANNEL_2.arm();
-	CHANNEL_3.arm();
+	CHANNEL_0.prepare();
+	CHANNEL_1.prepare();
+	CHANNEL_2.prepare();
+	CHANNEL_3.prepare();
 
 	//schedule our timeout
 	arm_fire_timeout_task.schedule_oneshot_ms(BIND_CALLBACK(&arm_fire_timeout, signal), FIRING_TIMEOUT_MS);
@@ -266,10 +256,10 @@ void Hispeed_Subsystem::do_arm_fire_exit() {
 	arm_fire_timeout_task.deschedule();
 
 	//disarm the hardware immediately after finish
-	CHANNEL_0.disarm();
-	CHANNEL_1.disarm();
-	CHANNEL_2.disarm();
-	CHANNEL_3.disarm();
+	CHANNEL_0.restore();
+	CHANNEL_1.restore();
+	CHANNEL_2.restore();
+	CHANNEL_3.restore();
 
 	//grabs the exit codes, propagate exit signals to state variables
 	//deasserts fire signal, unlocks memory, moves the outputs, attaches the files, restores peripherals

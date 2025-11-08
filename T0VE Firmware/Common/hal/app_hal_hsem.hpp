@@ -36,19 +36,19 @@ public:
 	void init();
 
 	//expose mutex-style functions --> inlining for speed
-	inline void LOCK() {
+	__attribute__((always_inline)) inline void LOCK() {
 		//busy-loop until we can claim the mutex
 		while(!TRY_LOCK()) {
 			__NOP();	//cooldown for a little, relax AHB traffic
 		}
 	}
 
-	inline void UNLOCK() {
+	__attribute__((always_inline)) inline void UNLOCK() {
 		__DMB();	//ensure all writes complete before unlocking
 		READ_CLEAR_REGISTER = (CORE_ID & 0x0F) << HSEM_R_COREID_Pos; //PROC ID not used in our schema
 	}
 
-	inline bool TRY_LOCK() {	//true if claimed, false if busy
+	__attribute__((always_inline)) inline bool TRY_LOCK() {	//true if claimed, false if busy
 		//check that the RLR register is now claimed by us (and that it's locked)
 		//claiming via the RLR register sets PROCID to 0, so no need to compare those bits
 		return TAKE_REGISTER.read() == (HSEM_RLR_LOCK | ((CORE_ID & 0x0F) << HSEM_R_COREID_Pos));
@@ -81,7 +81,7 @@ public:
 
 	//another function that just checks whether the semaphore is locked
 	//useful for using semaphores as atomic flags rather than mutexes
-	inline bool READ() {
+	__attribute__((always_inline)) inline bool READ() {
 		return READ_CLEAR_REGISTER.read() & HSEM_R_LOCK;
 	}
 
