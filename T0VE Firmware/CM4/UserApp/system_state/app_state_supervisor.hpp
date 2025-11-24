@@ -144,8 +144,9 @@ private:
 	Sub_Var<bool> adc_offset_ctrl_device_present_status; 						//report whether we detected the device during initialization
 	Sub_Var_RC<bool> adc_offset_ctrl_dac_error_status;							//whether there's been some kinda error with the offset DAC, read clear
 	Sub_Var<std::array<uint16_t, 4>> adc_offset_ctrl_dac_value_readback_status; //current DAC values written to the ADC offset control system
-	PERSISTENT((Pub_Var<std::array<uint16_t, 4>>), adc_offset_ctrl_dac_values_command); //values we want to command to the ADC offset DAC
-	PERSISTENT((Pub_Var<bool>), adc_offset_ctrl_perform_device_read_command); 		//assert this flag when we want to perform a device read, cleared upon service
+	PERSISTENT((Pub_Var<std::array<uint16_t, 4>>), adc_offset_ctrl_dac_values_command,
+				{2000, 2000, 2000, 2000}); 										//values we want to command to the ADC offset DAC; initialize to mid-range offset
+	PERSISTENT((Pub_Var<bool>), adc_offset_ctrl_perform_device_read_command); 	//assert this flag when we want to perform a device read, cleared upon service
 
 	//#### HISPEED SUBSYSTEM #####
 	PERSISTENT((Pub_Var<bool>), command_hispeed_arm_fire_request);
@@ -156,9 +157,9 @@ private:
 	Sub_Var_RC<bool>		status_hispeed_arm_flag_err_cancelled;
 	Sub_Var_RC<bool>		status_hispeed_arm_flag_complete;
 	PERSISTENT((Pub_Var<bool>), command_hispeed_sdram_load_test_sequence);
-	PERSISTENT((Pub_Var<std::array<bool, 4>>), command_hispeed_SOA_enable);
-	PERSISTENT((Pub_Var<std::array<bool, 4>>), command_hispeed_TIA_enable);
-	PERSISTENT((Pub_Var<std::array<uint16_t, 4>>), command_hispeed_SOA_DAC_drive);
+	PERSISTENT((Pub_Var<std::array<bool, 4>>), command_hispeed_SOA_enable, {true, false, false, false});	//TODO: revert after testing to all false
+	PERSISTENT((Pub_Var<std::array<bool, 4>>), command_hispeed_TIA_enable, {true, false, false, false});	//TODO: revert after testing to all false
+	PERSISTENT((Pub_Var<std::array<uint16_t, 4>>), command_hispeed_SOA_DAC_drive, {8000, 16000, 0, 0});		//TODO: revert after testing to all 0
 	Sub_Var<std::array<uint16_t, 4>>	status_hispeed_TIA_ADC_readback;
 
 	//#### CoB TEMPERATURE MONITOR ####

@@ -44,6 +44,8 @@ private:
 	void load_mem_pattern_3();		//pseudo-random pattern with same-index write-back
 	void load_mem_pattern_4();		//DC value with future channel write-back
 	void load_mem_pattern_5();		//i/o test --> push all inputs somewhere in the network, read from those locations
+	void load_mem_pattern_6();		//square wave on ch0, ch1,2,3 at 1VDC (used for testing with AUX card), same index writeback
+	void load_mem_pattern_7();		//sawtooth ramp pattern just on ch0, ch1,2,3 at 1VDC (used for testing with AUX card), same index writeback
 
 	//functions to check input/output sizes
 	void check_io_mappings();

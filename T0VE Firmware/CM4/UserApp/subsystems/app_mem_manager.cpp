@@ -120,6 +120,8 @@ void Neural_Mem_Manager::check_load_mem_pattern() {
 	if(test_pattern == 3) load_mem_pattern_3();
 	if(test_pattern == 4) load_mem_pattern_4();
 	if(test_pattern == 5) load_mem_pattern_5();
+	if(test_pattern == 6) load_mem_pattern_6();
+	if(test_pattern == 7) load_mem_pattern_7();
 
 	//and acknowledge the test pattern load flag
 	command_nmemmanager_load_test_pattern.acknowledge_reset();
@@ -249,5 +251,61 @@ void Neural_Mem_Manager::load_mem_pattern_5() {
 
 }
 
+//square pattern on 0, 1VDC on others, same index outputs
+void Neural_Mem_Manager::load_mem_pattern_6() {
+	//set up some constants regarding the ramp amplitude and the maximum DAC value
+	static const uint16_t CONST_DAC_VAL = 16000;	//corresponds to 1VDC
+	static const uint16_t SQUARE_MIN = 1000;		//results in TIA readback of ~2,500
+	static const uint16_t SQUARE_MAX = 24000;		//results in TIA readback of ~60,000
+
+	detach_memory(); 						//prevent editing while we're loading our test pattern
+	neural_mem.clean();						//zero out all arrays
+	auto sequence = neural_mem.block_mem();	//grab the memory as an array
+
+	//go through the memory array
+	for(size_t i = 0; i < sequence.size() - 1; i++) {
+		//set the channel 1 value to be a sawtooth waveform with peak given above
+		uint16_t param_val = (i % 2 == 0) ? SQUARE_MIN : SQUARE_MAX;
+
+		//and make a block with the particular param vals that drops the ADC val corresponding to the command index
+		sequence[i] = Neural_Memory::Hispeed_Block_t::mk(	{param_val, CONST_DAC_VAL, CONST_DAC_VAL, CONST_DAC_VAL},
+															{	Neural_Memory::ADC_Destination_t(i, 0, 0),
+																Neural_Memory::ADC_Destination_t(i, 1, 0),
+																Neural_Memory::ADC_Destination_t(i, 2, 0),
+																Neural_Memory::ADC_Destination_t(i, 3, 0)	});
+	}
+
+	//and the last block should be a terminator
+	sequence.back() = Neural_Memory::Hispeed_Block_t::mk_term();
+	attach_memory(); //allow editing after loading our test pattern
+}
+
+//sawtooth pattern on 0, 1VDC on others, same index outputs
+void Neural_Mem_Manager::load_mem_pattern_7() {
+	//set up some constants regarding the ramp amplitude and the maximum DAC value
+	static const uint16_t CONST_DAC_VAL = 16000;	//corresponds to 1VDC
+	static const uint16_t RAMP_PEAK = 24000;		//results in TIA readback of ~60,000 peak
+
+	detach_memory(); 						//prevent editing while we're loading our test pattern
+	neural_mem.clean();						//zero out all arrays
+	auto sequence = neural_mem.block_mem();	//grab the memory as an array
+
+	//go through the memory array
+	for(size_t i = 0; i < sequence.size() - 1; i++) {
+		//set the channel 1 value to be a sawtooth waveform with peak given above
+		uint16_t param_val = i % RAMP_PEAK;
+
+		//and make a block with the particular param vals that drops the ADC val corresponding to the command index
+		sequence[i] = Neural_Memory::Hispeed_Block_t::mk(	{param_val, CONST_DAC_VAL, CONST_DAC_VAL, CONST_DAC_VAL},
+															{	Neural_Memory::ADC_Destination_t(i, 0, 0),
+																Neural_Memory::ADC_Destination_t(i, 1, 0),
+																Neural_Memory::ADC_Destination_t(i, 2, 0),
+																Neural_Memory::ADC_Destination_t(i, 3, 0)	});
+	}
+
+	//and the last block should be a terminator
+	sequence.back() = Neural_Memory::Hispeed_Block_t::mk_term();
+	attach_memory(); //allow editing after loading our test pattern
+}
 
 
