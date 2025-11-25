@@ -207,7 +207,7 @@ void cleanup_ON_EXIT() {
 	HISPEED_ARM_FIRE_SUCCESS.UNLOCK();
 }
 
-bool trans_CLEANUP_to_IDLE()	{ return !LOSPEED_DO_ARM_FIRE.READ(); } //unconditional transition to release state
+bool trans_CLEANUP_to_IDLE()	{ return !LOSPEED_DO_ARM_FIRE.READ(); } //move back to idle when the fire signal is deasserted
 
 ESM_State CLEANUP_state(cleanup_ON_ENTRY, {}, cleanup_ON_EXIT);
 
