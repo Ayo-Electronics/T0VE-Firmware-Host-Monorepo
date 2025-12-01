@@ -2,6 +2,7 @@ from __future__ import annotations
 import logging
 import threading
 import copy
+import pprint
 from typing import Any, Dict, Iterable, Tuple, Optional, Callable
 
 from pubsub import pub  # PyPubSub
@@ -17,6 +18,9 @@ class Pub_Sub_Dict:
     ) -> None:
         self._root_topic = root_topic
 
+        # and save the logger for debugging this process
+        self._logger = logger or logging.getLogger(__name__ + self._root_topic + ".pubsub_dict")
+
         # lock for thread-safe state and subscription updates
         self._lock = threading.RLock()
 
@@ -26,10 +30,19 @@ class Pub_Sub_Dict:
         #       this makes implementation of the publish/subscribe system super straightforward, as keys can directly be used as publish topics
         #       however, this means key names will not 100% match up to those in the original dictionary
         self._dict_reference = dict_reference
-        self._dict_flattened = self._flatten_dictionary(root_topic=self._root_topic, dict_reference=self._dict_reference)
+        # Pretty print the dict reference for debugging purposes
+        self._logger.debug(
+            "Initial dict_reference structure for %s:\n%s",
+            self._root_topic,
+            pprint.pformat(self._dict_reference, width=120, compact=False)
+        )
 
-        # and save the logger for debugging this process
-        self._logger = logger or logging.getLogger(__name__ + self._root_topic + ".pubsub_dict")
+        self._dict_flattened = self._flatten_dictionary(root_topic=self._root_topic, dict_reference=self._dict_reference)
+        self._logger.debug(
+            "Initial flattened dictionary (%d entries):\n%s",
+            len(self._dict_flattened),
+            pprint.pformat(self._dict_flattened, width=120, compact=False),
+        )
 
         # initialize writable topics (filtered to known/valid keys) and subscribe
         # capture proposed writable topics; tolerate None

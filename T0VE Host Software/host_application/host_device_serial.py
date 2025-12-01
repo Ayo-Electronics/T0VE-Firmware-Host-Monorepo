@@ -18,7 +18,7 @@ import threading                                #concurrency
 import logging
 from typing import Optional                     #type hints
 import re                                        #regex for serial number matching
-from queue import Queue, Empty                  #sharing information between threads
+from queue import Queue, Empty, Full            #sharing information between threads
 
 try:
     import serial   #pyserial; make sure the module is installed
@@ -28,7 +28,7 @@ except Exception:   #pragma: no cover - pyserial may not be installed at edit ti
 
 
  
-class Host_Serial:
+class HostSerial:
     def __init__(
         self,
         *,
@@ -48,21 +48,21 @@ class Host_Serial:
         self._connected_port_name: Optional[str] = None          #e.g. COM3
         self._connected_serial_number: Optional[str] = None      #matched device serial
         self._start_code: int = start_code
-        self._logger = logger or logging.getLogger(__name__ + ".Host_Serial")
+        self._logger = logger or logging.getLogger(__name__ + ".HostSerial")
 
         ######### TX-RELATED #########
-        self._tx_queue: Queue[bytes] = Queue()      #queue for outgoing bytes
+        self._tx_queue: Queue[bytes] = Queue(maxsize=4)      #queue for outgoing bytes
 
         ######### RX-RELATED #########
         self._rx_buffer = bytearray()                   #buffer for incoming bytes
         self._rx_clear_signal = threading.Event()       #signal to clear the rx buffer (buffer clearing handled in the receive thread)
-        self._rx_queue: Queue[bytes] = Queue()          #queue for completed RX frames
+        self._rx_queue: Queue[bytes] = Queue()   #queue for completed RX frames
 
         ######### SPAWN THREAD ########
         self._thread_stop_signal = threading.Event()
         self._thread = threading.Thread(
             target=self._run_port,
-            name=f"Host_Serial {device_serial_regex or ''}",
+            name=f"HostSerial {device_serial_regex or ''}",
             daemon=True,
         )
         self._thread.start()
@@ -83,7 +83,7 @@ class Host_Serial:
         except Exception:
             pass    #Never raise during shutdown paths.
 
-    def __enter__(self) -> "Host_Serial":
+    def __enter__(self) -> "HostSerial":
         """Support `with` statement usage for deterministic shutdown."""
         return self
 
@@ -149,7 +149,10 @@ class Host_Serial:
         
         #assemble our frame and enqueue
         frame = header + data
-        self._tx_queue.put(frame)
+        try:
+            self._tx_queue.put_nowait(frame)
+        except Full:
+            self._logger.warning(f"TX queue full (max 4); dropping frame ({length} bytes)")
 
     #### RX ####
     def read_frame(self) -> Optional[bytes]:
@@ -191,7 +194,10 @@ class Host_Serial:
 
             #otherwise, drop a 0 directly into the tx queue
             #and wait a little for the thread to process it
-            self._tx_queue.put(b"\x00")
+            try:
+                self._tx_queue.put_nowait(b"\x00")
+            except Full:
+                self._logger.warning("TX queue full (max 4) during recover(); dropping byte 0x00")
             self._thread_stop_signal.wait(float(inter_delay_s))
 
     #=================== THREAD FUNCTIONS =================

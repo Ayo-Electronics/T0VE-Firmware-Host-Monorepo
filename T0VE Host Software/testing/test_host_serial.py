@@ -12,7 +12,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from device_interface.host_device_serial import Host_Serial
+from host_application.host_device_serial import HostSerial
 
 
 def setup_logger() -> logging.Logger:
@@ -37,7 +37,7 @@ def setup_logger() -> logging.Logger:
     return logger
 
 
-def rx_poller(stop_event: threading.Event, host: Host_Serial, logger: logging.Logger) -> None:
+def rx_poller(stop_event: threading.Event, host: HostSerial, logger: logging.Logger) -> None:
     """Continuously poll the Host_Serial RX queue and log received frames as INFO."""
     while not stop_event.is_set():
         frame = host.read_frame()
@@ -78,7 +78,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     try:
         # Pass our logger into Host_Serial so all class logs stream to the console
-        with Host_Serial(device_serial_regex=args.regex, logger=logger) as host:
+        with HostSerial(device_serial_regex=args.regex, logger=logger) as host:
             logger.info(f"Host_Serial instantiated for regex {args.regex}")
 
             # Immediately request a connection
