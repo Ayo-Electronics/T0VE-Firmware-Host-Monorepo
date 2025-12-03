@@ -1,0 +1,368 @@
+# ui_dict_viewer_frontend.py
+
+from __future__ import annotations
+
+import tkinter as tk
+from tkinter import ttk
+from typing import Any, Dict, Iterable, Tuple, Optional, Sequence
+import logging
+
+from host_application.ui_pubsub_widget_factory import SmartWidgetFactory
+
+Path = Tuple[Any, ...]
+
+
+class ScrollableFrame(ttk.Frame):
+    """
+    A frame with vertical and horizontal scrollbars, containing an interior frame.
+    Use .interior as the parent for your content.
+    """
+    def __init__(self, parent, *args, **kwargs):
+        super().__init__(parent, *args, **kwargs)
+
+        self.canvas = tk.Canvas(self, highlightthickness=0)
+        self.v_scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.h_scrollbar = ttk.Scrollbar(self, orient="horizontal", command=self.canvas.xview)
+
+        self.canvas.configure(
+            yscrollcommand=self.v_scrollbar.set,
+            xscrollcommand=self.h_scrollbar.set,
+        )
+
+        self.canvas.grid(row=0, column=0, sticky="nsew")
+        self.v_scrollbar.grid(row=0, column=1, sticky="ns")
+        self.h_scrollbar.grid(row=1, column=0, sticky="ew")
+
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
+        # Interior frame inside the canvas
+        self.interior = ttk.Frame(self.canvas)
+        self.interior_id = self.canvas.create_window((0, 0), window=self.interior, anchor="nw")
+
+        # Configure scrollregion
+        self.interior.bind("<Configure>", self._on_interior_configure)
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+
+    def _on_interior_configure(self, event):
+        # Update scroll region to encompass the inner frame
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    def _on_canvas_configure(self, event):
+        # Optionally stretch the interior to canvas width
+        canvas_width = event.width
+        self.canvas.itemconfig(self.interior_id, width=canvas_width)
+
+
+class DictViewerFrontend(tk.Tk):
+    """
+    Tkinter UI that visualizes a nested dictionary using pubsub-connected widgets.
+
+    It does **not** own the data; it just:
+      - walks the reference_dict shape,
+      - for each leaf builds a SmartWidget connected to the matching topic,
+      - lays out sections using tabs / horizontal / vertical tiling.
+
+    Topic convention (must match DictViewerBackend):
+        <ui_topic_root>.entries.<key1>.<key2>....<keyN>
+
+    Parameters
+    ----------
+    reference_dict : dict
+        The nested dictionary to visualize. This should match the backend's reference dict.
+    ui_topic_root : str
+        Root string for pubsub topics; same value you pass to DictViewerBackend.
+    editable_paths : Iterable[Path], optional
+        Iterable of tuple paths that are editable. Non-listed paths are read-only.
+        Paths are tuples of keys, e.g. ("cob_temp", "status", "temperature_celsius").
+    layout_pattern : str
+        Pattern of 't'|'h'|'v' specifying layout per depth:
+            't' -> tabs
+            'h' -> horizontal tiling (wrap to new row)
+            'v' -> vertical tiling (wrap to new column)
+        Example: "thvv" = top-level tabs, then horizontal, then vertical, then vertical.
+    title : str
+        Window title.
+    """
+
+    def __init__(
+        self,
+        reference_dict: Dict[Any, Any],
+        ui_topic_root: str,
+        editable_paths: Optional[Iterable[Path]] = None,
+        layout_pattern: str = "v",
+        title: str = "Dict Viewer",
+        logger: Optional[logging.Logger] = None,
+    ) -> None:
+        super().__init__()
+        self.title(title)
+        self._log = logger or logging.getLogger(__name__ + ".DictViewerFrontend")
+
+        self._ref = reference_dict
+        self._ui_topic_root = ui_topic_root
+        self._layout_pattern = layout_pattern or "v"
+
+        # Normalize editable paths into a set of tuples
+        if editable_paths is None:
+            self._editable_paths = set()
+        else:
+            self._editable_paths = {tuple(p) for p in editable_paths}
+
+        # Basic style tweaks for tabs and headers
+        style = ttk.Style(self)
+        style.configure("TNotebook.Tab", padding=(10, 4))
+        style.configure("TabHeader.TLabel", font=("TkDefaultFont", 10, "bold"))
+
+        # Root scrollable area
+        scroll = ScrollableFrame(self)
+        scroll.pack(fill="both", expand=True)
+        container = scroll.interior
+
+        # Build UI from reference dict shape
+        self._build_dict_ui(container, self._ref, depth=0, path=())
+
+        # Reasonable starting size; scrollbars handle overflow
+        self.update_idletasks()
+        self.minsize(600, 400)
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+    def _mode_for_depth(self, depth: int) -> str:
+        """
+        Return layout mode for this depth:
+          'h' = horizontal tiling
+          'v' = vertical tiling
+          't' = tabs
+          If depth is greater than the length of the layout pattern, use the last character of the layout pattern
+        """
+        if depth < len(self._layout_pattern):
+            c = self._layout_pattern[depth].lower()
+        else:
+            c = self._layout_pattern[-1].lower()
+
+        if c.startswith("h"):
+            return "h"
+        if c.startswith("t"):
+            return "t"
+        return "v"  # default
+
+    def _topic_for_path(self, path: Path) -> str:
+        """
+        Build a pubsub topic string for a given dict path such that it matches
+        DictViewerBackend._topic_from_path:
+
+            <ui_topic_root>.entries.<key1>.<key2>...<keyN>
+        """
+        suffix = ".".join(str(p) for p in path)
+        return f"{self._ui_topic_root}.entries.{suffix}"
+
+    def _is_editable(self, path: Path) -> bool:
+        """Return True if this leaf path is editable."""
+        return path in self._editable_paths
+
+    # ------------------------------------------------------------------
+    # UI building
+    # ------------------------------------------------------------------
+    def _build_dict_ui(
+        self,
+        parent: tk.Widget,
+        data: Dict[Any, Any],
+        depth: int,
+        path: Path,
+    ) -> None:
+        """
+        Recursively create UI elements for a nested dictionary.
+
+        Each depth level is laid out according to:
+          - 'h': grid, row-first (horizontal) with wrapping
+          - 'v': grid, column-first (vertical) with wrapping
+          - 't': tabs (one tab per key, with replicated header bar)
+
+        Leaves that are None are not rendered.
+        """
+        # Filter out None-valued leaves at this level
+        items = [(k, v) for k, v in data.items() if v is not None]
+        if not items:
+            return
+
+        mode = self._mode_for_depth(depth)
+
+        if mode == "t":
+            self._build_tabs(parent, items, depth, path)
+        else:
+            self._build_tiled(parent, items, depth, path, mode)
+
+    def _build_tabs(
+        self,
+        parent: tk.Widget,
+        items: Sequence[tuple[Any, Any]],
+        depth: int,
+        path: Path,
+    ) -> None:
+        """
+        Build a tabbed layout for this level. Each key at this level is a tab.
+        """
+        level_frame = ttk.Frame(parent)
+        level_frame.pack(fill="both", expand=True, anchor="nw", pady=4, padx=4)
+
+        notebook = ttk.Notebook(level_frame)
+        notebook.pack(fill="both", expand=True)
+
+        for key, value in items:
+            child_path = path + (key,)
+            tab = ttk.Frame(notebook)
+            # Extra padding before/after tab label
+            notebook.add(tab, text=f" {key} ")
+
+            # Header bar inside the tab:  --- key ---
+            header = ttk.Frame(tab)
+            header.pack(fill="x", pady=(4, 4), padx=4)
+
+            left_sep = ttk.Separator(header, orient="horizontal")
+            left_sep.grid(row=0, column=0, sticky="ew", padx=(0, 4))
+
+            header_label = ttk.Label(header, text=str(key), style="TabHeader.TLabel")
+            header_label.grid(row=0, column=1)
+
+            right_sep = ttk.Separator(header, orient="horizontal")
+            right_sep.grid(row=0, column=2, sticky="ew", padx=(4, 0))
+
+            header.grid_columnconfigure(0, weight=1)
+            header.grid_columnconfigure(2, weight=1)
+
+            # Content area for the tab
+            content = ttk.Frame(tab)
+            content.pack(fill="both", expand=True, padx=4, pady=(0, 4))
+
+            if isinstance(value, dict):
+                self._build_dict_ui(content, value, depth + 1, child_path)
+            else:
+                self._create_leaf_widget(content, key, value, child_path)
+
+    def _build_tiled(
+        self,
+        parent: tk.Widget,
+        items: Sequence[tuple[Any, Any]],
+        depth: int,
+        path: Path,
+        mode: str,
+    ) -> None:
+        """
+        Build a tiled layout (horizontal 'h' or vertical 'v') for this level.
+        """
+        level_frame = ttk.Frame(parent)
+        level_frame.pack(fill="both", expand=True, anchor="nw", pady=4, padx=4)
+
+        n = len(items)
+
+        if mode == "h":
+            # Horizontal stacking with wrapping into new rows
+            max_cols = min(n, 4)  # up to 4 columns per row
+            for idx, (key, value) in enumerate(items):
+                row = idx // max_cols
+                col = idx % max_cols
+
+                child_path = path + (key,)
+
+                #draw a block around any downstream children to indicate "containment"
+                block = ttk.LabelFrame(level_frame, text=str(key), padding=4)
+                block.grid(row=row, column=col, sticky="nsew", padx=4, pady=4)
+
+                #build children
+                if isinstance(value, dict):
+                    self._build_dict_ui(block, value, depth + 1, child_path)
+                else:
+                    self._create_leaf_widget(block, key, value, child_path)
+
+            # Make columns expand equally
+            for c in range(max_cols):
+                level_frame.grid_columnconfigure(c, weight=1)
+
+        else:  # mode == "v"
+            # Vertical stacking with wrapping into new columns
+            max_rows = min(n, 8)  # up to 8 rows per column
+            for idx, (key, value) in enumerate(items):
+                col = idx // max_rows
+                row = idx % max_rows
+
+                child_path = path + (key,)
+
+                #draw a block around any downstream children to indicate "containment"
+                block = ttk.LabelFrame(level_frame, text=str(key), padding=4)
+                block.grid(row=row, column=col, sticky="nsew", padx=4, pady=4)
+
+                #build children
+                if isinstance(value, dict):
+                    self._build_dict_ui(block, value, depth + 1, child_path)
+                else:
+                    self._create_leaf_widget(block, key, value, child_path)
+
+            # Make columns expand equally
+            max_cols = (n + max_rows - 1) // max_rows
+            for c in range(max_cols):
+                level_frame.grid_columnconfigure(c, weight=1)
+
+    def _create_leaf_widget(
+        self,
+        parent: tk.Widget,
+        key: Any,
+        value: Any,
+        path: Path,
+    ) -> None:
+        """
+        Create a SmartWidgetFactory-based widget for a leaf.
+        """
+        topic_string = self._topic_for_path(path)
+        editable = self._is_editable(path)
+
+        # The SmartWidgetFactory handles creating the label + widget and wiring pubsub.
+        widget = SmartWidgetFactory.make_connected_widget(
+            parent=parent,
+            label_text="",
+            initial_value=value,
+            editable=editable,
+            topic_string=topic_string,
+        )
+        widget.pack(fill="x", expand=True, anchor="w", pady=1)
+
+
+def show_dict_viewer(
+    reference_dict: Dict[Any, Any],
+    ui_topic_root: str,
+    editable_paths: Optional[Iterable[Path]] = None,
+    layout_pattern: str = "v",
+    title: str = "Dict Viewer",
+) -> None:
+    """
+    Convenience function to create a DictViewerFrontend and run mainloop().
+    """
+    app = DictViewerFrontend(
+        reference_dict=reference_dict,
+        ui_topic_root=ui_topic_root,
+        editable_paths=editable_paths,
+        layout_pattern=layout_pattern,
+        title=title,
+    )
+    app.mainloop()
+
+if __name__ == "__main__":
+    # for this test, render the default command states without eeprom
+    import betterproto
+    import pprint
+    from host_application.state_proto_node_default import NodeStateDefaults
+    from host_application.util_flat_dict import FlatDict
+
+    example_state = NodeStateDefaults.default_all_no_eeprom()
+    pprint.pprint(example_state.to_dict(include_default_values=True), width=120, compact=False)
+
+    paths = FlatDict.flatten(example_state.to_dict(include_default_values=True)).keys()
+    paths_editable = [path for path in paths if any("command" in str(p) for p in path)]
+    print(paths_editable)
+
+    show_dict_viewer(   reference_dict=example_state.to_dict(include_default_values=True), 
+                        ui_topic_root="app.ui",
+                        editable_paths=paths_editable,
+                        layout_pattern="thvv",
+                        title="Example Dict Viewer",
+                        )

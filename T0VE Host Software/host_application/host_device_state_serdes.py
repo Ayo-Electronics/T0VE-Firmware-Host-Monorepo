@@ -10,7 +10,7 @@ NOTE: there's a bit of publishing mentioned in this description. I specifically 
       to if the value of that topic changes! This minimizes broker traffic and should hopefully improve the performance of the system. 
 
 It will also instantiate a thread. The function of this thread is (transmit thread):
-    - waits on the request_state_signal, falls through after the default gentle poll rate
+    - waits on the refresh_state_signal, falls through after the default gentle poll rate
     - if(connected to the serial port)
         - pulls from the command queue, if command queue is none, create an empty command (so we can pull status from the node)
         - serializes this command using `better_proto`
@@ -35,8 +35,8 @@ It also instantiates a second thread. This thread is (receive thread):
 
 And the third thread is (trigger/connect thread):
  - checks if we want to connect/disconnect the serial port
- - if request_state has been signaled, OR the command queue has something in it
-    - assert the request_state_signal
+ - if refresh_state has been signaled, OR the command queue has something in it
+    - assert the refresh_state_signal
  - report the port status and the command queue space
 
 Let's talk about message organization
@@ -52,6 +52,7 @@ Let's talk about message organization
                     - port
                     - serial_number
                     - command_queue_space
+                    - commands_enqueued
             -command <drop protobuf NodeState messages here to command, serialized and sent to device>
                 \--> protobuf commands put into a message queue (will bound this to a fixed size, say 16 messages)
                 \--> if queue is full, drop any messages attempting to be queued
@@ -84,12 +85,12 @@ class HostDeviceStateSerdes:
     Serialize/deserialize BetterProto `Communication` messages for a specific node and
     expose mirrored state via PyPubSub. Current design uses three threads:
 
-    - Transmit: waits on `request_state_signal` or `default_poll_s`, sends local `NodeState`,
+    - Transmit: waits on `refresh_state_signal` or `default_poll_s`, sends local `NodeState`,
       and awaits an RX state message (else invokes `recover()` on timeout if still connected).
     - Receive: parses inbound frames; publishes `node_state` to `...state` and `debug_message` to `...debug`.
       Only `node_state` messages acknowledge TX.
-    - Trigger/connect: reflects `...port.command.request_connect`, triggers `request_state_signal` when
-      `...port.command.request_state` is true, and publishes `...port.status.{connected,port_name,serial_number}`.
+    - Trigger/connect: reflects `...port.command.request_connect`, triggers `refresh_state_signal` when
+      `...port.command.refresh_state` is true, and publishes `...port.status.{connected,port_name,serial_number}`.
 
     Notes:
     - Values publish only when changed.
@@ -115,7 +116,7 @@ class HostDeviceStateSerdes:
         self.node = "node_" + string_node.zfill(2)  #ensure two digits for node label
         self.root = f"app.devices.{self.node}"  # PyPubSub uses '.' separator by default
 
-        self.log = logger or logging.getLogger(__name__ + self.node + ".serdes")
+        self.log = logger or logging.getLogger(f"{__name__}.{self.node}.serdes")
 
         # lower layer port
         # NOTE: serial-number regex is case-sensitive; adjust upstream if device serials may differ in case.
@@ -132,8 +133,8 @@ class HostDeviceStateSerdes:
 
         #============== THREADING ==============
         # request/response coordination
-        self.request_state_signal = threading.Event()
-        self.request_state_signal_external = threading.Event()  #from external publish request
+        self.refresh_state_signal = threading.Event()
+        self.refresh_state_signal_external = threading.Event()  #from external publish request
         self.rx_frame_received_signal = threading.Event()
         self.stop = threading.Event()
 
@@ -177,8 +178,8 @@ class HostDeviceStateSerdes:
         """
         while not self.stop.is_set():
             # wait until we either want state or we time out for a gentle poll
-            self.request_state_signal.wait(self.default_poll_s)
-            self.request_state_signal.clear()
+            self.refresh_state_signal.wait(self.default_poll_s)
+            self.refresh_state_signal.clear()
 
             # if we're not connected, we can't do anything, skip everything below
             if not self.port.port_connected:
@@ -202,7 +203,7 @@ class HostDeviceStateSerdes:
 
             # fire and wait for acknowledgement (any inbound frame will set rx_frame_seen)
             self.rx_frame_received_signal.clear()
-            self.port.write_frame(outbound_bytes)  # framed by Host_Serial  :contentReference[oaicite:9]{index=9}
+            self.port.write_frame(outbound_bytes)  # framed by Host_Serial 
 
             if not self.rx_frame_received_signal.wait(self.rx_timeout_s):
                 # No RX -> check connection and try recover
@@ -260,14 +261,16 @@ class HostDeviceStateSerdes:
             self._pub_port_state(
                 stat_connected=self.port.port_connected,
                 stat_port_name=self.port.port_name,
-                stat_serial_number=self.port.serial_number
+                stat_serial_number=self.port.serial_number,
+                stat_commands_enqueued=self._command_queue.qsize(),
+                stat_command_queue_space=self._command_queue.maxsize - self._command_queue.qsize()
             )
 
             #push the state request to the transmit thread
             #having a buffered state request lets us rate limit the state updates; doesn't spam the node with comms
-            if self.request_state_signal_external.is_set():
-                self.request_state_signal_external.clear()
-                self.request_state_signal.set()
+            if self.refresh_state_signal_external.is_set():
+                self.refresh_state_signal_external.clear()
+                self.refresh_state_signal.set()
 
             #rate limit by sleeping this thread 
             self.stop.wait(timeout=self.max_poll_s)
@@ -275,14 +278,14 @@ class HostDeviceStateSerdes:
     # ---------- Publishing/Subscription Handling -------------
     def _configure_sub_port_state(self) -> None:
         #register this callback to handle request state messages
-        def _on_request_state(payload: Any = None, **kwargs) -> None:
+        def _on_refresh_state(payload: Any = None, **kwargs) -> None:
             if "payload" not in kwargs and payload is None:
-                self.log.warning("request_state callback invoked without 'payload' kwarg")
+                self.log.warning("refresh_state callback invoked without 'payload' kwarg")
                 return
             #sanity check the type, then assert the flag if the payload is True
             if isinstance(payload, bool):
                 if payload:
-                    self.request_state_signal_external.set()
+                    self.refresh_state_signal_external.set()
                     #clear the request flag to acknowledge service (MAY REENTER, should be fine)
                     pub.sendMessage(f"{self.root}.port.command.refresh_state", payload=False)
             else:
@@ -306,14 +309,22 @@ class HostDeviceStateSerdes:
                 self.log.warning(f"invalid request connect type: {type(payload)} (expected bool)")
 
         #subscribe to the command topics
-        pub.subscribe(_on_request_state, f"{self.root}.port.command.request_state")
+        pub.subscribe(_on_refresh_state, f"{self.root}.port.command.refresh_state")
         pub.subscribe(_on_request_connect, f"{self.root}.port.command.request_connect")
 
-    def _pub_port_state(self, *, stat_connected: bool, stat_port_name: Optional[str], stat_serial_number: Optional[str]) -> None:
+    def _pub_port_state(self, 
+                        *, 
+                        stat_connected: bool, 
+                        stat_port_name: Optional[str], 
+                        stat_serial_number: Optional[str],
+                        stat_commands_enqueued: int,
+                        stat_command_queue_space: int) -> None:
         # publish on change-only using topic-based cache
         self._pub_change(f"{self.root}.port.status.connected", stat_connected)
         self._pub_change(f"{self.root}.port.status.port_name", stat_port_name)
         self._pub_change(f"{self.root}.port.status.serial_number", stat_serial_number)
+        self._pub_change(f"{self.root}.port.status.commands_enqueued", stat_commands_enqueued)
+        self._pub_change(f"{self.root}.port.status.command_queue_space", stat_command_queue_space)
 
     def _pub_change(self, topic: str, value: Any) -> None:
         """
