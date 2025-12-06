@@ -123,8 +123,6 @@ typedef struct _app_Hispeed_Status {
 typedef struct _app_Hispeed_Command {
     bool has_arm_request;
     bool arm_request;
-    bool has_load_test_sequence;
-    bool load_test_sequence;
     bool has_SOA_enable;
     app_bool_4 SOA_enable;
     bool has_TIA_enable;
@@ -329,7 +327,7 @@ extern "C" {
 #define app_Offset_Ctrl_Command_init_default     {false, 0, false, app_uint32_4_init_default}
 #define app_Offset_Ctrl_init_default             {app_Offset_Ctrl_Status_init_default, false, app_Offset_Ctrl_Command_init_default}
 #define app_Hispeed_Status_init_default          {0, 0, 0, 0, 0, 0, app_uint32_4_init_default}
-#define app_Hispeed_Command_init_default         {false, 0, false, 0, false, app_bool_4_init_default, false, app_bool_4_init_default, false, app_uint32_4_init_default}
+#define app_Hispeed_Command_init_default         {false, 0, false, app_bool_4_init_default, false, app_bool_4_init_default, false, app_uint32_4_init_default}
 #define app_Hispeed_init_default                 {app_Hispeed_Status_init_default, false, app_Hispeed_Command_init_default}
 #define app_CoB_Temp_Status_init_default         {0, 0, 0, 0}
 #define app_CoB_Temp_init_default                {app_CoB_Temp_Status_init_default}
@@ -365,7 +363,7 @@ extern "C" {
 #define app_Offset_Ctrl_Command_init_zero        {false, 0, false, app_uint32_4_init_zero}
 #define app_Offset_Ctrl_init_zero                {app_Offset_Ctrl_Status_init_zero, false, app_Offset_Ctrl_Command_init_zero}
 #define app_Hispeed_Status_init_zero             {0, 0, 0, 0, 0, 0, app_uint32_4_init_zero}
-#define app_Hispeed_Command_init_zero            {false, 0, false, 0, false, app_bool_4_init_zero, false, app_bool_4_init_zero, false, app_uint32_4_init_zero}
+#define app_Hispeed_Command_init_zero            {false, 0, false, app_bool_4_init_zero, false, app_bool_4_init_zero, false, app_uint32_4_init_zero}
 #define app_Hispeed_init_zero                    {app_Hispeed_Status_init_zero, false, app_Hispeed_Command_init_zero}
 #define app_CoB_Temp_Status_init_zero            {0, 0, 0, 0}
 #define app_CoB_Temp_init_zero                   {app_CoB_Temp_Status_init_zero}
@@ -424,10 +422,9 @@ extern "C" {
 #define app_Hispeed_Status_done_err_cancelled_tag 6
 #define app_Hispeed_Status_tia_adc_readback_tag  7
 #define app_Hispeed_Command_arm_request_tag      1
-#define app_Hispeed_Command_load_test_sequence_tag 2
-#define app_Hispeed_Command_SOA_enable_tag       3
-#define app_Hispeed_Command_TIA_enable_tag       4
-#define app_Hispeed_Command_SOA_DAC_drive_tag    5
+#define app_Hispeed_Command_SOA_enable_tag       2
+#define app_Hispeed_Command_TIA_enable_tag       3
+#define app_Hispeed_Command_SOA_DAC_drive_tag    4
 #define app_Hispeed_status_tag                   1
 #define app_Hispeed_command_tag                  2
 #define app_CoB_Temp_Status_device_present_tag   1
@@ -600,10 +597,9 @@ X(a, STATIC,   REQUIRED, MESSAGE,  tia_adc_readback,   7)
 
 #define app_Hispeed_Command_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, BOOL,     arm_request,       1) \
-X(a, STATIC,   OPTIONAL, BOOL,     load_test_sequence,   2) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  SOA_enable,        3) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  TIA_enable,        4) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  SOA_DAC_drive,     5)
+X(a, STATIC,   OPTIONAL, MESSAGE,  SOA_enable,        2) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  TIA_enable,        3) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  SOA_DAC_drive,     4)
 #define app_Hispeed_Command_CALLBACK NULL
 #define app_Hispeed_Command_DEFAULT NULL
 #define app_Hispeed_Command_SOA_enable_MSGTYPE app_bool_4
@@ -849,18 +845,18 @@ extern const pb_msgdesc_t app_Communication_msg;
 #define app_Comms_Command_size                   2
 #define app_Comms_Status_size                    2
 #define app_Comms_size                           8
-#define app_Communication_size                   808
+#define app_Communication_size                   806
 #define app_Debug_size                           260
-#define app_Hispeed_Command_size                 50
+#define app_Hispeed_Command_size                 48
 #define app_Hispeed_Status_size                  38
-#define app_Hispeed_size                         92
+#define app_Hispeed_size                         90
 #define app_Multicard_Command_size               2
 #define app_Multicard_Status_size                8
 #define app_Multicard_size                       14
 #define app_Neural_Mem_Command_size              8
 #define app_Neural_Mem_Status_size               14
 #define app_Neural_Mem_size                      26
-#define app_Node_State_size                      805
+#define app_Node_State_size                      803
 #define app_Offset_Ctrl_Command_size             28
 #define app_Offset_Ctrl_Status_size              30
 #define app_Offset_Ctrl_size                     62

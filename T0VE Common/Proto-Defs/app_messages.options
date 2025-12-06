@@ -34,7 +34,7 @@ app.Comms.status label_override: LABEL_REQUIRED
 app.Node_State.state_supervisor label_override: LABEL_REQUIRED
 app.Node_State.multicard label_override: LABEL_REQUIRED
 app.Node_State.pm_onboard label_override: LABEL_REQUIRED 
-app.Node_State.pm_motherboard label_override: LABEL_REQUIRED 
+app.Node_State.pm_motherboard label_override: LABEL_REQUIRED
 app.Node_State.offset_ctrl label_override: LABEL_REQUIRED 
 app.Node_State.hispeed label_override: LABEL_REQUIRED 
 app.Node_State.cob_temp label_override: LABEL_REQUIRED 

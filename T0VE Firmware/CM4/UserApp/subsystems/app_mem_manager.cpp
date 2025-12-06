@@ -38,14 +38,14 @@ void Neural_Mem_Manager::check_state_update() {
 		check_attach_memory();
 	}
 
-	//check if we wanna analyze our discovered input/output size
-	if(command_nmemmanager_check_io_size.check()) {
-		check_io_mappings();
-	}
-
 	//and if we want to load some test patterns
 	if(command_nmemmanager_load_test_pattern.check()) {
 		check_load_mem_pattern();
+	}
+
+	//check if we wanna analyze our discovered input/output size
+	if(command_nmemmanager_check_io_size.check()) {
+		check_io_mappings();
 	}
 }
 

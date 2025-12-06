@@ -72,7 +72,6 @@ public:
 	LINK_FUNC_RC(		status_hispeed_arm_flag_err_pwr				);
 	LINK_FUNC_RC(		status_hispeed_arm_flag_err_cancelled		);
 	LINK_FUNC_RC(		status_hispeed_arm_flag_complete			);
-	SUBSCRIBE_FUNC_RC(	command_hispeed_sdram_load_test_sequence	);
 	SUBSCRIBE_FUNC_RC(	command_hispeed_SOA_enable					);
 	SUBSCRIBE_FUNC_RC(	command_hispeed_TIA_enable					);
 	SUBSCRIBE_FUNC_RC(	command_hispeed_SOA_DAC_drive				);
@@ -156,7 +155,6 @@ private:
 	Sub_Var_RC<bool>		status_hispeed_arm_flag_err_pwr;
 	Sub_Var_RC<bool>		status_hispeed_arm_flag_err_cancelled;
 	Sub_Var_RC<bool>		status_hispeed_arm_flag_complete;
-	PERSISTENT((Pub_Var<bool>), command_hispeed_sdram_load_test_sequence);
 	PERSISTENT((Pub_Var<std::array<bool, 4>>), command_hispeed_SOA_enable, {true, false, false, false});	//TODO: revert after testing to all false
 	PERSISTENT((Pub_Var<std::array<bool, 4>>), command_hispeed_TIA_enable, {true, false, false, false});	//TODO: revert after testing to all false
 	PERSISTENT((Pub_Var<std::array<uint16_t, 4>>), command_hispeed_SOA_DAC_drive, {8000, 16000, 0, 0});		//TODO: revert after testing to all 0

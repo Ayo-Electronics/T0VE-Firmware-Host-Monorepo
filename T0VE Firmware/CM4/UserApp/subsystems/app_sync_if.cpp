@@ -61,7 +61,7 @@ void Multicard_Info::init() {
 //================================= PRIVATE FUNCTION DEFS ================================
 
 void Multicard_Info::check_cards_present() {
-    status_all_cards_present.publish(!pres_intlk.read()); //inverted polarity; hard-coding for now
+    status_all_cards_present.publish(pres_intlk.read()); //positive logic here
 }
 
 void Multicard_Info::enable_pic_pd_sel() {

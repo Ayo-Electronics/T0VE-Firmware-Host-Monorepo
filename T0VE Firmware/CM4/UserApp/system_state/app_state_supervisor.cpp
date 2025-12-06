@@ -103,8 +103,6 @@ std::span<uint8_t, std::dynamic_extent> State_Supervisor::serialize() {
 	state.hispeed.has_command = true;
 	state.hispeed.command.has_arm_request = true;
 	state.hispeed.command.arm_request = command_hispeed_arm_fire_request.read();
-	state.hispeed.command.has_load_test_sequence = true;
-	state.hispeed.command.load_test_sequence = command_hispeed_sdram_load_test_sequence.read();
 	state.hispeed.command.has_SOA_enable = true;
 	copy_arrays(state.hispeed.command.SOA_enable.values, command_hispeed_SOA_enable.read());
 	state.hispeed.command.has_TIA_enable = true;
@@ -181,6 +179,10 @@ std::span<uint8_t, std::dynamic_extent> State_Supervisor::serialize() {
 	state.comms.command.allow_connection = command_comms_allow_connections.read();
 	state.comms.status.comms_connected = status_comms_connected.read();
 
+	//also report that we aren't performing a system reset
+	state.has_do_system_reset = true;
+	state.do_system_reset = false;
+
 	//=========================================================================
 
 	//encode the message
@@ -208,7 +210,7 @@ void State_Supervisor::deserialize(std::span<uint8_t, std::dynamic_extent> encod
 	pb_istream_t stream = pb_istream_from_buffer(encoded_msg.data(), encoded_msg.size());
 
 	//try to decode the message
-	if(pb_decode(&stream, app_Communication_fields, &message)) {
+	if(!pb_decode(&stream, app_Communication_fields, &message)) {
 		decode_err.write(true);
 		decode_err_deserz++;
 		return;
@@ -282,9 +284,6 @@ void State_Supervisor::deserialize(std::span<uint8_t, std::dynamic_extent> encod
 		}
 		if(new_state.hispeed.command.has_arm_request) {
 			command_hispeed_arm_fire_request.publish(new_state.hispeed.command.arm_request);
-		}
-		if(new_state.hispeed.command.has_load_test_sequence) {
-			command_hispeed_sdram_load_test_sequence.publish(new_state.hispeed.command.load_test_sequence);
 		}
 	}
 

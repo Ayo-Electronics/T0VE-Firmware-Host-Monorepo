@@ -141,10 +141,9 @@ class HispeedStatus(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class HispeedCommand(betterproto.Message):
     arm_request: Optional[bool] = betterproto.bool_field(1, optional=True)
-    load_test_sequence: Optional[bool] = betterproto.bool_field(2, optional=True)
-    soa_enable: Optional["Bool4"] = betterproto.message_field(3, optional=True)
-    tia_enable: Optional["Bool4"] = betterproto.message_field(4, optional=True)
-    soa_dac_drive: Optional["Uint324"] = betterproto.message_field(5, optional=True)
+    soa_enable: Optional["Bool4"] = betterproto.message_field(2, optional=True)
+    tia_enable: Optional["Bool4"] = betterproto.message_field(3, optional=True)
+    soa_dac_drive: Optional["Uint324"] = betterproto.message_field(4, optional=True)
 
 
 @dataclass(eq=False, repr=False)

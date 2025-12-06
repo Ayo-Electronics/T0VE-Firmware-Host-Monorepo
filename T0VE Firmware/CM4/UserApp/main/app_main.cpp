@@ -270,8 +270,7 @@ void app_init() {
 	Debug::PRINT("SUBSYSTEMS INITIALIZED!\r\n");
 
 	//TESTING, TODO: REMOVE
-	print_test_task.schedule_interval_ms([](){ Debug::PRINT("Printing Test!\r\n");}, 1000);
-
+	print_test_task.schedule_interval_ms([](){ Debug::PRINT("### Heartbeat ###");}, 1000);
 }
 
 void app_loop() {

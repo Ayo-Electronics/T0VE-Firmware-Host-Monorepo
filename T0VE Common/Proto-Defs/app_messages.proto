@@ -117,10 +117,9 @@ message Hispeed_Status {
 
 message Hispeed_Command {
   optional bool arm_request =         1;
-  optional bool load_test_sequence =  2;
-  optional bool_4 SOA_enable =        3;
-  optional bool_4 TIA_enable =        4;
-  optional uint32_4 SOA_DAC_drive =   5;
+  optional bool_4 SOA_enable =        2;
+  optional bool_4 TIA_enable =        3;
+  optional uint32_4 SOA_DAC_drive =   4;
 }
 
 message Hispeed {
