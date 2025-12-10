@@ -61,7 +61,6 @@ bool AD5675::write_channel(uint8_t channel, uint16_t val, Thread_Signal* _write_
 	}
 }
 
-//TODO: figure out how to read the readback bytes after transfer completion
 bool AD5675::start_dac_readback(Thread_Signal* _read_complete_signal, Thread_Signal* _read_error_signal) {
 	//if the device isn't present on the I2C bus
 	if(!device_present) {

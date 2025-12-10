@@ -19,9 +19,12 @@
 
 #include "app_threading.hpp" 		//so we have references to the read/write ports
 #include "app_string.hpp"			//for CoB eeprom reading/writing
+#include "app_scheduler.hpp"		//for monitoring thread
 
 #include "app_cob_eeprom.hpp"		//for CoB memory size
 #include "app_bias_drives.hpp"		//for waveguide bias setpoint struct
+
+#include "app_messages.pb.h"		//protobuf message types
 
 class State_Supervisor {
 public:
@@ -30,18 +33,19 @@ public:
 
 	//init function sets up a monitoring thread that checks connection status
 	//turns off power when we disconnect; lets rest of subsystems handle putting state variables in safe states
-	//TODO: this, especially how to handle USB suspension during high-speed execution
+	//TODO
+	void init();
 
 	//for encode and decode, pop in a magic number to "sign" state as valid
 	//if decode doesn't match this magic number, don't perform state updates
 	static constexpr uint32_t MAGIC_NUMBER = 0xA5A5A5A5;
 
-	//serialization/deserialization of state messages
-	//should be ISR safe, but try not to run from there
-	std::span<uint8_t, std::dynamic_extent> serialize();
-	void deserialize(std::span<uint8_t, std::dynamic_extent> encoded_msg);
-
 	//============================== FUNCTIONS TO LINK SUBSCRIPTIONS ==============================
+
+	//publish/link protobuf messaging ports
+	SUBSCRIBE_FUNC(		comms_node_state_inbound		);
+	LINK_FUNC(			comms_node_state_outbound		);
+
 	//#### MULTICARD INFORMATION ####
 	LINK_FUNC(			multicard_info_all_cards_present_status		);
 	LINK_FUNC(			multicard_info_node_id_status				);
@@ -110,19 +114,32 @@ public:
 	//#### COMMS INTERFACE ####
 	LINK_FUNC(			status_comms_connected						);
 	SUBSCRIBE_FUNC(		command_comms_allow_connections				);
+	LINK_FUNC(			status_comms_decode_err_deserz				);
+	LINK_FUNC( 			status_comms_decode_err_msgtype				);
+	LINK_FUNC( 			status_comms_encode_err_serz				);
 
 private:
-	//special atomic variables to see if we decoded our most recent protobuf message successfully
-	Atomic_Var<bool> decode_err = false;
-	Atomic_Var<size_t> decode_err_deserz = 0;	//error when deserializing
-	Atomic_Var<size_t> decode_err_magicn = 0;	//error due to incorrect magic number
-	Atomic_Var<size_t> decode_err_msgtype = 0;	//error due to incorrect message type
-	Atomic_Var<bool> encode_err = false;
-	Atomic_Var<size_t> encode_err_serz = 0;		//error due to serialization
 
-	//and a buffer to dump our most recently encoded data
-	static constexpr size_t ENCODE_BUFFER_SIZE = 2048;
-	std::array<uint8_t, ENCODE_BUFFER_SIZE> encode_buffer;
+	//============================ INTERNAL FUNCTIONS + COMMS PIPE ============================
+
+	//main thread function - as of now, it polls the RX pipe for new state messages
+	//updates the state, then responds with the updated state (drops a node state message in the inbound pipe)
+	void check_state_update();
+	Scheduler check_state_update_task;
+
+	//serialization/deserialization of state messages into protobuf structure
+	app_Node_State serialize();
+	void deserialize(app_Node_State& new_state);
+
+	//comms data pipes
+	Sub_Var<app_Node_State> comms_node_state_outbound;					//receive on this port
+	PERSISTENT((Pub_Var<app_Node_State>), comms_node_state_inbound);	//transmit on this port
+
+	//=============================== SHARED STATE VARIABLES ==================================
+
+	//special atomic variables to see if we decoded our most recent protobuf message successfully
+	Atomic_Var<size_t> decode_err_magicn = 0;			//error due to incorrect magic number
+	Atomic_Var<bool> local_decode_err_flag = {false};	//boolean flag where we can hold onto the decode error
 
 	//#### MULTICARD INFORMATION ####
 	Sub_Var<bool> multicard_info_all_cards_present_status; 				//true if all cards are present
@@ -132,12 +149,12 @@ private:
 	//#### ONBOARD POWER MONITOR STATES ####
 	Sub_Var<bool> pm_onboard_immediate_power_status;
 	Sub_Var<bool> pm_onboard_debounced_power_status;
-	PERSISTENT((Pub_Var<bool>), pm_onboard_regulator_enable_command, true);	//enables local regulators if power present
+	PERSISTENT((Pub_Var<bool>), pm_onboard_regulator_enable_command, true);		//enables local regulators if power present
 
 	//#### MOTHERBOARD POWER MONITOR STATES ####
 	Sub_Var<bool> pm_motherboard_immediate_power_status;
 	Sub_Var<bool> pm_motherboard_debounced_power_status;
-	PERSISTENT((Pub_Var<bool>), pm_motherboard_regulator_enable_command, true); //TODO: REVERT TO FALSE AFTER TESTING
+	PERSISTENT((Pub_Var<bool>), pm_motherboard_regulator_enable_command, false);
 
 	//#### ADC OFFSET CONTROL STATES ####
 	Sub_Var<bool> adc_offset_ctrl_device_present_status; 						//report whether we detected the device during initialization
@@ -155,9 +172,9 @@ private:
 	Sub_Var_RC<bool>		status_hispeed_arm_flag_err_pwr;
 	Sub_Var_RC<bool>		status_hispeed_arm_flag_err_cancelled;
 	Sub_Var_RC<bool>		status_hispeed_arm_flag_complete;
-	PERSISTENT((Pub_Var<std::array<bool, 4>>), command_hispeed_SOA_enable, {true, false, false, false});	//TODO: revert after testing to all false
-	PERSISTENT((Pub_Var<std::array<bool, 4>>), command_hispeed_TIA_enable, {true, false, false, false});	//TODO: revert after testing to all false
-	PERSISTENT((Pub_Var<std::array<uint16_t, 4>>), command_hispeed_SOA_DAC_drive, {8000, 16000, 0, 0});		//TODO: revert after testing to all 0
+	PERSISTENT((Pub_Var<std::array<bool, 4>>), command_hispeed_SOA_enable, {false, false, false, false});
+	PERSISTENT((Pub_Var<std::array<bool, 4>>), command_hispeed_TIA_enable, {false, false, false, false});
+	PERSISTENT((Pub_Var<std::array<uint16_t, 4>>), command_hispeed_SOA_DAC_drive, {0, 0, 0, 0});
 	Sub_Var<std::array<uint16_t, 4>>	status_hispeed_TIA_ADC_readback;
 
 	//#### CoB TEMPERATURE MONITOR ####
@@ -191,6 +208,9 @@ private:
 	Sub_Var<bool> status_nmemmanager_mem_attached;							//reports whether the memory is being exposed over the MSC interface
 
 	//#### COMMS INTERFACE ####
-	Sub_Var<bool> status_comms_connected;					//report whether we're connected to a host
-	PERSISTENT((Pub_Var<bool>), command_comms_allow_connections);	//allow connections to a host
+	Sub_Var<bool> status_comms_connected;							//report whether we're connected to a host
+	PERSISTENT((Pub_Var<bool>), command_comms_allow_connections, true);	//allow connections to a host
+	Sub_Var<size_t> status_comms_decode_err_deserz;		//deserialization decode error
+	Sub_Var<size_t> status_comms_decode_err_msgtype;	//incorrect message type
+	Sub_Var<size_t> status_comms_encode_err_serz;		//serialization encode error
 };

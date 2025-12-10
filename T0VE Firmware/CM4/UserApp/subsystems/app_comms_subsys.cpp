@@ -10,9 +10,8 @@
 //========================== PUBLIC FUNCTIONS ==========================
 
 //constructor, just initialize our most important members
-Comms_Subsys::Comms_Subsys(USB_Interface& usb_if, State_Supervisor& _state_supervisor) : 
-    cdc_interface(usb_if, CDC_Interface::CDC_CHANNEL),  //use the default CDC channel
-    state_supervisor(_state_supervisor)
+Comms_Subsys::Comms_Subsys(USB_Interface& usb_if) :
+    cdc_interface(usb_if, CDC_Interface::CDC_CHANNEL)
 {}
 
 //init function
@@ -35,22 +34,44 @@ void Comms_Subsys::init() {
                                                         Scheduler::INTERVAL_EVERY_ITERATION);
 }
 
-//a little side channel injection of debug messages
-void Comms_Subsys::inject(std::span<uint8_t, std::dynamic_extent> msg) {
-	//if we're connected and can fit the message in the TX FIFO, send the message
-	if(	cdc_interface.connected() &&
-		(cdc_interface.tx_bytes_available() > msg.size()) &&
-		(msg.size() + HEADER_PADDING < INJECTION_DATA.size()))
-	{
-		//drop the message into the injection data buffer
-		std::copy(msg.begin(), msg.end(), INJECTION_DATA.begin() + HEADER_PADDING);
+void Comms_Subsys::push_messages() {
+	//transmit inbound debug message
+	if(comms_debug_inbound.check(false)) {	//only acknowledge after staging
+		//make a quick debug message
+		app_Communication msg = app_Communication_init_zero;
 
-		//add padding, add message size
-		INJECTION_DATA[0] = START_BYTE;
-		injection_data_size = msg.size();
+		//set its type to debug, copy in the debug message
+		msg.which_payload = app_Communication_debug_message_tag;
+		msg.payload.debug_message = comms_debug_inbound.read();
 
-		//and drop into the tx buffer
-		cdc_interface.tx_bytes_write(section(INJECTION_DATA, 0, injection_data_size + HEADER_PADDING), true);
+		//serialize, transmit, clear signal if indicated by transmit function
+		if(serialize_transmit(msg))	comms_debug_inbound.refresh();
+	}
+
+	//transmit inbound node state message
+	if(comms_node_state_inbound.check(false)) {
+		//make a quick debug message
+		app_Communication msg = app_Communication_init_zero;
+
+		//set its type to debug, copy in the debug message
+		msg.which_payload = app_Communication_node_state_tag;
+		msg.payload.node_state = comms_node_state_inbound.read();
+
+		//serialize, transmit, clear signal if indicated by transmit function
+		if(serialize_transmit(msg)) comms_node_state_inbound.refresh();
+	}
+
+	//and transmit inbound file access response
+	if(comms_mem_access_inbound.check(false)) {
+		//make a quick debug message
+		app_Communication msg = app_Communication_init_zero;
+
+		//set its type to debug, copy in the debug message
+		msg.which_payload = app_Communication_neural_mem_request_tag;
+		msg.payload.neural_mem_request = comms_mem_access_inbound.read();
+
+		//serialize, transmit, clear signal if indicated by transmit function
+		if(serialize_transmit(msg)) comms_mem_access_inbound.refresh();
 	}
 }
 
@@ -69,8 +90,11 @@ void Comms_Subsys::check_state_update_comms() {
         status_comms_connected.publish(cdc_interface.connected());
     }
     
+    //transmit any messages that have been pushed into our inbound variables
+    push_messages();
+
     //run the comms copy/parse/dispatch function every single iteration
-    comms_copy_parse_dispatch();
+    receive_poll();
 }
 
 //handler for our command variable
@@ -83,8 +107,50 @@ void Comms_Subsys::do_command_comms_allow_connections() {
     else cdc_interface.disconnect_request();
 }
 
+//returns whether we should acknowledge the "data available" signal
+bool Comms_Subsys::serialize_transmit(app_Communication& msg) {
+	//quick exit path--we're not connected
+	if(!cdc_interface.connected()) return true;	//clear our thread signal
+
+	//reset the output stream before each encode (critical!)
+	auto stream = pb_ostream_from_buffer(SERZ_BUFFER.data(), SERZ_BUFFER.size());
+
+	//attempt the message serialization
+	if(!pb_encode(&stream, app_Communication_fields, &msg)) {
+		//encode failed, increment fail counter
+		local_serz_err_count++;
+		status_comms_encode_err_serz.publish(local_serz_err_count);
+		return true; //clear our thread signal
+	}
+
+	//serialization successful
+	size_t message_size = stream.bytes_written;
+	auto active_message = section(SERZ_BUFFER, 0, message_size);
+
+	//validate buffer size
+	if(OUTBOUND_DATA.size() < (message_size + HEADER_PADDING)) {
+		Debug::WARN("TX: message too large for intermediate buffer!");
+		return true;
+	}
+	std::copy(active_message.begin(), active_message.end(), OUTBOUND_DATA.begin() + HEADER_PADDING);
+	OUTBOUND_DATA[0] = START_BYTE;				//drop in start byte
+	outbound_data_size = active_message.size();	//drop in size of the active message
+	message_size += HEADER_PADDING;
+
+	//and make sure we can fit the message into the transmit FIFO
+	if(cdc_interface.tx_bytes_available() < message_size) {
+		//we may have a message queued, retry next loop iteration
+		//keep thread signal asserted
+		return false;
+	}
+
+	//finally, drop everything into the transmit buffer; allow clearing of thread signal
+	cdc_interface.tx_bytes_write(section(OUTBOUND_DATA, 0, message_size), true);
+	return true;
+}
+
 //main comms funciton
-void Comms_Subsys::comms_copy_parse_dispatch() {
+void Comms_Subsys::receive_poll() {
     //check if we have any bytes available
     //if we don't have any, return
     size_t bytes_available = cdc_interface.rx_bytes_available();
@@ -123,21 +189,11 @@ void Comms_Subsys::comms_copy_parse_dispatch() {
     //if we have enough bytes in our buffer to decode the packet, do so now
     if(inbound_buffer_head >= inbound_end_index) {
         //compute the encoded message size, and slice
-        //if we have a non-zero length message, then decode/update state, and return new state
-        //zero-length messages are treated as "get state" requests, and don't go through the decode pipeline
+        //try decoding it, then dispatch it on the appropriate channel
         auto packet_data = section(INBOUND_DATA, inbound_start_index + HEADER_PADDING, inbound_end_index);	//slicing
-        if(packet_data.size() > 0) state_supervisor.deserialize(packet_data);								//decoding/update state
-        auto encoded_packet = state_supervisor.serialize();                                                 //encoding the new state          
-        
-        //copy encoded state into our outbound buffer, respecting buffer sizes for safety
-        //set the message header and size appropriately
-        size_t encoded_packet_copy_size = min(encoded_packet.size(), OUTBOUND_DATA.size() - HEADER_PADDING);
-        std::copy(encoded_packet.begin(), encoded_packet.begin() + encoded_packet_copy_size, OUTBOUND_DATA.begin() + HEADER_PADDING);
-        OUTBOUND_DATA[0] = START_BYTE;
-        outbound_data_size = encoded_packet_copy_size;
 
-        //write the outbound packet to the CDC interface
-        cdc_interface.tx_bytes_write(section(OUTBOUND_DATA, 0, encoded_packet_copy_size + HEADER_PADDING), true);
+        //then deserialze/dispatch our message
+        deserialize_dispatch(packet_data);
 
         //and reset our buffer pointer variables
         inbound_start_index = INBOUND_INDEX_RESET;
@@ -159,4 +215,40 @@ void Comms_Subsys::comms_copy_parse_dispatch() {
         inbound_end_index = INBOUND_INDEX_RESET;
         inbound_buffer_head = 0;
     }
+}
+
+void Comms_Subsys::deserialize_dispatch(std::span<uint8_t, std::dynamic_extent> msg) {
+	//temporary to parse into
+	app_Communication message = app_Communication_init_zero;
+
+	//create the protobuf input stream type
+	pb_istream_t stream = pb_istream_from_buffer(msg.data(), msg.size());
+
+	//try to decode the message
+	if(!pb_decode(&stream, app_Communication_fields, &message)) {
+		//decode failure, increment our fail counter, reply with a debug, and abort
+		local_deserz_err_count++;
+		status_comms_decode_err_deserz.publish(local_deserz_err_count);
+		Debug::WARN("RX: Protobuf Deserialization Error!");
+		return;
+	}
+
+	//dispatch based on message type
+	switch(message.which_payload) {
+		case app_Communication_node_state_tag:
+			comms_node_state_outbound.publish_unconditional(message.payload.node_state);
+			break;
+		case app_Communication_debug_message_tag:
+			comms_debug_outbound.publish_unconditional(message.payload.debug_message);
+			break;
+		case app_Communication_neural_mem_request_tag:
+			comms_mem_access_outbound.publish_unconditional(message.payload.neural_mem_request);
+			break;
+		default:
+			//message type error, increment fail counter, reply with debug
+			local_msgtype_err_count++;
+			status_comms_decode_err_msgtype.publish(local_msgtype_err_count);
+			Debug::WARN("RX: Invalid Protobuf Message Type");
+			break;
+	}
 }

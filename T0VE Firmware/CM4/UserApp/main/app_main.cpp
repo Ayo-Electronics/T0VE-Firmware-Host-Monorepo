@@ -25,10 +25,8 @@
 
 //========== USB INCLUDES ==========
 #include "app_usb_if.hpp"
-#include "app_msc_if.hpp"
 
 //============ SUBSYSTEM INCLUDES ===========
-#include "app_state_supervisor.hpp"
 #include "app_power_monitor.hpp"
 #include "app_adc_offset_ctrl.hpp"
 #include "app_sync_if.hpp"
@@ -40,6 +38,10 @@
 #include "app_comms_subsys.hpp"
 #include "app_mem_manager.hpp"
 
+//============ OTHER MAIN LOGIC INCLUDES =========
+#include "app_state_supervisor.hpp"
+#include "app_file_manager.hpp"
+
 //========= UTILITY INCLUDES =========
 #include "app_scheduler.hpp"
 #include "app_string.hpp"
@@ -48,7 +50,6 @@
 Aux_I2C i2c_bus(Aux_I2C::AUX_I2C_HARDWARE);
 DRAM dram(DRAM::DRAM_INTERFACE);
 USB_Interface usb = USB_Interface(USB_Interface::USB_CHANNEL);
-MSC_Interface msc(usb, MSC_Interface::MSC_CHANNEL);
 
 Hispeed_Subsystem::Hispeed_Channel_Hardware_t CHANNEL_0_HW = {
 		._spi_channel_hw = HiSpeed_SPI::SPI_CHANNEL_0,
@@ -81,6 +82,7 @@ Hispeed_Subsystem::Hispeed_Channel_Hardware_t CHANNEL_3_HW = {
 
 //=============== CREATING SYSTEM STATE AGGREGATION + LINKING SUBSYSTEM STATE VARIABLES ===============
 State_Supervisor state_supervisor;
+File_Manager file_manager;
 
 //============== INSTANTIATION OF DEVICES ==============
 Multicard_Info multicard_info_subsys(	Pin_Mapping::SYNC_NID_0,
@@ -108,17 +110,25 @@ LED_Indicators indicators_subsys(	Pin_Mapping::LED_RED,
 									Pin_Mapping::EXT_LED_GREEN,
 									Pin_Mapping::EXT_LED_YELLOW	);
 
-Comms_Subsys comms_subsys(usb, state_supervisor);
-Neural_Mem_Manager mem_manager(dram, msc);
+Comms_Subsys comms_subsys(usb);
+Neural_Mem_Manager mem_manager(dram, file_manager);
 
 //============== DEBUG UTILITY SETUP ============
 Debug_Protobuf dbp(comms_subsys);
 
-//TESTING: TODO, remove
-Scheduler print_test_task;
+//feel free to delete
+Scheduler heartbeat_task;
+static const size_t HEARTBEAT_PERIOD_MS = 5000;
 
 
 void LINK_SYSTEM_STATE_VARIABLES() {
+	//##### PROTOBUF MESSAGING #####
+	state_supervisor.link_comms_node_state_outbound(	comms_subsys.subscribe_comms_node_state_outbound()		);
+	file_manager.link_comms_mem_access_outbound(		comms_subsys.subscribe_comms_mem_access_outbound()		);
+	comms_subsys.link_comms_debug_inbound(				dbp.subscribe_comms_debug_inbound()						);
+	comms_subsys.link_comms_mem_access_inbound(			file_manager.subscribe_comms_mem_access_inbound()		);
+	comms_subsys.link_comms_node_state_inbound(			state_supervisor.subscribe_comms_node_state_inbound()	);
+
 	//##### MULTICARD INFO #####
 	multicard_info_subsys.link_command_sel_input_aux_npic(			state_supervisor.subscribe_multicard_info_sel_input_aux_npic_command()	);
 	state_supervisor.link_multicard_info_all_cards_present_status(	multicard_info_subsys.subscribe_status_all_cards_present()				);
@@ -141,7 +151,7 @@ void LINK_SYSTEM_STATE_VARIABLES() {
 	state_supervisor.link_RC_adc_offset_ctrl_dac_error_status(		offset_ctrl_subsys.subscribe_RC_status_offset_dac_error()					);
 	state_supervisor.link_adc_offset_ctrl_device_present_status(	offset_ctrl_subsys.subscribe_status_device_present()						);
 	offset_ctrl_subsys.link_status_onboard_pgood(					pm_onboard_subsys.subscribe_status_debounced_power()						);
-	//TESTING, TODO: change back to line above
+	//TESTING: change back to line above
 	//offset_ctrl_subsys.link_status_onboard_pgood(dummy_pgood.subscribe());
 
 	//##### HISPEED SUBSYSTEM #####
@@ -165,7 +175,7 @@ void LINK_SYSTEM_STATE_VARIABLES() {
 	state_supervisor.link_status_cobtemp_device_present(				cob_temp_monitor.subscribe_status_device_present()						);
 	state_supervisor.link_status_cobtemp_temp_sensor_device_id(			cob_temp_monitor.subscribe_status_temp_sensor_device_id()				);
 	cob_temp_monitor.link_status_onboard_pgood(							pm_onboard_subsys.subscribe_status_debounced_power()					);
-	//TESTING, TODO: change back to line above
+	//TESTING: change back to line above
 	//cob_temp_monitor.link_status_onboard_pgood(dummy_pgood.subscribe());
 
 	//##### CoB EEPROM #####
@@ -177,7 +187,7 @@ void LINK_SYSTEM_STATE_VARIABLES() {
 	cob_eeprom.link_RC_command_cob_eeprom_write_contents(				state_supervisor.subscribe_RC_command_cob_eeprom_write_contents()		);
 	cob_eeprom.link_RC_command_cob_eeprom_write_key(					state_supervisor.subscribe_RC_command_cob_eeprom_write_key()			);
 	cob_eeprom.link_status_onboard_pgood(								pm_onboard_subsys.subscribe_status_debounced_power()					);
-	//TESTING, TODO: change back to the line above
+	//TESTING: change back to the line above
 	//cob_eeprom.link_status_onboard_pgood(dummy_pgood.subscribe());
 
 	//##### WAVEGUIDE BIAS DRIVES #####
@@ -192,6 +202,9 @@ void LINK_SYSTEM_STATE_VARIABLES() {
 	//##### COMMS INTERFACE #####
 	state_supervisor.link_status_comms_connected(					comms_subsys.subscribe_status_comms_connected()						);
 	comms_subsys.link_command_comms_allow_connections(				state_supervisor.subscribe_command_comms_allow_connections()		);
+	state_supervisor.link_status_comms_decode_err_deserz(			comms_subsys.subscribe_status_comms_decode_err_deserz()				);
+	state_supervisor.link_status_comms_decode_err_msgtype(			comms_subsys.subscribe_status_comms_decode_err_msgtype()			);
+	state_supervisor.link_status_comms_encode_err_serz(				comms_subsys.subscribe_status_comms_encode_err_serz()				);
 
 	//##### MEM MANAGER #####
 	state_supervisor.link_status_nmemmanager_detected_input_size(	mem_manager.subscribe_status_nmemmanager_detected_input_size()			);
@@ -217,6 +230,7 @@ void LINK_SYSTEM_STATE_VARIABLES() {
 void INIT_SUBSYSTEMS() {
 	//init multicard_info_subsys with USB so we get access to the NODE ID
 	//multicard_info_subsys.init();
+	state_supervisor.init();
 	pm_onboard_subsys.init();
 	pm_motherboard_subsys.init();
 	offset_ctrl_subsys.init();
@@ -227,6 +241,7 @@ void INIT_SUBSYSTEMS() {
 	wgbias_subsys.init();
 	comms_subsys.init();
 	mem_manager.init();
+	file_manager.init();
 }
 
 void ident_node_usb() {
@@ -248,12 +263,6 @@ void ident_node_usb() {
 
 	//set our USB serial number accordingly
 	usb.set_serial(new_serial);
-
-	//and initialize our MSC volume name according to the NODE_ID too
-	App_String<11, ' '> new_volname("MEM");
-	new_volname.cat(str_node);
-	msc.set_string_fields(new_volname, "Ayo Elec", "T0VE Proc Card", "A.15");
-	msc.connect_request();
 }
 
 void app_init() {
@@ -269,8 +278,8 @@ void app_init() {
 	INIT_SUBSYSTEMS();
 	Debug::PRINT("SUBSYSTEMS INITIALIZED!\r\n");
 
-	//TESTING, TODO: REMOVE
-	print_test_task.schedule_interval_ms([](){ Debug::PRINT("### Heartbeat ###");}, 1000);
+	//feel free to remove
+	heartbeat_task.schedule_interval_ms([](){ Debug::PRINT("### Heartbeat ###");}, HEARTBEAT_PERIOD_MS);
 }
 
 void app_loop() {

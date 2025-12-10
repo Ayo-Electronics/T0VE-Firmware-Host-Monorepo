@@ -46,6 +46,31 @@ class Bool4(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class NeuralMemFileAccess(betterproto.Message):
+    filename: str = betterproto.string_field(1)
+    offset: int = betterproto.uint32_field(2)
+    read_nwrite: bool = betterproto.bool_field(3)
+    data: bytes = betterproto.bytes_field(4)
+
+
+@dataclass(eq=False, repr=False)
+class NeuralMemFileInfo(betterproto.Message):
+    filename: str = betterproto.string_field(1)
+    filesize: int = betterproto.uint32_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class NeuralMemFileList(betterproto.Message):
+    files: List["NeuralMemFileInfo"] = betterproto.message_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class NeuralMemFileRequest(betterproto.Message):
+    file_list: "NeuralMemFileList" = betterproto.message_field(1, group="payload")
+    file_access: "NeuralMemFileAccess" = betterproto.message_field(2, group="payload")
+
+
+@dataclass(eq=False, repr=False)
 class Debug(betterproto.Message):
     level: "DebugLevel" = betterproto.enum_field(1)
     msg: str = betterproto.string_field(2)
@@ -279,3 +304,6 @@ class NodeState(betterproto.Message):
 class Communication(betterproto.Message):
     node_state: "NodeState" = betterproto.message_field(1, group="payload")
     debug_message: "Debug" = betterproto.message_field(2, group="payload")
+    neural_mem_request: "NeuralMemFileRequest" = betterproto.message_field(
+        3, group="payload"
+    )

@@ -164,9 +164,9 @@ public:
 	//lets downstream interfaces request a soft-disconnect of the USB device
 	//useful (in our case) to disconnect USB when we're running the high-speed computation
 	//and reconnecting the interface afterward
-	//TODO
-	void connect_request() {}
-	void disconnect_request() {}
+	//TODO: add a counting semaphore here potentially
+	void connect_request() 		{ 	tud_connect(); 		}
+	void disconnect_request() 	{	tud_disconnect();	}
 
 private:
 	//save the channel information for when we're preparing/editing our descriptors

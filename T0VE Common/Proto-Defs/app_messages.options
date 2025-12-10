@@ -6,6 +6,11 @@ app.bool_4.values max_count:4 fixed_count:true
 
 app.Debug.msg max_size:256
 
+app.Neural_Mem_FileAccess.data max_size: 1024
+app.Neural_Mem_FileAccess.filename max_size: 32
+app.Neural_Mem_FileInfo.filename max_size: 32
+app.Neural_Mem_FileList.files max_count: 8
+
 app.CoB_EEPROM_Status.cob_desc max_size:128
 app.CoB_EEPROM_Command.cob_desc_set max_size:128
 

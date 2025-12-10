@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: t0ve-host-software
+Version: 0.1.0
+Summary: Host software and state communicator for the T0VE system.
+Author: Ishaan Govindarajan
+Project-URL: Homepage, https://example.com/t0ve-host-software
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: betterproto[compiler]==2.0.0b7
+Requires-Dist: pypubsub>=4.0.3
+Requires-Dist: pyserial>=3.5

@@ -4,18 +4,27 @@ channels:
   - conda-forge
 dependencies:
   - bzip2=1.0.8=h2bbff1b_6
-  - ca-certificates=2025.9.9=haa95532_0
+  - ca-certificates=2025.12.2=haa95532_0
+  - dataclasses=0.8=pyh6d0b6a4_7
   - expat=2.7.1=h8ddb27b_0
+  - grpclib=0.4.8=pyhd8ed1ab_0
+  - h2=4.2.0=py39haa95532_0
+  - hpack=4.1.0=py39haa95532_0
+  - hyperframe=6.1.0=py39haa95532_0
   - libffi=3.4.4=hd77b12b_1
   - libzlib=1.3.1=h02ab6af_0
+  - multidict=6.7.0=py39h02ab6af_0
   - openssl=3.0.18=h543e019_0
-  - pip=25.2=pyhc872135_1
+  - pip=25.3=pyhc872135_0
   - pypubsub=4.0.3=pyhd8ed1ab_1
   - pyserial=3.5=py39haa95532_2
   - python=3.9.24=h716150d_1
   - setuptools=80.9.0=py39haa95532_0
   - sqlite=3.50.2=hda9a48d_1
+  - stringcase=1.2.0=pyhd8ed1ab_2
   - tk=8.6.15=hf199647_0
+  - typing-extensions=4.15.0=py39haa95532_0
+  - typing_extensions=4.15.0=py39haa95532_0
   - tzdata=2025b=h04d1e81_0
   - ucrt=10.0.22621.0=haa95532_0
   - vc=14.3=h2df5915_10
@@ -24,4 +33,22 @@ dependencies:
   - wheel=0.45.1=py39haa95532_0
   - xz=5.6.4=h4754444_1
   - zlib=1.3.1=h02ab6af_0
+  - pip:
+      - betterproto==2.0.0b7
+      - black==25.11.0
+      - click==8.1.8
+      - colorama==0.4.6
+      - isort==5.13.2
+      - jinja2==3.1.6
+      - markupsafe==3.0.3
+      - mypy-extensions==1.1.0
+      - packaging==25.0
+      - pathspec==0.12.1
+      - platformdirs==4.4.0
+      - python-dateutil==2.9.0.post0
+      - pytokens==0.3.0
+      - six==1.17.0
+      - sv-ttk==2.6.1
+      - t0ve-host-software==0.1.0
+      - tomli==2.3.0
 prefix: C:\Users\govis\.conda\envs\T0VE_Host_Software

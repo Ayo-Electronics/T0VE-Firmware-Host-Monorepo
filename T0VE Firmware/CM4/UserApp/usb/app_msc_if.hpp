@@ -49,6 +49,10 @@ public:
 	//`init`s the upstream hardware if required
 	void init();
 
+	//notify the host unit that contents of one of our files has changed
+	//do so by issuing the appropriate SCSI commands on the next `ready` request
+	void notify_file_change();
+
 	//request/allow the upstream USB peripheral to connect
 	//useful if we need to suspend the USB port for some reason
 	//TODO: add some SCSI logic in here to allow connections
@@ -125,6 +129,9 @@ private:
 
 	//a little bool flag to hold if we'd like to expose we're accessible
 	bool accessible = false;
+
+	//and a bool flag that we assert when we want to tell the host one of our files changed
+	bool file_changed = false;
 
 	//some strings useful for the SCSI interface + FATFS emulator
 	App_String<8, ' '> scsi_vid = "Ayo Elec";

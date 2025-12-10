@@ -37,6 +37,32 @@ typedef struct _app_bool_4 {
     bool values[4];
 } app_bool_4;
 
+typedef PB_BYTES_ARRAY_T(1024) app_Neural_Mem_FileAccess_data_t;
+typedef struct _app_Neural_Mem_FileAccess {
+    char filename[32]; /* max length set in .options file, 32 */
+    uint32_t offset;
+    bool read_nwrite; /* true = read, false = write */
+    app_Neural_Mem_FileAccess_data_t data; /* max length 1024, may increase */
+} app_Neural_Mem_FileAccess;
+
+typedef struct _app_Neural_Mem_FileInfo {
+    char filename[32]; /* max length set in .options file, 32 */
+    uint32_t filesize;
+} app_Neural_Mem_FileInfo;
+
+typedef struct _app_Neural_Mem_FileList {
+    pb_size_t files_count;
+    app_Neural_Mem_FileInfo files[8]; /* has max count set in .options file, 8 */
+} app_Neural_Mem_FileList;
+
+typedef struct _app_Neural_Mem_FileRequest {
+    pb_size_t which_payload;
+    union {
+        app_Neural_Mem_FileList file_list;
+        app_Neural_Mem_FileAccess file_access;
+    } payload;
+} app_Neural_Mem_FileRequest;
+
 typedef struct _app_Debug {
     app_Debug_Level level;
     char msg[256]; /* max length set in .options file, 256 */
@@ -258,6 +284,7 @@ typedef struct _app_Communication {
     union {
         app_Node_State node_state;
         app_Debug debug_message;
+        app_Neural_Mem_FileRequest neural_mem_request;
     } payload;
 } app_Communication;
 
@@ -270,6 +297,10 @@ extern "C" {
 #define _app_Debug_Level_MIN app_Debug_Level_INFO
 #define _app_Debug_Level_MAX app_Debug_Level_ERROR
 #define _app_Debug_Level_ARRAYSIZE ((app_Debug_Level)(app_Debug_Level_ERROR+1))
+
+
+
+
 
 
 
@@ -314,6 +345,10 @@ extern "C" {
 #define app_uint32_4_init_default                {{0, 0, 0, 0}}
 #define app_uint32_10_init_default               {{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
 #define app_bool_4_init_default                  {{0, 0, 0, 0}}
+#define app_Neural_Mem_FileAccess_init_default   {"", 0, 0, {0, {0}}}
+#define app_Neural_Mem_FileInfo_init_default     {"", 0}
+#define app_Neural_Mem_FileList_init_default     {0, {app_Neural_Mem_FileInfo_init_default, app_Neural_Mem_FileInfo_init_default, app_Neural_Mem_FileInfo_init_default, app_Neural_Mem_FileInfo_init_default, app_Neural_Mem_FileInfo_init_default, app_Neural_Mem_FileInfo_init_default, app_Neural_Mem_FileInfo_init_default, app_Neural_Mem_FileInfo_init_default}}
+#define app_Neural_Mem_FileRequest_init_default  {0, {app_Neural_Mem_FileList_init_default}}
 #define app_Debug_init_default                   {_app_Debug_Level_MIN, ""}
 #define app_State_Supervisor_Status_init_default {0, 0, 0, 0, 0, 0}
 #define app_State_Supervisor_init_default        {app_State_Supervisor_Status_init_default}
@@ -350,6 +385,10 @@ extern "C" {
 #define app_uint32_4_init_zero                   {{0, 0, 0, 0}}
 #define app_uint32_10_init_zero                  {{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
 #define app_bool_4_init_zero                     {{0, 0, 0, 0}}
+#define app_Neural_Mem_FileAccess_init_zero      {"", 0, 0, {0, {0}}}
+#define app_Neural_Mem_FileInfo_init_zero        {"", 0}
+#define app_Neural_Mem_FileList_init_zero        {0, {app_Neural_Mem_FileInfo_init_zero, app_Neural_Mem_FileInfo_init_zero, app_Neural_Mem_FileInfo_init_zero, app_Neural_Mem_FileInfo_init_zero, app_Neural_Mem_FileInfo_init_zero, app_Neural_Mem_FileInfo_init_zero, app_Neural_Mem_FileInfo_init_zero, app_Neural_Mem_FileInfo_init_zero}}
+#define app_Neural_Mem_FileRequest_init_zero     {0, {app_Neural_Mem_FileList_init_zero}}
 #define app_Debug_init_zero                      {_app_Debug_Level_MIN, ""}
 #define app_State_Supervisor_Status_init_zero    {0, 0, 0, 0, 0, 0}
 #define app_State_Supervisor_init_zero           {app_State_Supervisor_Status_init_zero}
@@ -388,6 +427,15 @@ extern "C" {
 #define app_uint32_4_values_tag                  1
 #define app_uint32_10_values_tag                 1
 #define app_bool_4_values_tag                    1
+#define app_Neural_Mem_FileAccess_filename_tag   1
+#define app_Neural_Mem_FileAccess_offset_tag     2
+#define app_Neural_Mem_FileAccess_read_nwrite_tag 3
+#define app_Neural_Mem_FileAccess_data_tag       4
+#define app_Neural_Mem_FileInfo_filename_tag     1
+#define app_Neural_Mem_FileInfo_filesize_tag     2
+#define app_Neural_Mem_FileList_files_tag        1
+#define app_Neural_Mem_FileRequest_file_list_tag 1
+#define app_Neural_Mem_FileRequest_file_access_tag 2
 #define app_Debug_level_tag                      1
 #define app_Debug_msg_tag                        2
 #define app_State_Supervisor_Status_decode_err_tag 1
@@ -478,6 +526,7 @@ extern "C" {
 #define app_Node_State_do_system_reset_tag       13
 #define app_Communication_node_state_tag         1
 #define app_Communication_debug_message_tag      2
+#define app_Communication_neural_mem_request_tag 3
 
 /* Struct field encoding specification for nanopb */
 #define app_uint32_2_FIELDLIST(X, a) \
@@ -499,6 +548,34 @@ X(a, STATIC,   FIXARRAY, UINT32,   values,            1)
 X(a, STATIC,   FIXARRAY, BOOL,     values,            1)
 #define app_bool_4_CALLBACK NULL
 #define app_bool_4_DEFAULT NULL
+
+#define app_Neural_Mem_FileAccess_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   filename,          1) \
+X(a, STATIC,   SINGULAR, UINT32,   offset,            2) \
+X(a, STATIC,   SINGULAR, BOOL,     read_nwrite,       3) \
+X(a, STATIC,   SINGULAR, BYTES,    data,              4)
+#define app_Neural_Mem_FileAccess_CALLBACK NULL
+#define app_Neural_Mem_FileAccess_DEFAULT NULL
+
+#define app_Neural_Mem_FileInfo_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   filename,          1) \
+X(a, STATIC,   SINGULAR, UINT32,   filesize,          2)
+#define app_Neural_Mem_FileInfo_CALLBACK NULL
+#define app_Neural_Mem_FileInfo_DEFAULT NULL
+
+#define app_Neural_Mem_FileList_FIELDLIST(X, a) \
+X(a, STATIC,   REPEATED, MESSAGE,  files,             1)
+#define app_Neural_Mem_FileList_CALLBACK NULL
+#define app_Neural_Mem_FileList_DEFAULT NULL
+#define app_Neural_Mem_FileList_files_MSGTYPE app_Neural_Mem_FileInfo
+
+#define app_Neural_Mem_FileRequest_FIELDLIST(X, a) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (payload,file_list,payload.file_list),   1) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (payload,file_access,payload.file_access),   2)
+#define app_Neural_Mem_FileRequest_CALLBACK NULL
+#define app_Neural_Mem_FileRequest_DEFAULT NULL
+#define app_Neural_Mem_FileRequest_payload_file_list_MSGTYPE app_Neural_Mem_FileList
+#define app_Neural_Mem_FileRequest_payload_file_access_MSGTYPE app_Neural_Mem_FileAccess
 
 #define app_Debug_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, UENUM,    level,             1) \
@@ -754,16 +831,22 @@ X(a, STATIC,   OPTIONAL, BOOL,     do_system_reset,  13)
 
 #define app_Communication_FIELDLIST(X, a) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (payload,node_state,payload.node_state),   1) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (payload,debug_message,payload.debug_message),   2)
+X(a, STATIC,   ONEOF,    MESSAGE,  (payload,debug_message,payload.debug_message),   2) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (payload,neural_mem_request,payload.neural_mem_request),   3)
 #define app_Communication_CALLBACK NULL
 #define app_Communication_DEFAULT NULL
 #define app_Communication_payload_node_state_MSGTYPE app_Node_State
 #define app_Communication_payload_debug_message_MSGTYPE app_Debug
+#define app_Communication_payload_neural_mem_request_MSGTYPE app_Neural_Mem_FileRequest
 
 extern const pb_msgdesc_t app_uint32_2_msg;
 extern const pb_msgdesc_t app_uint32_4_msg;
 extern const pb_msgdesc_t app_uint32_10_msg;
 extern const pb_msgdesc_t app_bool_4_msg;
+extern const pb_msgdesc_t app_Neural_Mem_FileAccess_msg;
+extern const pb_msgdesc_t app_Neural_Mem_FileInfo_msg;
+extern const pb_msgdesc_t app_Neural_Mem_FileList_msg;
+extern const pb_msgdesc_t app_Neural_Mem_FileRequest_msg;
 extern const pb_msgdesc_t app_Debug_msg;
 extern const pb_msgdesc_t app_State_Supervisor_Status_msg;
 extern const pb_msgdesc_t app_State_Supervisor_msg;
@@ -802,6 +885,10 @@ extern const pb_msgdesc_t app_Communication_msg;
 #define app_uint32_4_fields &app_uint32_4_msg
 #define app_uint32_10_fields &app_uint32_10_msg
 #define app_bool_4_fields &app_bool_4_msg
+#define app_Neural_Mem_FileAccess_fields &app_Neural_Mem_FileAccess_msg
+#define app_Neural_Mem_FileInfo_fields &app_Neural_Mem_FileInfo_msg
+#define app_Neural_Mem_FileList_fields &app_Neural_Mem_FileList_msg
+#define app_Neural_Mem_FileRequest_fields &app_Neural_Mem_FileRequest_msg
 #define app_Debug_fields &app_Debug_msg
 #define app_State_Supervisor_Status_fields &app_State_Supervisor_Status_msg
 #define app_State_Supervisor_fields &app_State_Supervisor_msg
@@ -845,7 +932,7 @@ extern const pb_msgdesc_t app_Communication_msg;
 #define app_Comms_Command_size                   2
 #define app_Comms_Status_size                    2
 #define app_Comms_size                           8
-#define app_Communication_size                   806
+#define app_Communication_size                   1074
 #define app_Debug_size                           260
 #define app_Hispeed_Command_size                 48
 #define app_Hispeed_Status_size                  38
@@ -854,6 +941,10 @@ extern const pb_msgdesc_t app_Communication_msg;
 #define app_Multicard_Status_size                8
 #define app_Multicard_size                       14
 #define app_Neural_Mem_Command_size              8
+#define app_Neural_Mem_FileAccess_size           1068
+#define app_Neural_Mem_FileInfo_size             39
+#define app_Neural_Mem_FileList_size             328
+#define app_Neural_Mem_FileRequest_size          1071
 #define app_Neural_Mem_Status_size               14
 #define app_Neural_Mem_size                      26
 #define app_Node_State_size                      803

@@ -51,7 +51,7 @@ public:
 	//initialization routine
 	void init();
 
-	//and the last thing we need is just TODO accessors to our subsystem variables
+	//and the last thing we need is just accessors to our subsystem variables
 	LINK_FUNC(command_hispeed_arm_fire_request);
 	SUBSCRIBE_FUNC(status_hispeed_armed);
 	SUBSCRIBE_FUNC_RC(status_hispeed_arm_flag_err_ready);

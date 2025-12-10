@@ -11,12 +11,13 @@
 #include "app_threading.hpp"
 #include "app_scheduler.hpp"
 #include "app_hal_dram.hpp"
-#include "app_msc_if.hpp"
+#include "app_file_manager.hpp"
+#include "app_basic_file.hpp"
 
 class Neural_Mem_Manager {
 public:
 	//constructor takes references to DRAM and MSC interface
-	Neural_Mem_Manager(DRAM& _dram, MSC_Interface& _msc_if);
+	Neural_Mem_Manager(DRAM& _dram, File_Manager& _file_if);
 
 	//init function initializes dram and msc interface
 	void init();
@@ -32,7 +33,7 @@ public:
 private:
 	//reference DRAM and a mass storage interface
 	DRAM& dram;
-	MSC_Interface& msc_if;
+	File_Manager& file_if;
 
 	//own an instance of neural memory
 	Neural_Memory neural_mem;
@@ -64,11 +65,11 @@ private:
 	PERSISTENT((Pub_Var<bool>), status_nmemmanager_mem_attached);				//reports whether the memory is being exposed over the MSC interface
 
 	//and own some mass-storage class files that we'll expose/hide when told
-	MSC_File block_mem_file = 	{neural_mem.block_mem_as_bytes(), "NEURAL_BLOCK_PARAMTERS.bin"};
-	MSC_File inputs_file = 		{neural_mem.inputs_as_bytes(), "NEURAL_INPUTS.bin"};
-	MSC_File input_map_file = 	{neural_mem.input_map_as_bytes(), "NEURAL_INPUT_MAP.bin"};
-	MSC_File outputs_file = 	{neural_mem.outputs_as_bytes(), "NEURAL_OUTPUTS.bin"};
-	MSC_File output_map_file = 	{neural_mem.output_map_as_bytes(), "NEURAL_OUTPUT_MAP.bin"};
+	Basic_File block_mem_file = 	{neural_mem.block_mem_as_bytes(), "NEURAL_BLOCK_PARAMTERS.bin"};
+	Basic_File inputs_file = 		{neural_mem.inputs_as_bytes(), "NEURAL_INPUTS.bin"};
+	Basic_File input_map_file = 	{neural_mem.input_map_as_bytes(), "NEURAL_INPUT_MAP.bin"};
+	Basic_File outputs_file = 		{neural_mem.outputs_as_bytes(), "NEURAL_OUTPUTS.bin"};
+	Basic_File output_map_file = 	{neural_mem.output_map_as_bytes(), "NEURAL_OUTPUT_MAP.bin"};
 
 	//and a function that runs the state management
 	void check_state_update();

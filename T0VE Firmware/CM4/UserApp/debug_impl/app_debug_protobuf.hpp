@@ -30,9 +30,16 @@ public:
 	void print(Msg_t msg) override;
 	void warn(Msg_t msg) override;
 	void error(Msg_t msg) override;
+
+	//and allow subscribing to the write port
+	SUBSCRIBE_FUNC(comms_debug_inbound);
+
 private:
-	//reference a comms interface
+	//own a reference to the comms subsystem so we can push debug messages instantly
 	Comms_Subsys& comms;
+
+	//own a publish port that pushes debug messages
+	PERSISTENT((Pub_Var<app_Debug>), comms_debug_inbound);
 
 	//and a little permanent buffer to drop encoded messages
 	//should only be used locally, but means we don't need a ton of stack space

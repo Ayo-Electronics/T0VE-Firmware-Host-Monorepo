@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "t0ve-host-software"
+version = "0.1.0"
+description = "Host software and state communicator for the T0VE system."
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [
+  { name = "Ishaan Govindarajan" }
+]
+dependencies = [
+  "betterproto[compiler]==2.0.0b7",
+  "pypubsub>=4.0.3",
+  "pyserial>=3.5",
+]
+
+[project.urls]
+Homepage = "https://example.com/t0ve-host-software"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = [
+  "host_application_drivers",
+  "T0VE_State_Communicator",
+]
+exclude = [
+  "testing",
+]
+
+

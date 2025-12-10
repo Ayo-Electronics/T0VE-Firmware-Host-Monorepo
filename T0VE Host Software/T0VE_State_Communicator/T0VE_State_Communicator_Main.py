@@ -20,6 +20,8 @@ import logging
 from pubsub import pub
 import pprint
 
+import sv_ttk
+
 from host_application_drivers.host_device_state_serdes import HostDeviceStateSerdes
 from host_application_drivers.ui_dict_viewer_module import DictViewerModule
 from host_application_drivers.ui_scrollable_frame import ScrollableFrame
@@ -65,6 +67,9 @@ def connection_prompt(  root: tk.Tk,
 
     # Enter key submits
     root.bind("<Return>", lambda event: submit())
+
+    # themeing using sv-ttk
+    sv_ttk.set_theme("light")
 
     # Run this window's event loop until selection
     root.mainloop()
@@ -200,4 +205,5 @@ if __name__ == "__main__":
     )
 
     ###### RUN THE MAIN LOOP ######
+    sv_ttk.set_theme("light")
     root.mainloop()

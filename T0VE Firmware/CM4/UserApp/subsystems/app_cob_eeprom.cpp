@@ -57,7 +57,6 @@ void CoB_EEPROM::enable() {
 	App_String<EEPROM_24AA02UID::MEMORY_SIZE_BYTES> temp_contents(eeprom.get_contents());
 	status_cob_eeprom_contents.publish(temp_contents);
 
-
 	//and clear any stale desires to write to the EEPROM
 	command_cob_eeprom_write.acknowledge_reset();
 	command_cob_eeprom_write_key.acknowledge_reset();

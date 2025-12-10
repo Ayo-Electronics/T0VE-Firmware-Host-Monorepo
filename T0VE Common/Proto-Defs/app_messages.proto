@@ -26,6 +26,47 @@ message bool_4 {
   repeated bool values = 1;
 }
 
+//========================== NEURAL MEMORY ACCESS MESSAGES ==========================
+
+//for a WRITE operation from the host
+//  - set filename to the desired file
+//  - set offset to the desired start location
+//  - set read_nwrite to false
+//  - set data to the array of bytes to write
+// firmware will respond with a mirror of the command
+// and if the write fails, data will be an empty byte array
+
+//for a READ operation from the host
+//  - set filename to the desired file
+//  - set offset to the desired start location
+//  - set read_nwrite to true
+//  - set data to a byte array with the desired size (contents ignored)
+// firmware will respond with a message with the data field filled with the read bytes
+// and if the read fails, data will be an empty byte array
+
+message Neural_Mem_FileAccess {
+  string filename =       1;  //max length set in .options file, 32
+  uint32 offset =         2;
+  bool read_nwrite =      3;  //true = read, false = write
+  bytes data =            4;  //max length 1024, may increase
+}
+
+message Neural_Mem_FileInfo {
+  string filename =       1;  //max length set in .options file, 32
+  uint32 filesize =       2;
+}
+
+message Neural_Mem_FileList {
+  repeated Neural_Mem_FileInfo files = 1; //has max count set in .options file, 8
+}
+
+message Neural_Mem_FileRequest {
+  oneof payload {
+    Neural_Mem_FileList file_list =    1;
+    Neural_Mem_FileAccess file_access =    2;
+  }
+}
+
 //========================== DEBUG MESSAGES ==========================
 
 enum Debug_Level {
@@ -238,7 +279,8 @@ message Node_State {
 
 message Communication {
   oneof payload {
-    Node_State node_state = 1;
-    Debug debug_message =   2;
+    Node_State node_state =                     1;
+    Debug debug_message =                       2;
+    Neural_Mem_FileRequest neural_mem_request = 3;
   }
 }

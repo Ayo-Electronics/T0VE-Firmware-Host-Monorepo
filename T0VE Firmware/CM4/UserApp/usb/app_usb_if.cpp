@@ -27,7 +27,6 @@
 enum {
   ITF_NUM_CDC = 0,
   ITF_NUM_CDC_DATA,
-  ITF_NUM_MSC,
   ITF_NUM_TOTAL
 };
 
@@ -38,7 +37,7 @@ enum {
 #define EPNUM_MSC_OUT     0x03
 #define EPNUM_MSC_IN      0x83
 
-#define CONFIG_TOTAL_LEN    (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + TUD_MSC_DESC_LEN)
+#define CONFIG_TOTAL_LEN    (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN)
 
 //================== STATIC MEMBER DEFS ================
 
@@ -67,23 +66,19 @@ USB_Interface::USB_Channel_t USB_Interface::USB_CHANNEL = {
 			    .bNumConfigurations = 0x01
 			}),
 
-		.CONFIG_DESCRIPTORS = USB_Interface::Config_Descriptor_t::mk({
+		.CONFIG_DESCRIPTORS = USB_Interface::Config_Descriptor_t::mk({ // @suppress("Function cannot be instantiated")
 			// Config number, interface count, string index, total length, attribute, power in mA
 			TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, 0x00, 100),
 
 			// Interface number, string index, EP notification address and size, EP data address (out, in) and size.
 			TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, 4, EPNUM_CDC_NOTIF, 16, EPNUM_CDC_OUT, EPNUM_CDC_IN, 64),
-
-			// Interface number, string index, EP Out & EP In address, EP size
-			TUD_MSC_DESCRIPTOR(ITF_NUM_MSC, 5, EPNUM_MSC_OUT, EPNUM_MSC_IN, 64)
 		}),
 
-		.STRING_DESCRIPTORS = USB_Interface::String_Descriptor_t::mk({
+		.STRING_DESCRIPTORS = USB_Interface::String_Descriptor_t::mk({ // @suppress("Function cannot be instantiated")
 			"Ayo Electronics",
 			"T0VE Processor Card",
 			"[TODO_SERIAL_NUMBER]",
 			"USB Serial Interface 1",
-			"USB Mass Storage Interface 1",
 		}),
 };
 
@@ -161,5 +156,14 @@ uint8_t const *tud_descriptor_configuration_cb(uint8_t index) {
 // Invoked when received GET STRING DESCRIPTOR request
 // Application return pointer to descriptor, whose contents must exist long enough for transfer to complete
 uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
+	(void) langid; // unused, we only support English
+
+	// Bounds check: return NULL for invalid string indices
+	// This tells TinyUSB to STALL the request, which is the correct behavior
+	// for non-existent string descriptors (e.g., Windows probes index 0xEE for MS OS descriptor)
+	if (index >= USB_Interface::USB_CHANNEL.STRING_DESCRIPTORS.desc_string.size()) {
+		return NULL;
+	}
+
 	return USB_Interface::USB_CHANNEL.STRING_DESCRIPTORS.desc_string[index].data();
 }

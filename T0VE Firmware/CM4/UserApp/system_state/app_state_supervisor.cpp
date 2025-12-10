@@ -43,29 +43,46 @@ static void write_sv_arrays(Pub_Var<std::array<T_dest, N>>& dest, const T_src (&
 //default initialization of all state variables done in header
 State_Supervisor::State_Supervisor() {}
 
+void State_Supervisor::init() {
+	//for now, just set up a thread that monitors the RX pipe
+	check_state_update_task.schedule_interval_ms(BIND_CALLBACK(this, check_state_update), Scheduler::INTERVAL_EVERY_ITERATION);
+}
+
+//============================================= PRIVATE FUNCTIONS ============================================
+
+//state update - monitor RX pipe
+void State_Supervisor::check_state_update() {
+	//if we have a new state to update
+	if(comms_node_state_outbound.check()) {
+		//grab our message and deserialize it
+		auto in_state = comms_node_state_outbound.read();
+		deserialize(in_state);
+
+		//and respond by collecting the updated state and serializing it
+		auto out_state = serialize();
+		comms_node_state_inbound.publish_unconditional(out_state);
+	}
+}
+
 //serialization - pb_encode
-std::span<uint8_t, std::dynamic_extent> State_Supervisor::serialize() {
-	//temporary formatting struct
-	app_Communication message = app_Communication_init_zero;
+app_Node_State State_Supervisor::serialize() {
+	//create an output temporary
+	app_Node_State state;
 
-	//say that our message type is gonna be a state update
-	message.which_payload = app_Communication_node_state_tag;
-
-	//============================ STATE UPDATES ==============================
-
-	//alias our state, and pop the magic number in
-	auto& state = message.payload.node_state;
+	//drop in our magic number to call our message valid
 	state.MAGIC_NUMBER = MAGIC_NUMBER;
 
-	//### STATE SUPERVISOR ###
-	state.state_supervisor.status.decode_err = decode_err.read();
-	state.state_supervisor.status.decode_err_deserz = decode_err_deserz.read();
+	//### STATE SUPERVISOR/MESSAGE ROUTER ###
+	bool decode_err_flag = local_decode_err_flag.read();
+	if(status_comms_decode_err_deserz.check()) 	decode_err_flag = true;
+	if(status_comms_decode_err_msgtype.check()) 	decode_err_flag = true;
+	state.state_supervisor.status.decode_err = decode_err_flag;
+	state.state_supervisor.status.decode_err_deserz = status_comms_decode_err_deserz.read();
 	state.state_supervisor.status.decode_err_magic = decode_err_magicn.read();
-	state.state_supervisor.status.decode_err_msgtype = decode_err_msgtype.read();
-	state.state_supervisor.status.encode_err = encode_err.read();
-	state.state_supervisor.status.encode_err_serz = encode_err_serz.read();
-	decode_err.write(false);	//resetting atomic flags
-	encode_err.write(false); 	//resetting atomic flags
+	state.state_supervisor.status.decode_err_msgtype = status_comms_decode_err_msgtype.read();
+	state.state_supervisor.status.encode_err = status_comms_encode_err_serz.check(); //encode error flag resets with `check` call
+	state.state_supervisor.status.encode_err_serz = status_comms_encode_err_serz.read();
+	local_decode_err_flag.write(false); //reset any decode error flags
 
 	//#### MULTICARD STATUS ####
 	state.multicard.has_command = true;;
@@ -183,50 +200,15 @@ std::span<uint8_t, std::dynamic_extent> State_Supervisor::serialize() {
 	state.has_do_system_reset = true;
 	state.do_system_reset = false;
 
-	//=========================================================================
-
-	//encode the message
-	pb_ostream_t stream = pb_ostream_from_buffer(encode_buffer.data(), encode_buffer.size());
-	if(!pb_encode(&stream, app_Communication_fields, &message)) {
-		//encoding failed, set our encode failure flag, increment our counter
-		encode_err.write(true);
-		encode_err_serz++;
-
-		//return an empty span
-		return section(encode_buffer, 0, 0);
-	}
-	else {
-		//encode successful, return a view into our encoded buffer
-		return section(encode_buffer, 0, stream.bytes_written);
-	}
+	//finally, return our output temporary
+	return state;
 }
 
 //deserialization - pb_decode
-void State_Supervisor::deserialize(std::span<uint8_t, std::dynamic_extent> encoded_msg) {
-	//temporary to parse into
-	app_Communication message = app_Communication_init_zero;
-
-	//create the protobuf input stream type
-	pb_istream_t stream = pb_istream_from_buffer(encoded_msg.data(), encoded_msg.size());
-
-	//try to decode the message
-	if(!pb_decode(&stream, app_Communication_fields, &message)) {
-		decode_err.write(true);
-		decode_err_deserz++;
-		return;
-	}
-
-	//check the message type
-	if(message.which_payload != app_Communication_node_state_tag) {
-		decode_err.write(true);
-		decode_err_msgtype++;	//incorrect message type
-		return;
-	}
-
-	//and check our magic number
-	auto& new_state = message.payload.node_state;
+void State_Supervisor::deserialize(app_Node_State& new_state) {
+	//immediately check our magic number
 	if(new_state.MAGIC_NUMBER != MAGIC_NUMBER) {
-		decode_err.write(true);
+		local_decode_err_flag.write(true);
 		decode_err_magicn++;	//incorrect magic number
 		return;
 	}

@@ -8,18 +8,14 @@
 #include "app_mem_manager.hpp"
 #include "app_shared_memory.h" //network size
 
-Neural_Mem_Manager::Neural_Mem_Manager(DRAM& _dram, MSC_Interface& _msc_if):
-		dram(_dram), msc_if(_msc_if)
+Neural_Mem_Manager::Neural_Mem_Manager(DRAM& _dram, File_Manager& _file_if):
+		dram(_dram), file_if(_file_if)
 {}
 
 void Neural_Mem_Manager::init() {
 	//initialize the hardware
 	dram.init();
-	msc_if.init();
-
-	//and indicate that we're willing to accept connections
-	//along with attaching the memory for editing
-	msc_if.connect_request();
+	file_if.init();
 
 	//attach memory, check the IO mappings, and load a pattern if we want at startup
 	check_attach_memory();
@@ -89,22 +85,24 @@ void Neural_Mem_Manager::check_attach_memory() {
 
 //and functions to expose/hide neural memory files
 void Neural_Mem_Manager::attach_memory() {
-	msc_if.attach_file(block_mem_file);
-	msc_if.attach_file(inputs_file);
-	msc_if.attach_file(input_map_file);
-	msc_if.attach_file(outputs_file);
-	msc_if.attach_file(output_map_file);
+	//attach all our files to the file manager
+	file_if.attach_file(block_mem_file);
+	file_if.attach_file(inputs_file);
+	file_if.attach_file(input_map_file);
+	file_if.attach_file(outputs_file);
+	file_if.attach_file(output_map_file);
 
 	//and mark that the files are attached
 	status_nmemmanager_mem_attached.publish(true);
 }
 
 void Neural_Mem_Manager::detach_memory() {
-	msc_if.detach_file(block_mem_file);
-	msc_if.detach_file(inputs_file);
-	msc_if.detach_file(input_map_file);
-	msc_if.detach_file(outputs_file);
-	msc_if.detach_file(output_map_file);
+	//attach all the files to our file manager
+	file_if.detach_file(block_mem_file);
+	file_if.detach_file(inputs_file);
+	file_if.detach_file(input_map_file);
+	file_if.detach_file(outputs_file);
+	file_if.detach_file(output_map_file);
 
 	//and mark that the files are detached
 	status_nmemmanager_mem_attached.publish(false);
@@ -249,6 +247,7 @@ void Neural_Mem_Manager::load_mem_pattern_5() {
 		out_mapping[i] = dest;
 	}
 
+	attach_memory(); //allow editing after test pattern is loaded
 }
 
 //square pattern on 0, 1VDC on others, same index outputs

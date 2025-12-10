@@ -1,0 +1,3 @@
+betterproto[compiler]==2.0.0b7
+pypubsub>=4.0.3
+pyserial>=3.5

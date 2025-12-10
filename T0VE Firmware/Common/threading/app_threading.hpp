@@ -315,9 +315,23 @@ public:
 		return write_mutex.TRY_WITH([&](){
 			//check if the variable we're writing is already the same
 			//break early without signaling change
-			if(v == READ_PORT()) return;
+			if(v == READ_PORT()) return;	//only returns from lambda, not the entire function
 
 			//the variable we wanna write is different, look at our writing index
+			//and write into that spot of our double buffer
+			WRITE_PORT() = v;
+
+			//signal a state change (also updates read/write indices by incrementing epoch)
+			write_signal.signal();
+		});
+	}
+
+	//also have a write method that doesn't perform the equality check when publishing
+	inline bool publish_unconditional(const Vartype& v) noexcept {
+		//we'll return whether we could acquire the write mutex (i.e. if a write isn't in progress)
+		//returns whether the mutex could be acquired successfully
+		return write_mutex.TRY_WITH([&](){
+			//unconditional write regardless of whether variable is the same as before
 			//and write into that spot of our double buffer
 			WRITE_PORT() = v;
 

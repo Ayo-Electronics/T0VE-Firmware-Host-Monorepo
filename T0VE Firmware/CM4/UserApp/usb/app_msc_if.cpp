@@ -31,6 +31,11 @@ void MSC_Interface::init() {
 	regenerate();
 }
 
+void MSC_Interface::notify_file_change() {
+	//just assert the flag here; logic handled in `ready` function
+	file_changed = true;
+}
+
 void MSC_Interface::connect_request() {
     //call the upstream connect_request function
 	usb_if.connect_request();
@@ -114,11 +119,23 @@ uint32_t MSC_Interface::handle_msc_inquiry(scsi_inquiry_resp_t *inquiry_resp, ui
 
 //return true if host can read/write to the device; return false if ejected
 bool MSC_Interface::handle_msc_ready() {
-	//if we aren't ready, send this info to the MSC driver too (copied from example)
-	if(!accessible) tud_msc_set_sense(msc_channel.lun_no, SCSI_SENSE_NOT_READY, 0x3a, 0x00);
+	//if we were made inaccessible
+	//send this info to the MSC driver too (copied from example)
+	if(!accessible) {
+		tud_msc_set_sense(msc_channel.lun_no, SCSI_SENSE_NOT_READY, 0x3a, 0x00);
+		return false;
+	}
+
+	//also check if one of our files changed
+	//notify the host that they should re-scan
+	if(file_changed) {
+		tud_msc_set_sense(msc_channel.lun_no, SCSI_SENSE_UNIT_ATTENTION, 0x28, 0x00);
+		file_changed = false;	//clear our flag
+		return false;			//and signal that we aren't ready
+	}
 
 	//and return if we'd like to be accessible
-	return accessible;
+	return true;
 }
 
 //use constants --> block size = sector size; block count = total #sectors
