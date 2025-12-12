@@ -39,6 +39,15 @@ And the third thread is (trigger/connect thread):
     - assert the refresh_state_signal
  - report the port status and the command queue space
 
+Fourth thread is (file request thread):
+ - wait until the file request queue has something in it
+ - pops a file request from the file request queue
+ - serializes the file request using betterproto
+ - writes the serialized file request to the serial port
+ - waits (with timeout) until `received_file` is set
+ - recover if we time out
+ - handle file responses via the receive thread
+
 Let's talk about message organization
  - app
     - devices
@@ -58,6 +67,11 @@ Let's talk about message organization
                 \--> if queue is full, drop any messages attempting to be queued
             -status <publishes protobuf NodeState messages here received from device>
                 \--> raw protobuf messages publishes to topic
+            -file_request
+                \--> protobuf file request messages put into a message queue (will bound this to a fixed size, say 16 messages)
+                \--> if queue is full, drop any messages attempting to be queued
+            -file_response
+                \--> responses from file requests from the node published to topic
             -debug
                 **message channel per `debug_level`, i.e.
                 - info
@@ -76,9 +90,9 @@ import copy
 from queue import Queue, Empty  #for command message queue
 import betterproto
 
-from host_application_drivers.host_device_serial import HostSerial                      # lower layer serial driver
-from host_application_drivers.state_proto_defs import Communication, NodeState, Debug   # protobuf message definitions
-from host_application_drivers.state_proto_node_default import NodeStateDefaults         # protobuf message defaults
+from host_application_drivers.host_device_serial import HostSerial                                          # lower layer serial driver
+from host_application_drivers.state_proto_defs import Communication, NodeState, Debug, NeuralMemFileRequest # protobuf message definitions
+from host_application_drivers.state_proto_node_default import NodeStateDefaults                             # protobuf message defaults
 
 class HostDeviceStateSerdes:
     """
@@ -138,28 +152,35 @@ class HostDeviceStateSerdes:
         # command message queue
         self._command_queue: Queue[NodeState] = Queue(maxsize=16)          #queue for outbound commands
 
+        # file request message queue
+        self._file_request_queue: Queue[NeuralMemFileRequest] = Queue(maxsize=16)   #queue for outbound file requests
+
         #============== THREADING ==============
         # request/response coordination
         self.refresh_state_signal = threading.Event()
         self.refresh_state_signal_external = threading.Event()
         self.rx_frame_received_signal = threading.Event()
+        self.rx_file_response_signal = threading.Event()  # separate signal for file responses
         self.stop = threading.Event()
 
         # configure topic subscriptions before starting threads
         self._configure_sub_port_state()
         self._configure_sub_node_state()
         self._configure_sub_debug()
+        self._configure_sub_file_request()
 
         # threads
         self.t_transmit = threading.Thread(target=self._transmit_thread, name=self.node + "_serdes_transmit", daemon=True)
         self.t_receive = threading.Thread(target=self._receive_thread, name=self.node + "_serdes_receive", daemon=True)
         self.t_trig_conn = threading.Thread(target=self._trigger_connect_thread, name=self.node + "_serdes_trig_conn", daemon=True)
+        self.t_file_request = threading.Thread(target=self._file_request_thread, name=self.node + "_serdes_file_request", daemon=True)
 
         # go
         self.t_transmit.start()
         self.t_receive.start()
         self.t_trig_conn.start()        
-
+        self.t_file_request.start()
+        
     # ---------- Public API ----------
     def close(self) -> None:
         self.stop.set()
@@ -167,7 +188,7 @@ class HostDeviceStateSerdes:
             self.port.close()
         except Exception:
             pass
-        for t in (self.t_transmit, self.t_receive, self.t_trig_conn):
+        for t in (self.t_transmit, self.t_receive, self.t_trig_conn, self.t_file_request):
             try:
                 t.join(timeout=1.0)
             except Exception:
@@ -195,7 +216,7 @@ class HostDeviceStateSerdes:
                 command = self._command_queue.get_nowait()
             except Empty:
                 command = NodeStateDefaults.default_command_empty()
-                self.log.info("No command in queue, using default empty command")
+                # Note: Not logging here to avoid spam during idle polling
 
             # serialize this command by packing it into a communication message
             try:
@@ -219,11 +240,12 @@ class HostDeviceStateSerdes:
     # ---------- Thread 2: RX consumer / deserializer ----------
     def _receive_thread(self) -> None:
         while not self.stop.is_set():
-            frame = self.port.read_frame()
+            #blocking wait for a frame to pop into our queue
+            #should fire instantly if we get data
+            frame = self.port.read_frame(wait=True, timeout=0.02)
 
-            #ifwe didn't get a payload, wait a bit and try again
+            #if we didn't get a payload, wait a bit and try again
             if frame is None:
-                self.stop.wait(0.02)
                 continue
 
             #deserialize/parse the protobuf
@@ -241,11 +263,17 @@ class HostDeviceStateSerdes:
                 which, payload = (None, None)
 
             # if payload is a node state message, publish payload as node state message
-            # and ONLY IN THIS CASE signal that we've received a response from the node
+            # and signal that we've received a response from the node (since node only sends as response to transmitted message)
             if which == "node_state" and payload is not None:
                 self._pub_node_state(payload)
                 self.rx_frame_received_signal.set() #notify that we received a state message
 
+            #and if the payload is a file request response, publish the payload as a file response
+            #and signal that we've received a response from the node (since node only sends as a response to transmitted message)
+            elif which == "neural_mem_request" and payload is not None:
+                self._pub_file_response(payload)
+                self.rx_file_response_signal.set() #notify that we received a file request response
+            
             #if payload is a debug message, publish payload as debug message
             # don't notify tx thread that we've received a response to our transmission (since debug messages are asynchronous + unrelated to commands)
             elif which == "debug_message" and payload is not None:
@@ -278,6 +306,39 @@ class HostDeviceStateSerdes:
 
             #rate limit by sleeping this thread 
             self.stop.wait(timeout=self.max_poll_s)
+
+    # ---------- Thread 4: file request thread ----------
+    def _file_request_thread(self) -> None:
+        while not self.stop.is_set():
+            # wait until the file request queue has something in it (with timeout to allow clean shutdown)
+            try:
+                file_request = self._file_request_queue.get(timeout=0.2) 
+            except Empty:
+                continue
+
+            # if we're not connected, we can't do anything, skip
+            if not self.port.port_connected:
+                self.log.warning("file request dropped: port not connected")
+                continue
+
+            # pack and serialize message with betterproto
+            try:
+                comm = Communication(neural_mem_request=file_request)
+                outbound_bytes = bytes(comm)
+            except Exception as e:
+                self.log.warning(f"encode failed: {e}")
+                continue
+
+            # fire and wait for acknowledgement (uses separate signal from state messages)
+            self.rx_file_response_signal.clear()
+            self.port.write_frame(outbound_bytes)  # framed by Host_Serial 
+
+            if not self.rx_file_response_signal.wait(self.rx_timeout_s):
+                # No RX -> check connection and try recover
+                if self.port.port_connected:
+                    self.log.info("RX timeout on file request; attempting recover()")
+                    self.port.recover()
+                continue
 
     # ---------- Publishing/Subscription Handling -------------
     ###### PORT STATE #######
@@ -320,6 +381,15 @@ class HostDeviceStateSerdes:
         
         #publish the debug message to the correct status topic
         pub.sendMessage(debug_topic, payload=debug_message.msg)
+
+    ###### FILE RESPONSE ######
+    def _configure_sub_file_request(self) -> None:
+        #subscribe to the file response topic
+        pub.subscribe(self._on_file_request, f"{self.root}.file_request")
+
+    def _pub_file_response(self, file_request: NeuralMemFileRequest) -> None:
+        #publish the file request directly to the status topic
+        pub.sendMessage(f"{self.root}.file_response", payload=file_request)
 
     #------------------------------- Callback Functions ---------------------------------
     def _on_request_connect(self, payload: Any = None) -> None:
@@ -374,5 +444,22 @@ class HostDeviceStateSerdes:
         else:
             self.log.warning(f"Received invalid command for node: {type(payload)} (expected NodeState)")
 
+    # Handler drops file requests into the outgoing file request queue
+    # as long as type check passes and queue has space
+    def _on_file_request(self, payload: Any = None) -> None:
+        #sanity check payload
+        if payload is None:
+            self.log.warning("file request callback invoked without payload")
+            return
+        
+        #sanity check the type, then put the payload into the file request queue
+        if isinstance(payload, NeuralMemFileRequest):
+            try:
+                self._file_request_queue.put_nowait(payload)
+            except Exception as e:
+                # Catch both queue full and other put_nowait exceptions
+                self.log.warning(f"file request queue is full or put failed, dropping file request: {e}")
+        else:
+            self.log.warning(f"Received invalid file request for node: {type(payload)} (expected NeuralMemFileRequest)")
 
     

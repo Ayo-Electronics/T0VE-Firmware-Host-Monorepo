@@ -32,7 +32,16 @@ public:
 	    // Fill with padding
 	    //and drop the rest of the characters to the beginning of the array
 	    string_data.fill(PADDING);
-	    for (size_t i = 0; i < N; i++) string_data[i] = arr[i];
+	    for (size_t i = 0; i < N; i++) {
+			//stop copying if we hit a null character, exclude from array
+			if(arr[i] == '\0') {
+				actual_length = i; //exclude the null terminator
+				return;
+			}
+
+			//if it's not a null, write the character
+			string_data[i] = arr[i];
+		}
 	}
 
 	//initialize with a char array
@@ -45,7 +54,16 @@ public:
 		//pad all characters with padding
 		//and drop the rest of the characters to the beginning of the array
 		string_data.fill(PADDING);
-		for (size_t i = 0; i < N - 1; i++) string_data[i] = init[i];
+		for (size_t i = 0; i < N - 1; i++) {
+			//stop copying if we hit a null character, exclude from array
+			if(init[i] == '\0') {
+				actual_length = i; //exclude the null terminator
+				return;
+			}
+
+			//if it's not a null, write the character
+			string_data[i] = init[i];
+		}
 	}
 
 	// Constructor from std::string
@@ -103,12 +121,21 @@ public:
 		//sanity check input size to see if we can fit (ignore null terminator)
 		static_assert((N-1) <= STRING_SIZE, "array initializer too large for string wrapper");
 
+		//default our length to length of array sans null terminator
+		actual_length = N-1;
+
 		//pad and copy - DON'T INCLUDE NULL TERMINATION
 		string_data.fill(PADDING);
-		std::copy(&init[0], &init[N-2], string_data.begin());
+		for (size_t i = 0; i < N-1; i++) {
+			//stop copying if we hit a null character, exclude from array
+			if(init[i] == '\0') {
+				actual_length = i; //exclude the null terminator
+				return;
+			}
 
-		//and save our actual length - no null termination
-		actual_length = N-1;
+			//if it's not a null, write the character
+			string_data[i] = init[i];
+		}
 	}
 
 	//assignment operator from `std::array` is basically the constructor
@@ -117,12 +144,21 @@ public:
 	    //sanity check input size
 		static_assert(N <= STRING_SIZE, "array initializer too large for string wrapper");
 
+		//default our length to length of array (assuming no null terminator)
+		actual_length = N;
+
 	    // Reset and fill
 	    string_data.fill(PADDING);
-	    for (size_t i = 0; i < N; i++) string_data[i] = arr[i];
+	    for (size_t i = 0; i < N; i++) {
+			//stop copying if we hit a null character, exclude from array
+			if(arr[i] == '\0') {
+				actual_length = i; //exclude the null terminator
+				return;
+			}
 
-	    //and save our actual length
-	    actual_length = N;
+			//if it's not a null, write the character
+			string_data[i] = arr[i];
+		}
 	}
 
 	//====================== UTILITY CONVERSIONS =======================

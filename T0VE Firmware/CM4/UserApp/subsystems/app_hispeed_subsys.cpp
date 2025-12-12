@@ -53,7 +53,7 @@ void Hispeed_Subsystem::init() {
 	//we want to enter the system in a safe configuration--enter with defaults from `deactivate`
 
 	//schedule the task that runs our state machine and checks some "asynchronous" commands
-	check_state_update_task.schedule_interval_ms(BIND_CALLBACK(this, check_state_update_run_esm), Scheduler::INTERVAL_EVERY_ITERATION);
+	check_state_update_task.schedule_interval_ms(BIND_CALLBACK(this, check_state_update_run_esm), 10); //relax interval to 10ms
 }
 
 //PRIVATE function

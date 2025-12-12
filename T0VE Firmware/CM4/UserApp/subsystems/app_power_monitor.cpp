@@ -40,7 +40,7 @@ void Power_Monitor::init() {
 
     //start the scheduler task
     check_power_status_task.schedule_interval_ms(BIND_CALLBACK(this, check_power_status), debounce_time_ms);
-    check_state_update_task.schedule_interval_ms(BIND_CALLBACK(this, check_state_update), Scheduler::INTERVAL_EVERY_ITERATION);
+    check_state_update_task.schedule_interval_ms(BIND_CALLBACK(this, check_state_update), 10); //relax interval to 10ms
 }
 
 //=================================== INTERNAL FUNCTIONS ===================================

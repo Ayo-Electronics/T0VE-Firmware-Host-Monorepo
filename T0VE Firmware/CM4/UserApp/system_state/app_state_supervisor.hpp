@@ -128,8 +128,8 @@ private:
 	Scheduler check_state_update_task;
 
 	//serialization/deserialization of state messages into protobuf structure
-	app_Node_State serialize();
-	void deserialize(app_Node_State& new_state);
+	app_Node_State system_status();
+	void system_command(app_Node_State& new_state);
 
 	//comms data pipes
 	Sub_Var<app_Node_State> comms_node_state_outbound;					//receive on this port

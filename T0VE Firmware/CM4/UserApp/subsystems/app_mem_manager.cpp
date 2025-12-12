@@ -23,8 +23,7 @@ void Neural_Mem_Manager::init() {
 	check_load_mem_pattern();
 
 	//and start our state update task
-	check_state_update_task.schedule_interval_ms(	BIND_CALLBACK(this, check_state_update),
-													Scheduler::INTERVAL_EVERY_ITERATION);
+	check_state_update_task.schedule_interval_ms(	BIND_CALLBACK(this, check_state_update), 10); //relax interval to 10ms
 }
 
 //============= PRIVATE FUNCTIONS ==============

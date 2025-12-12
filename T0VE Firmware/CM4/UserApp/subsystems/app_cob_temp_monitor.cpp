@@ -26,7 +26,7 @@ CoB_Temp_Monitor::CoB_Temp_Monitor(Aux_I2C& _bus):
 void CoB_Temp_Monitor::init() {
 	//just run our extended state machine here
 	//binding the `RUN_ESM` function directly for a little less overhead
-	esm_exec_task.schedule_interval_ms(BIND_CALLBACK(&esm, Extended_State_Machine::RUN_ESM), Scheduler::INTERVAL_EVERY_ITERATION);
+	esm_exec_task.schedule_interval_ms(BIND_CALLBACK(&esm, Extended_State_Machine::RUN_ESM), 10); //relax interval to 10ms
 }
 
 //=================================== PRIVATE INSTANCE METHODS =========================================
@@ -37,7 +37,7 @@ void CoB_Temp_Monitor::enable() {
 	status_temp_sensor_device_id.publish(temp_sensor.get_device_ID());
 
 	//start our state monitoring thread--run this every iteration of the main loop
-	check_state_update_task.schedule_interval_ms(BIND_CALLBACK(this, check_state_update), Scheduler::INTERVAL_EVERY_ITERATION);
+	check_state_update_task.schedule_interval_ms(BIND_CALLBACK(this, check_state_update), 10); //relax interval to 10ms
 
 	//and also start our temperature polling task
 	//stage it in interval mode for periodic sampling that's true to our period

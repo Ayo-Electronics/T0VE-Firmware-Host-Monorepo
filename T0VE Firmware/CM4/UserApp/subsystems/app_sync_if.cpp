@@ -55,7 +55,7 @@ void Multicard_Info::init() {
     check_cards_present_task.schedule_interval_ms(BIND_CALLBACK(this, check_cards_present), CARDS_PRESENT_CHECK_PERIOD_MS);
 
     //and start the task that monitors state changes - runs every iteration
-    check_state_update_task.schedule_interval_ms(BIND_CALLBACK(this, check_state_update), Scheduler::INTERVAL_EVERY_ITERATION);
+    check_state_update_task.schedule_interval_ms(BIND_CALLBACK(this, check_state_update), 10); //relax interval to 10ms
 }
 
 //================================= PRIVATE FUNCTION DEFS ================================

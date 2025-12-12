@@ -69,7 +69,12 @@ void File_Manager::check_file_request() {
 
 //handles memory access requests
 void File_Manager::handle_file_access(app_Neural_Mem_FileAccess& access_command) {
-	//output temporary, mirrors the command
+	//create our final output temporary at the start
+	app_Neural_Mem_FileRequest packed_resp = app_Neural_Mem_FileRequest_init_zero;
+	packed_resp.which_payload = app_Neural_Mem_FileRequest_file_access_tag;
+	auto& access_response = packed_resp.payload.file_access;
+
+	//response largely mirrors the command
 	access_response = access_command;
 	size_t transfer_size = 0;
 
@@ -105,11 +110,6 @@ void File_Manager::handle_file_access(app_Neural_Mem_FileAccess& access_command)
 	//size == 0 indicates read/write fail
 	access_response.data.size = transfer_size;
 
-	//pack into a neural memory response
-	app_Neural_Mem_FileRequest packed_resp = app_Neural_Mem_FileRequest_init_zero;
-	packed_resp.which_payload = app_Neural_Mem_FileRequest_file_access_tag;
-	packed_resp.payload.file_access = access_response;
-
 	//push the response to the comms system
 	comms_mem_access_inbound.publish_unconditional(packed_resp);
 }
@@ -141,6 +141,9 @@ void File_Manager::handle_file_report() {
 			if(file_count >= max_report_files) break;
 		}
 	}
+
+	//and report how many files we're presenting
+	file_report.files_count = file_count;
 
 	//push the response to the comms system
 	comms_mem_access_inbound.publish_unconditional(packed_resp);

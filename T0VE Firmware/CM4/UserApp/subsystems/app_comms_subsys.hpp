@@ -29,9 +29,9 @@ class Comms_Subsys {
 public:
 	//============== TYPEDEFS =============
 
-	static const size_t BUFFER_SIZE = 2048;
+	static const size_t BUFFER_SIZE = 0x4800; //handle 16k file transfers at once
 	static const uint8_t START_BYTE = 0xEE;
-	static const size_t HEADER_PADDING = 3; //start byte + message size (2 bytes)
+	static const size_t HEADER_PADDING = 3;  //start byte + message size (2 bytes)
 
 	//=========== PUBLIC FUNCTIONS ===========
 
@@ -76,6 +76,7 @@ private:
 	//running in normal thread context (i.e. not ISR) context to maximize thread safety
 	void receive_poll();
 	void deserialize_dispatch(std::span<uint8_t, std::dynamic_extent> msg);
+	void push_status(); //use this function to push status on zero-length message or decode fail
 
 	//and internal transmit functions (some do the protobuf serialization then transmit
 	bool serialize_transmit(app_Communication& msg);

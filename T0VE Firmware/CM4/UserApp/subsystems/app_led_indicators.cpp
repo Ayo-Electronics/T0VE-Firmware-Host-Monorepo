@@ -41,7 +41,7 @@ void LED_Indicators::init() {
     update_onboard_LEDs();
 
     //and schedule our state update task
-    check_state_update_task.schedule_interval_ms(BIND_CALLBACK(this, check_state_update), Scheduler::INTERVAL_EVERY_ITERATION);
+    check_state_update_task.schedule_interval_ms(BIND_CALLBACK(this, check_state_update), 10); //relax interval to 10ms
 }
 
 //========================================== THREAD FUNCTIONS ==========================================

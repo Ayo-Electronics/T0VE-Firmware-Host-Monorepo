@@ -28,7 +28,7 @@ ADC_Offset_Control::ADC_Offset_Control(Aux_I2C& _bus):
 void ADC_Offset_Control::init() {
 	//just run our state machine here --> directly bind the RUN_ESM function
 	//automatically calls enable/disable when appropriate
-	esm_exec_task.schedule_interval_ms(BIND_CALLBACK(&esm, Extended_State_Machine::RUN_ESM), Scheduler::INTERVAL_EVERY_ITERATION);
+	esm_exec_task.schedule_interval_ms(BIND_CALLBACK(&esm, Extended_State_Machine::RUN_ESM), 10); //relax interval to 10ms
 }
 
 //=================================== PRIVATE INSTANCE METHODS =========================================
@@ -43,7 +43,7 @@ void ADC_Offset_Control::enable() {
 	do_read_offset_dac_values();
 
 	//start our state monitoring thread--run this every iteration of the main loop
-	check_state_update_task.schedule_interval_ms(BIND_CALLBACK(this, check_state_update), Scheduler::INTERVAL_EVERY_ITERATION);
+	check_state_update_task.schedule_interval_ms(BIND_CALLBACK(this, check_state_update), 10); //relax interval to 10ms
 
 	//and one-shot schedule our DAC readback task
 	//will get rescheduled every iteration--one-shot scheduling lets schedule in the next loop iteration if I2C was busy

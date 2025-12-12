@@ -30,8 +30,7 @@ CoB_EEPROM::CoB_EEPROM(Aux_I2C& _bus):
 void CoB_EEPROM::init() {
 	//init just starts the esm in its thread function
 	//binding the `RUN_ESM` function directly for a little less overhead
-	check_state_update_task.schedule_interval_ms(	BIND_CALLBACK(this, check_state_update),
-													Scheduler::INTERVAL_EVERY_ITERATION);
+	check_state_update_task.schedule_interval_ms(	BIND_CALLBACK(this, check_state_update), 10); //relax interval to 10ms
 }
 
 //========================== PRIVATE FUNCTIONS ==========================

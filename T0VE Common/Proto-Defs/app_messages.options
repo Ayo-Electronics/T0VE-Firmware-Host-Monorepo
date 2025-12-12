@@ -6,7 +6,7 @@ app.bool_4.values max_count:4 fixed_count:true
 
 app.Debug.msg max_size:256
 
-app.Neural_Mem_FileAccess.data max_size: 1024
+app.Neural_Mem_FileAccess.data max_size: 16384
 app.Neural_Mem_FileAccess.filename max_size: 32
 app.Neural_Mem_FileInfo.filename max_size: 32
 app.Neural_Mem_FileList.files max_count: 8

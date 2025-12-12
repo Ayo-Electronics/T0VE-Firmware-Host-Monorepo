@@ -37,7 +37,7 @@ typedef struct _app_bool_4 {
     bool values[4];
 } app_bool_4;
 
-typedef PB_BYTES_ARRAY_T(1024) app_Neural_Mem_FileAccess_data_t;
+typedef PB_BYTES_ARRAY_T(16384) app_Neural_Mem_FileAccess_data_t;
 typedef struct _app_Neural_Mem_FileAccess {
     char filename[32]; /* max length set in .options file, 32 */
     uint32_t offset;
@@ -932,7 +932,7 @@ extern const pb_msgdesc_t app_Communication_msg;
 #define app_Comms_Command_size                   2
 #define app_Comms_Status_size                    2
 #define app_Comms_size                           8
-#define app_Communication_size                   1074
+#define app_Communication_size                   16437
 #define app_Debug_size                           260
 #define app_Hispeed_Command_size                 48
 #define app_Hispeed_Status_size                  38
@@ -941,10 +941,10 @@ extern const pb_msgdesc_t app_Communication_msg;
 #define app_Multicard_Status_size                8
 #define app_Multicard_size                       14
 #define app_Neural_Mem_Command_size              8
-#define app_Neural_Mem_FileAccess_size           1068
+#define app_Neural_Mem_FileAccess_size           16429
 #define app_Neural_Mem_FileInfo_size             39
 #define app_Neural_Mem_FileList_size             328
-#define app_Neural_Mem_FileRequest_size          1071
+#define app_Neural_Mem_FileRequest_size          16433
 #define app_Neural_Mem_Status_size               14
 #define app_Neural_Mem_size                      26
 #define app_Node_State_size                      803

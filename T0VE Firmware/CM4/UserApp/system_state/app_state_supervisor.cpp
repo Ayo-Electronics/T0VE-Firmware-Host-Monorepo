@@ -56,18 +56,18 @@ void State_Supervisor::check_state_update() {
 	if(comms_node_state_outbound.check()) {
 		//grab our message and deserialize it
 		auto in_state = comms_node_state_outbound.read();
-		deserialize(in_state);
+		system_command(in_state);
 
-		//and respond by collecting the updated state and serializing it
-		auto out_state = serialize();
+		//and respond by collecting the updated state and publishing it
+		auto out_state = system_status();
 		comms_node_state_inbound.publish_unconditional(out_state);
 	}
 }
 
 //serialization - pb_encode
-app_Node_State State_Supervisor::serialize() {
-	//create an output temporary
-	app_Node_State state;
+app_Node_State State_Supervisor::system_status() {
+	//output temporary
+	app_Node_State state = app_Node_State_init_default;
 
 	//drop in our magic number to call our message valid
 	state.MAGIC_NUMBER = MAGIC_NUMBER;
@@ -205,7 +205,7 @@ app_Node_State State_Supervisor::serialize() {
 }
 
 //deserialization - pb_decode
-void State_Supervisor::deserialize(app_Node_State& new_state) {
+void State_Supervisor::system_command(app_Node_State& new_state) {
 	//immediately check our magic number
 	if(new_state.MAGIC_NUMBER != MAGIC_NUMBER) {
 		local_decode_err_flag.write(true);

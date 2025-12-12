@@ -18,7 +18,7 @@ PB_BIND(app_uint32_10, app_uint32_10, AUTO)
 PB_BIND(app_bool_4, app_bool_4, AUTO)
 
 
-PB_BIND(app_Neural_Mem_FileAccess, app_Neural_Mem_FileAccess, 2)
+PB_BIND(app_Neural_Mem_FileAccess, app_Neural_Mem_FileAccess, 4)
 
 
 PB_BIND(app_Neural_Mem_FileInfo, app_Neural_Mem_FileInfo, AUTO)
@@ -27,7 +27,7 @@ PB_BIND(app_Neural_Mem_FileInfo, app_Neural_Mem_FileInfo, AUTO)
 PB_BIND(app_Neural_Mem_FileList, app_Neural_Mem_FileList, 2)
 
 
-PB_BIND(app_Neural_Mem_FileRequest, app_Neural_Mem_FileRequest, 2)
+PB_BIND(app_Neural_Mem_FileRequest, app_Neural_Mem_FileRequest, 4)
 
 
 PB_BIND(app_Debug, app_Debug, 2)
@@ -123,7 +123,7 @@ PB_BIND(app_Comms, app_Comms, AUTO)
 PB_BIND(app_Node_State, app_Node_State, 2)
 
 
-PB_BIND(app_Communication, app_Communication, 2)
+PB_BIND(app_Communication, app_Communication, 4)
 
 
 

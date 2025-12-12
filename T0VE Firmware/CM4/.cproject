@@ -152,7 +152,7 @@
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Core"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="T0VE Common"/>
-						<entry excluding="usb/DEPRECATED|usb/app_msc_if.cpp|usb/app_msc_if.hpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="UserApp"/>
+						<entry excluding="usb/msc_helpers|usb/DEPRECATED|usb/app_msc_if.cpp|usb/app_msc_if.hpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="UserApp"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>

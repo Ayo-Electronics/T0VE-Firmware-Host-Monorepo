@@ -67,8 +67,7 @@ void Waveguide_Bias_Drive::init() {
 
 	//just run our state machine here --> directly bind the RUN_ESM function
 	//automatically calls enable/disable when appropriate
-	esm_supervisor_task.schedule_interval_ms(	BIND_CALLBACK(&esm_supervisor, Extended_State_Machine::RUN_ESM),
-												Scheduler::INTERVAL_EVERY_ITERATION);
+	esm_supervisor_task.schedule_interval_ms(	BIND_CALLBACK(&esm_supervisor, Extended_State_Machine::RUN_ESM), 10); //relax interval to 10ms
 }
 
 //=================================== PRIVATE INSTANCE METHODS =========================================
@@ -96,8 +95,8 @@ void Waveguide_Bias_Drive::enable() {
 	do_regulator_ctrl_update();
 
 	//stage our esm tx/rx tasks, our periodic read "kickoff" task, and our regulator GPIO control task
-	check_state_update_task.schedule_interval_ms(BIND_CALLBACK(this, check_state_update), Scheduler::INTERVAL_EVERY_ITERATION);
-	esm_tx_rx_task.schedule_interval_ms(BIND_CALLBACK(this, run_tx_rx_esm), Scheduler::INTERVAL_EVERY_ITERATION);
+	check_state_update_task.schedule_interval_ms(BIND_CALLBACK(this, check_state_update), 10); //relax interval to 10ms
+	esm_tx_rx_task.schedule_interval_ms(BIND_CALLBACK(this, run_tx_rx_esm), 10); //relax interval to 10ms
 	periodic_read_task.schedule_interval_ms(BIND_CALLBACK(&read_do, signal), READ_BIAS_DAC_VALUES_PERIOD_MS);
 }
 

@@ -31,7 +31,7 @@ void Comms_Subsys::init() {
 
     //and schedule the main thread function
     check_state_update_comms_task.schedule_interval_ms( BIND_CALLBACK(this, check_state_update_comms),
-                                                        Scheduler::INTERVAL_EVERY_ITERATION);
+                                                        Scheduler::INTERVAL_EVERY_ITERATION);	//keep comms FAST to reduce latency
 }
 
 void Comms_Subsys::push_messages() {
@@ -218,6 +218,12 @@ void Comms_Subsys::receive_poll() {
 }
 
 void Comms_Subsys::deserialize_dispatch(std::span<uint8_t, std::dynamic_extent> msg) {
+	//short circuit for zero-length messages--just push status
+	if(msg.size() <= 0) {
+		push_status();
+		return;
+	}
+
 	//temporary to parse into
 	app_Communication message = app_Communication_init_zero;
 
@@ -226,10 +232,9 @@ void Comms_Subsys::deserialize_dispatch(std::span<uint8_t, std::dynamic_extent> 
 
 	//try to decode the message
 	if(!pb_decode(&stream, app_Communication_fields, &message)) {
-		//decode failure, increment our fail counter, reply with a debug, and abort
+		//decode failure, increment our fail counter, abort
 		local_deserz_err_count++;
 		status_comms_decode_err_deserz.publish(local_deserz_err_count);
-		Debug::WARN("RX: Protobuf Deserialization Error!");
 		return;
 	}
 
@@ -245,10 +250,22 @@ void Comms_Subsys::deserialize_dispatch(std::span<uint8_t, std::dynamic_extent> 
 			comms_mem_access_outbound.publish_unconditional(message.payload.neural_mem_request);
 			break;
 		default:
-			//message type error, increment fail counter, reply with debug
+			//message type error, increment fail counter, push status, abort
 			local_msgtype_err_count++;
 			status_comms_decode_err_msgtype.publish(local_msgtype_err_count);
-			Debug::WARN("RX: Invalid Protobuf Message Type");
+			push_status();
 			break;
 	}
+}
+
+void Comms_Subsys::push_status() {
+	//make a quick debug message
+	app_Communication msg = app_Communication_init_zero;
+
+	//set its type to status, copy in the status message
+	msg.which_payload = app_Communication_node_state_tag;
+	msg.payload.node_state = comms_node_state_inbound.read();
+
+	//and send the message
+	serialize_transmit(msg);
 }
